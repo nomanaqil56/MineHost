@@ -46,8 +46,8 @@ For detailed architecture diagrams and subsystem specifications, see [docs/ARCHI
 ### Building from Source
 ```bash
 # Clone the repository
-git clone https://github.com/minehost/minehost.git
-cd minehost
+git clone https://github.com/nomanaqil56/MineHost.git
+cd MineHost
 
 # Build the Debug APK using Gradle
 ./gradlew assembleDebug
@@ -75,4 +75,3 @@ For complete build instructions, see [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md).
 ## 📄 License
 This project is open-source under the Apache 2.0 License.
 Minecraft is a registered trademark of Mojang AB / Microsoft. MineHost is not affiliated with Mojang AB or Microsoft.
-

@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.minehost.app.features.about.DiagnosticsScreen
+import com.minehost.app.features.about.DiagnosticsViewModel
 import com.minehost.app.features.console.ConsoleScreen
 import com.minehost.app.features.console.ConsoleViewModel
 import com.minehost.app.features.dashboard.DashboardScreen
@@ -21,11 +22,9 @@ import com.minehost.app.features.servers.ServerDetailScreen
 import com.minehost.app.features.servers.ServerDetailViewModel
 import com.minehost.app.features.worlds.BackupsScreen
 import com.minehost.app.features.worlds.BackupsViewModel
-import com.minehost.app.services.ThermalManager
 
 @Composable
 fun MineHostNavGraph(
-    thermalManager: ThermalManager,
     navController: NavHostController = rememberNavController()
 ) {
     NavHost(
@@ -103,11 +102,11 @@ fun MineHostNavGraph(
         }
 
         composable(Screen.Diagnostics.route) {
+            val viewModel: DiagnosticsViewModel = hiltViewModel()
             DiagnosticsScreen(
-                thermalManager = thermalManager,
+                viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
     }
 }
-

@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
@@ -73,6 +75,7 @@ import com.minehost.app.ui.theme.DarkBorder
 import com.minehost.app.ui.theme.DarkSurface
 import com.minehost.app.ui.theme.PrimaryEmerald
 import com.minehost.app.ui.theme.StatusRed
+import com.minehost.app.ui.theme.StatusYellow
 import com.minehost.app.ui.theme.TextPrimary
 import com.minehost.app.ui.theme.TextSecondary
 
@@ -188,6 +191,7 @@ fun ServerDetailScreen(
                 endpoint = uiState.publicEndpoint,
                 localPort = server.localPort,
                 tunnelStatus = uiState.tunnelStatus,
+                claimUrl = uiState.claimUrl,
                 context = context
             )
 
@@ -267,6 +271,7 @@ fun ConnectionCard(
     endpoint: com.minehost.app.domain.model.PublicEndpoint?,
     localPort: Int,
     tunnelStatus: com.minehost.app.core.common.TunnelStatus,
+    claimUrl: String?,
     context: Context
 ) {
     Card(
@@ -300,7 +305,43 @@ fun ConnectionCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            if (endpoint != null) {
+            if (claimUrl != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DarkBackground)
+                        .padding(12.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "Playit Agent Setup Required",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = StatusYellow,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Your tunnel agent must be claimed once to assign your static public domain.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(claimUrl))
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryEmerald),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Claim Agent on Playit.gg")
+                        }
+                    }
+                }
+            } else if (endpoint != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -346,7 +387,7 @@ fun ConnectionCard(
                 }
             } else {
                 Text(
-                    text = "Server offline or local-only. Local port: $localPort",
+                    text = "Server running locally on port $localPort (LAN only). Enable tunnel or check Diagnostics if Playit agent is not running.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
@@ -386,4 +427,3 @@ fun AdminActionRow(
         }
     }
 }
-

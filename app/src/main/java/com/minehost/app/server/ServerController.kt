@@ -3,6 +3,7 @@ package com.minehost.app.server
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import com.minehost.app.core.common.MinecraftEdition
 import com.minehost.app.core.common.Resource
 import com.minehost.app.core.common.ServerStatus
 import com.minehost.app.core.logging.AppLogger
@@ -23,6 +24,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import java.net.DatagramSocket
+import java.net.ServerSocket
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,15 +65,32 @@ class ServerController @Inject constructor(
             serverRepository.updateStatus(serverId, ServerStatus.STARTING)
             log(serverId, "[MineHost] Preparing to start ${server.name} (${server.edition})...")
 
-            // 1. Acquire system resources and wake locks
-            wakeLockManager.acquireLocks("MineHost:${server.name}")
-            thermalManager.startListening()
-
-            // 2. Select and configure engine
+            // 1. Select engine and verify installation
             val engine = engineRegistry.getEngine(server.engineId)
                 ?: engineRegistry.getEngineForEdition(server.edition)
             activeEngine = engine
 
+            if (!engine.isInstalled()) {
+                val notInstalledMsg = "Server engine '${engine.name}' is not installed on this device. Please download and install it via Diagnostics or Setup."
+                log(serverId, "[ERROR] $notInstalledMsg")
+                handleServerStopped(serverId, ServerStatus.ERROR)
+                return Resource.Error(notInstalledMsg)
+            }
+
+            // 2. Validate port conflict before starting
+            val isUdp = server.edition == MinecraftEdition.BEDROCK
+            if (isPortInUse(server.localPort, isUdp)) {
+                val portConflictMsg = "Port ${server.localPort} (${if (isUdp) "UDP" else "TCP"}) is already bound by another service on this device. Please select a different port in server settings."
+                log(serverId, "[ERROR] $portConflictMsg")
+                handleServerStopped(serverId, ServerStatus.ERROR)
+                return Resource.Error(portConflictMsg)
+            }
+
+            // 3. Acquire system wake locks and thermal listener
+            wakeLockManager.acquireLocks("MineHost:${server.name}")
+            thermalManager.startListening()
+
+            // 4. Configure server files on disk
             val serverDir = worldManager.getServerDirectory(serverId)
             val serverConfig = ServerConfiguration(
                 serverId = server.id,
@@ -92,10 +112,10 @@ class ServerController @Inject constructor(
             log(serverId, "[MineHost] Writing engine configuration files...")
             engine.configure(serverDir, serverConfig)
 
-            // 3. Start foreground service
+            // 5. Start foreground service
             startForegroundService(server.name, server.localPort)
 
-            // 4. Launch engine process
+            // 6. Launch real engine process
             val processListener = object : ProcessListener {
                 override fun onLog(line: String) {
                     scope.launch { log(serverId, line) }
@@ -107,7 +127,7 @@ class ServerController @Inject constructor(
                         serverRepository.updateStatus(serverId, ServerStatus.ONLINE)
                         log(serverId, "[MineHost] Server process confirmed ONLINE on port ${server.localPort}!")
 
-                        // 5. Connect tunnel if enabled
+                        // 7. Connect tunnel if enabled
                         if (server.autoStartTunnel) {
                             log(serverId, "[MineHost] Initiating worldwide reverse tunnel...")
                             val tunnelResult = tunnelManager.startTunnel(server.localPort, server.edition.defaultProtocol)
@@ -115,7 +135,7 @@ class ServerController @Inject constructor(
                                 serverRepository.updatePublicEndpoint(serverId, endpoint)
                                 log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
                             }.onFailure { err ->
-                                log(serverId, "[MineHost] Tunnel connection failed: ${err.message}. Server is running in LOCAL mode.")
+                                log(serverId, "[MineHost] Tunnel notice: ${err.message}. Server is running in LOCAL mode.")
                             }
                         }
                     }
@@ -186,6 +206,22 @@ class ServerController @Inject constructor(
         return engine.sendCommand(handle, command)
     }
 
+    private fun isPortInUse(port: Int, isUdp: Boolean): Boolean {
+        return if (isUdp) {
+            try {
+                DatagramSocket(port).use { false }
+            } catch (e: Exception) {
+                true
+            }
+        } else {
+            try {
+                ServerSocket(port).use { false }
+            } catch (e: Exception) {
+                true
+            }
+        }
+    }
+
     private suspend fun handleServerStopped(serverId: String, finalStatus: ServerStatus) {
         _serverStatus.value = finalStatus
         serverRepository.updateStatus(serverId, finalStatus)
@@ -216,4 +252,3 @@ class ServerController @Inject constructor(
         logRepository.log(serverId, message)
     }
 }
-

@@ -1,6 +1,5 @@
 package com.minehost.app.networking
 
-import android.content.Context
 import com.minehost.app.core.common.NetworkProtocol
 import com.minehost.app.core.common.TunnelStatus
 import com.minehost.app.domain.model.PublicEndpoint
@@ -11,10 +10,10 @@ interface TunnelProvider {
     val name: String
     val status: StateFlow<TunnelStatus>
     val publicEndpoint: StateFlow<PublicEndpoint?>
+    val claimUrl: StateFlow<String?>
 
     suspend fun start(localPort: Int, protocol: NetworkProtocol): Result<PublicEndpoint>
     suspend fun stop(): Result<Unit>
     suspend fun reconnect(): Result<PublicEndpoint>
     fun getDiagnosticLogs(): List<String>
 }
-

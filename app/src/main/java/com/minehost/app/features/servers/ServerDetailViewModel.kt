@@ -25,6 +25,7 @@ data class ServerDetailUiState(
     val currentStatus: ServerStatus = ServerStatus.STOPPED,
     val publicEndpoint: PublicEndpoint? = null,
     val tunnelStatus: TunnelStatus = TunnelStatus.DISCONNECTED,
+    val claimUrl: String? = null,
     val latencyMs: Long? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null
@@ -46,8 +47,9 @@ class ServerDetailViewModel @Inject constructor(
         serverController.serverStatus,
         tunnelManager.publicEndpoint,
         tunnelManager.tunnelStatus,
+        tunnelManager.claimUrl,
         tunnelManager.latencyMs
-    ) { server, activeId, status, endpoint, tunnelStat, ping ->
+    ) { server, activeId, status, endpoint, tunnelStat, claim, ping ->
         val isThisActive = activeId == serverId
         val effectiveStatus = if (isThisActive) status else (server?.status ?: ServerStatus.STOPPED)
         val effectiveEndpoint = if (isThisActive) endpoint ?: server?.publicEndpoint else server?.publicEndpoint
@@ -58,6 +60,7 @@ class ServerDetailViewModel @Inject constructor(
             currentStatus = effectiveStatus,
             publicEndpoint = effectiveEndpoint,
             tunnelStatus = if (isThisActive) tunnelStat else TunnelStatus.DISCONNECTED,
+            claimUrl = if (isThisActive) claim else null,
             latencyMs = if (isThisActive) ping else null,
             isLoading = false
         )
@@ -87,4 +90,3 @@ class ServerDetailViewModel @Inject constructor(
         }
     }
 }
-

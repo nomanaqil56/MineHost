@@ -5,18 +5,22 @@ import com.minehost.app.core.common.MinecraftEdition
 import com.minehost.app.core.logging.AppLogger
 import com.minehost.app.server.ManagedServerProcess
 import com.minehost.app.server.ProcessListener
+import com.minehost.app.server.RuntimeManager
 import com.minehost.app.server.ServerConfiguration
 import com.minehost.app.server.ServerEngine
 import com.minehost.app.server.ServerProcessHandle
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import java.io.File
+import java.io.FileNotFoundException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class BedrockEngine @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context,
+    private val runtimeManager: RuntimeManager
 ) : ServerEngine {
 
     override val id: String = "bedrock-pocketmine-v5"
@@ -28,20 +32,21 @@ class BedrockEngine @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.IO)
 
     override fun isInstalled(): Boolean {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val phpBinary = File(nativeDir, "libphp.so")
-        val engineDir = File(context.filesDir, "minehost/engines/bedrock")
-        val pharFile = File(engineDir, "PocketMine-MP.phar")
-        return phpBinary.exists() || pharFile.exists() || true // Allow mock/simulation in dev/test
+        return runtimeManager.isBedrockPocketMineInstalled()
     }
 
     override suspend fun install(onProgress: (Float, String) -> Unit): Result<Unit> {
-        AppLogger.i("BedrockEngine", "Installing Bedrock engine components...")
-        onProgress(0.2f, "Preparing directories")
-        val engineDir = File(context.filesDir, "minehost/engines/bedrock").apply { mkdirs() }
-        onProgress(0.6f, "Checking runtime binaries")
-        onProgress(1.0f, "Installation complete")
-        return Result.success(Unit)
+        AppLogger.i("BedrockEngine", "Installing PocketMine-MP engine...")
+        if (!runtimeManager.isSupportedArchitecture()) {
+            return Result.failure(
+                UnsupportedOperationException(
+                    "Device architecture (${runtimeManager.getDeviceArchitecture()}) is not supported. MineHost requires a 64-bit ARM device (arm64-v8a)."
+                )
+            )
+        }
+
+        val result = runtimeManager.downloadPocketMinePhar(onProgress)
+        return result.map { }
     }
 
     override suspend fun configure(serverDir: File, config: ServerConfiguration): Result<Unit> {
@@ -56,20 +61,33 @@ class BedrockEngine @Inject constructor(
         config: ServerConfiguration,
         listener: ProcessListener
     ): Result<ServerProcessHandle> {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val phpBinary = File(nativeDir, "libphp.so")
-        val engineDir = File(context.filesDir, "minehost/engines/bedrock")
-        val pharFile = File(engineDir, "PocketMine-MP.phar")
+        val phpBinary = runtimeManager.getPhpExecutable()
+        val phar = runtimeManager.getPocketMinePhar()
 
-        val command = if (phpBinary.exists() && pharFile.exists()) {
-            listOf(phpBinary.absolutePath, pharFile.absolutePath, "--no-wizard", "--enable-ansi=false")
-        } else {
-            // Portable fallback launcher
-            listOf("sh", "-c", "echo '[MineHost] Bedrock Server Initialized on port ${config.localPort}'; while true; do sleep 5; done")
+        if (phpBinary == null || !phpBinary.exists()) {
+            val errorMsg = "PHP runtime binary (libphp.so) was not found in native libraries or app runtimes. Please install the Bedrock runtime from Diagnostics or Setup."
+            AppLogger.e("BedrockEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(FileNotFoundException(errorMsg))
         }
 
-        val env = mapOf(
-            "LD_LIBRARY_PATH" to nativeDir.absolutePath,
+        if (phar == null || !phar.exists()) {
+            val errorMsg = "PocketMine-MP.phar was not found in engines directory. Please download the Bedrock engine."
+            AppLogger.e("BedrockEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(FileNotFoundException(errorMsg))
+        }
+
+        val command = listOf(
+            phpBinary.absolutePath,
+            phar.absolutePath,
+            "--no-wizard",
+            "--enable-ansi=false",
+            "--data=${serverDir.absolutePath}"
+        )
+
+        val env = mutableMapOf(
+            "LD_LIBRARY_PATH" to context.applicationInfo.nativeLibraryDir,
             "TMPDIR" to context.cacheDir.absolutePath
         )
 
@@ -103,4 +121,3 @@ class BedrockEngine @Inject constructor(
         }
     }
 }
-

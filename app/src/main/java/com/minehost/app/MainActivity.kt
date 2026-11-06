@@ -9,17 +9,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.minehost.app.core.logging.AppLogger
-import com.minehost.app.services.ThermalManager
 import com.minehost.app.ui.navigation.MineHostNavGraph
 import com.minehost.app.ui.theme.MineHostTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
-    @Inject
-    lateinit var thermalManager: ThermalManager
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -37,7 +32,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MineHostTheme {
-                MineHostNavGraph(thermalManager = thermalManager)
+                MineHostNavGraph()
             }
         }
     }
@@ -54,4 +49,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

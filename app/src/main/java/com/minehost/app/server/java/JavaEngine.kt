@@ -5,18 +5,22 @@ import com.minehost.app.core.common.MinecraftEdition
 import com.minehost.app.core.logging.AppLogger
 import com.minehost.app.server.ManagedServerProcess
 import com.minehost.app.server.ProcessListener
+import com.minehost.app.server.RuntimeManager
 import com.minehost.app.server.ServerConfiguration
 import com.minehost.app.server.ServerEngine
 import com.minehost.app.server.ServerProcessHandle
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import java.io.File
+import java.io.FileNotFoundException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class JavaEngine @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context,
+    private val runtimeManager: RuntimeManager
 ) : ServerEngine {
 
     override val id: String = "java-paper"
@@ -28,17 +32,21 @@ class JavaEngine @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.IO)
 
     override fun isInstalled(): Boolean {
-        val jarFile = File(context.filesDir, "minehost/engines/java/paper.jar")
-        return jarFile.exists() || true
+        return runtimeManager.isPaperJavaInstalled()
     }
 
     override suspend fun install(onProgress: (Float, String) -> Unit): Result<Unit> {
-        AppLogger.i("JavaEngine", "Preparing PaperMC engine...")
-        onProgress(0.3f, "Initializing Java runtime")
-        val engineDir = File(context.filesDir, "minehost/engines/java").apply { mkdirs() }
-        onProgress(0.7f, "Validating Paper server JAR")
-        onProgress(1.0f, "Installation complete")
-        return Result.success(Unit)
+        AppLogger.i("JavaEngine", "Installing PaperMC server engine...")
+        if (!runtimeManager.isSupportedArchitecture()) {
+            return Result.failure(
+                UnsupportedOperationException(
+                    "Device architecture (${runtimeManager.getDeviceArchitecture()}) is not supported. MineHost requires 64-bit ARM (arm64-v8a)."
+                )
+            )
+        }
+
+        val result = runtimeManager.downloadPaperJar(defaultVersion, onProgress)
+        return result.map { }
     }
 
     override suspend fun configure(serverDir: File, config: ServerConfiguration): Result<Unit> {
@@ -55,21 +63,31 @@ class JavaEngine @Inject constructor(
     ): Result<ServerProcessHandle> {
         val nativeDir = File(context.applicationInfo.nativeLibraryDir)
         val javaBinary = File(nativeDir, "libjava.so")
-        val jarFile = File(context.filesDir, "minehost/engines/java/paper.jar")
+        val jarFile = runtimeManager.getPaperJar()
 
-        val command = if (javaBinary.exists() && jarFile.exists()) {
-            listOf(
-                javaBinary.absolutePath,
-                "-Xms${config.minMemoryMb}M",
-                "-Xmx${config.maxMemoryMb}M",
-                "-XX:+UseG1GC",
-                "-jar",
-                jarFile.absolutePath,
-                "--nogui"
-            )
-        } else {
-            listOf("sh", "-c", "echo '[MineHost] Java Paper Server started on TCP ${config.localPort}'; while true; do sleep 5; done")
+        if (jarFile == null || !jarFile.exists()) {
+            val errorMsg = "PaperMC server JAR was not found. Please install PaperMC from Server Settings or Setup."
+            AppLogger.e("JavaEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(FileNotFoundException(errorMsg))
         }
+
+        if (!javaBinary.exists()) {
+            val errorMsg = "ARM64 Java runtime binary (libjava.so) was not found in native library directory. A Java 17/21 JRE is required to run PaperMC."
+            AppLogger.e("JavaEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(FileNotFoundException(errorMsg))
+        }
+
+        val command = listOf(
+            javaBinary.absolutePath,
+            "-Xms${config.minMemoryMb}M",
+            "-Xmx${config.maxMemoryMb}M",
+            "-XX:+UseG1GC",
+            "-jar",
+            jarFile.absolutePath,
+            "--nogui"
+        )
 
         val env = mapOf(
             "LD_LIBRARY_PATH" to nativeDir.absolutePath,
@@ -106,4 +124,3 @@ class JavaEngine @Inject constructor(
         }
     }
 }
-
