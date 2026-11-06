@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">MineHost</string>
+    <string name="server_running_notification_title">MineHost Server Active</string>
+    <string name="server_running_notification_text">%1$s is running on port %2$d</string>
+    <string name="action_stop">Stop Server</string>
+    <string name="notification_channel_name">MineHost Server Notifications</string>
+    <string name="notification_channel_description">Active server status and controls</string>
+</resources>
