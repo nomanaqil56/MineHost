@@ -70,3 +70,4 @@ object BedrockConfigGenerator {
         File(serverDir, "pocketmine.yml").writeText(generatePocketMineYml(config))
     }
 }
+

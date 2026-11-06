@@ -25,3 +25,4 @@ object AppLogger {
         Log.e(TAG_PREFIX + tag, message, throwable)
     }
 }
+

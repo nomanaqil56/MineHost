@@ -173,3 +173,4 @@ files/minehost/
 3. **No Root Requirement:** Operates entirely within standard unprivileged Android user space.
 4. **Console Shell Protection:** Command console strictly passes input to Minecraft server standard input; operating system shell commands (`/bin/sh`, PowerShell, cmd) are blocked.
 5. **Relay Token Protection:** Playit authentication secret keys and sensitive tokens are encrypted using Android Keystore / EncryptedSharedPreferences.
+

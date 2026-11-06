@@ -216,3 +216,4 @@ class ServerController @Inject constructor(
         logRepository.log(serverId, message)
     }
 }
+

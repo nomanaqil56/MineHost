@@ -76,3 +76,4 @@ enum class Difficulty {
     NORMAL,
     HARD
 }
+

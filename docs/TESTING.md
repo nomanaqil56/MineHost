@@ -29,3 +29,4 @@ MineHost requires verification across multiple tiers:
 ### 2.4 Server Console & Process Tests
 - `ConsoleCommandValidatorTest`: Verifies that shell commands (`rm`, `cat`, `cmd`, `powershell`) are blocked while Minecraft commands (`say`, `kick`, `op`, `save-all`) are passed to stdin.
 - `LogStreamParserTest`: Verifies ANSI color stripping, timestamp extraction, and log level tagging (INFO, WARN, ERROR).
+

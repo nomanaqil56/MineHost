@@ -197,3 +197,4 @@ class LogRepositoryImpl @Inject constructor(
         serverLogDao.clearLogsForServer(serverId)
     }
 }
+

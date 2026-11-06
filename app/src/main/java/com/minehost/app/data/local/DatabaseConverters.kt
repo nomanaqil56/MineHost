@@ -49,3 +49,4 @@ class DatabaseConverters {
         LogLevel.valueOf(value)
     }.getOrDefault(LogLevel.INFO)
 }
+

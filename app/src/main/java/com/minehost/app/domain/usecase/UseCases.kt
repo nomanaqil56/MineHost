@@ -102,3 +102,4 @@ class GetServerLogsUseCase @Inject constructor(
 ) {
     operator fun invoke(serverId: String, limit: Int = 500) = logRepository.getRecentLogs(serverId, limit)
 }
+

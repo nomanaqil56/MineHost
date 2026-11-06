@@ -45,3 +45,4 @@ object JavaConfigGenerator {
         File(serverDir, "eula.txt").writeText(generateEula())
     }
 }
+

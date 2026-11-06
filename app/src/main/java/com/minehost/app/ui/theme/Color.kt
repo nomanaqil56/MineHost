@@ -23,3 +23,4 @@ val TextSecondary = Color(0xFF9CA3AF)
 val TextMuted = Color(0xFF6B7280)
 val ConsoleBackground = Color(0xFF0A0D12)
 val ConsoleText = Color(0xFFE2E8F0)
+

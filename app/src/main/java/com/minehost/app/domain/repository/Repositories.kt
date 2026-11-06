@@ -47,3 +47,4 @@ interface LogRepository {
     suspend fun log(serverId: String, message: String)
     suspend fun clearLogs(serverId: String)
 }
+

@@ -87,3 +87,4 @@ abstract class RepositoryModule {
     @Singleton
     abstract fun bindTunnelProvider(impl: PlayitTunnelProvider): TunnelProvider
 }
+

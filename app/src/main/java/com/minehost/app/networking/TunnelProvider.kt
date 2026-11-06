@@ -17,3 +17,4 @@ interface TunnelProvider {
     suspend fun reconnect(): Result<PublicEndpoint>
     fun getDiagnosticLogs(): List<String>
 }
+

@@ -75,3 +75,4 @@ For complete build instructions, see [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md).
 ## 📄 License
 This project is open-source under the Apache 2.0 License.
 Minecraft is a registered trademark of Mojang AB / Microsoft. MineHost is not affiliated with Mojang AB or Microsoft.
+

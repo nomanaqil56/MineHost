@@ -409,3 +409,4 @@ fun ReviewRow(label: String, value: String) {
         Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
     }
 }
+

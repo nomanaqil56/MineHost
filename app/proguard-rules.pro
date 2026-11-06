@@ -18,3 +18,4 @@
 -keep class com.minehost.app.domain.model.** { *; }
 -keep class com.minehost.app.data.local.entity.** { *; }
 -keep class com.minehost.app.core.common.** { *; }
+

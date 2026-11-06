@@ -101,3 +101,4 @@ MineHost maintains distinct statuses for the server and the networking tunnel:
 - `ConnectionMonitor` continuously pings the local server port via UDP/TCP to confirm engine health.
 - Measures round-trip ping time to the tunnel edge relay every 30 seconds.
 - Automatically triggers exponential backoff reconnection if the device switches networks (e.g. Wi-Fi to 5G cellular).
+

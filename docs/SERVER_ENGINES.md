@@ -76,3 +76,4 @@ MineHost provides a modular server engine interface. Below is the detailed break
   - `online`: Bedrock players log in with their Java-licensed Microsoft account.
   - `floodgate`: Bedrock players can join using their Bedrock Xbox credentials via automatic public/private key verification without purchasing a separate Java account.
 - **Configuration:** Auto-generated `config.yml` synchronizing server MOTD, player limits, and loopback forwarding.
+

@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "MineHost"
 include(":app")
+

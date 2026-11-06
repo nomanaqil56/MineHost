@@ -37,3 +37,4 @@ sealed class Resource<out T> {
     data class Error(val message: String, val cause: Throwable? = null) : Resource<Nothing>()
     data class Loading(val progress: Float? = null, val message: String? = null) : Resource<Nothing>()
 }
+

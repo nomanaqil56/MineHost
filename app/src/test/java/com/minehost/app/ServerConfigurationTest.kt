@@ -85,3 +85,4 @@ class ServerConfigurationTest {
         assertTrue(config.contains("auth-type: floodgate"))
     }
 }
+

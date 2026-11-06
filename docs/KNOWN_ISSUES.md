@@ -34,3 +34,4 @@
 ### 2.1 Cellular NAT & Ping Latency
 - **Description:** When hosting on mobile 4G/5G connections, network jitter and carrier routing can introduce 30ms - 80ms added latency through relay nodes.
 - **Mitigation:** The connection monitor dynamically tests ping times and recommends hosting over 5GHz Wi-Fi for competitive multiplayer sessions.
+

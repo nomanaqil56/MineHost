@@ -65,3 +65,4 @@ MineHost packages native binaries in `app/src/main/jniLibs/<abi>/lib<name>.so`:
 - `x86_64` (for emulator testing):
   - `libplayit.so`
   - `libserverlauncher.so`
+

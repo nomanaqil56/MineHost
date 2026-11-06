@@ -97,3 +97,4 @@ data class ServerLogEntity(
     val level: LogLevel,
     val message: String
 )
+

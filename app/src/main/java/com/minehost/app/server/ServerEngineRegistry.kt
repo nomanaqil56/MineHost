@@ -28,3 +28,4 @@ class ServerEngineRegistry @Inject constructor(
 
     fun getAllEngines(): List<ServerEngine> = engines.values.toList()
 }
+

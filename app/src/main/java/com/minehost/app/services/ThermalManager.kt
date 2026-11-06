@@ -61,3 +61,4 @@ class ThermalManager @Inject constructor(
         }
     }
 }
+

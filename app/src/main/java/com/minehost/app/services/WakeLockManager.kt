@@ -54,3 +54,4 @@ class WakeLockManager @Inject constructor(
         }
     }
 }
+

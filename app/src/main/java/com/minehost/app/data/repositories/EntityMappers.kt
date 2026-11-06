@@ -93,3 +93,4 @@ fun PlayerEntity.toDomain() = PlayerModel(id, serverId, name, xuidOrUuid, isOp, 
 fun PlayerModel.toEntity() = PlayerEntity(id, serverId, name, xuidOrUuid, isOp, isWhitelisted, isBanned, lastJoinedAt, totalPlayTimeSeconds)
 
 fun ServerLogEntity.toDomain() = ServerLogEntry(id, serverId, timestamp, level, message)
+

@@ -139,3 +139,4 @@ Mobile networks (4G/5G LTE) and residential Wi-Fi connections use Carrier-Grade 
    - **Mitigation:** Continuous LevelDB / Anvil sync triggers, periodic auto-saves, and automatic pre-shutdown backups (`save-all flush`).
 3. **Risk:** Relay network disconnection.
    - **Mitigation:** Exponential backoff reconnection in `TunnelManager` that maintains local server uptime while re-establishing public endpoint.
+

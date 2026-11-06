@@ -33,3 +33,4 @@ abstract class MineHostDatabase : RoomDatabase() {
     abstract fun playerDao(): PlayerDao
     abstract fun serverLogDao(): ServerLogDao
 }
+

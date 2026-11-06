@@ -112,3 +112,4 @@ interface ServerLogDao {
     @Query("DELETE FROM server_logs WHERE serverId = :serverId AND id NOT IN (SELECT id FROM server_logs WHERE serverId = :serverId ORDER BY id DESC LIMIT :keepCount)")
     suspend fun pruneLogs(serverId: String, keepCount: Int = 1000)
 }
+

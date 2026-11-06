@@ -85,3 +85,4 @@ data class ServerLogEntry(
     val level: LogLevel,
     val message: String
 )
+

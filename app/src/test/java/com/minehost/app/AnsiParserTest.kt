@@ -40,3 +40,4 @@ class AnsiParserTest {
         assertFalse(ServerStatus.STOPPED.canStop)
     }
 }
+

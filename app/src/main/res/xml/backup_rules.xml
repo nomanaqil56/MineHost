@@ -3,3 +3,4 @@
     <exclude domain="file" path="minehost/servers/" />
     <exclude domain="file" path="minehost/engines/" />
 </full-backup-content>
+

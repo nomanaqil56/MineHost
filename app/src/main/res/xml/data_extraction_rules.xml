@@ -9,3 +9,4 @@
         <include domain="file" path="minehost/" />
     </device-transfer>
 </data-extraction-rules>
+
