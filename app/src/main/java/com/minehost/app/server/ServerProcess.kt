@@ -60,9 +60,9 @@ class ManagedServerProcess(
             // Read standard output
             stdoutJob = scope.launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(p.inputStream)).use { reader ->
-                    var line: String?
-                    while (isActive && reader.readLine().also { line = it } != null) {
-                        line?.let { listener.onLog(it) }
+                    while (isActive) {
+                        val line = reader.readLine() ?: break
+                        listener.onLog(line)
                     }
                 }
             }
@@ -70,9 +70,9 @@ class ManagedServerProcess(
             // Read standard error
             stderrJob = scope.launch(Dispatchers.IO) {
                 BufferedReader(InputStreamReader(p.errorStream)).use { reader ->
-                    var line: String?
-                    while (isActive && reader.readLine().also { line = it } != null) {
-                        line?.let { listener.onLog("[STDERR] $it") }
+                    while (isActive) {
+                        val line = reader.readLine() ?: break
+                        listener.onLog("[STDERR] $line")
                     }
                 }
             }

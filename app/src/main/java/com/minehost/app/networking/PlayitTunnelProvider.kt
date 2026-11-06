@@ -85,9 +85,9 @@ class PlayitTunnelProvider @Inject constructor(
 
                 monitorJob = scope.launch(Dispatchers.IO) {
                     BufferedReader(InputStreamReader(p.inputStream)).use { reader ->
-                        var line: String?
-                        while (isActive && reader.readLine().also { line = it } != null) {
-                            line?.let { parseAgentOutput(it) }
+                        while (isActive) {
+                            val line = reader.readLine() ?: break
+                            parseAgentOutput(line)
                         }
                     }
                 }

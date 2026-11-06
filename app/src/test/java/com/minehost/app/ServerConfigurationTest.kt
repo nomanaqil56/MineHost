@@ -67,8 +67,11 @@ class ServerConfigurationTest {
         assertTrue(properties.contains("pvp=false"))
         assertTrue(properties.contains("online-mode=false"))
 
-        val eula = JavaConfigGenerator.generateEula()
-        assertTrue(eula.contains("eula=true"))
+        val eulaDefault = JavaConfigGenerator.generateEula()
+        assertTrue(eulaDefault.contains("eula=false"))
+
+        val eulaConsented = JavaConfigGenerator.generateEula(userConsented = true)
+        assertTrue(eulaConsented.contains("eula=true"))
     }
 
     @Test

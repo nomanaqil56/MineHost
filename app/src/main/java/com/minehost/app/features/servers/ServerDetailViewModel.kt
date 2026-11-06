@@ -31,6 +31,13 @@ data class ServerDetailUiState(
     val errorMessage: String? = null
 )
 
+private data class TunnelUiInfo(
+    val endpoint: PublicEndpoint?,
+    val status: TunnelStatus,
+    val claimUrl: String?,
+    val latencyMs: Long?
+)
+
 @HiltViewModel
 class ServerDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -42,26 +49,34 @@ class ServerDetailViewModel @Inject constructor(
     val serverId: String = checkNotNull(savedStateHandle["serverId"])
 
     val uiState: StateFlow<ServerDetailUiState> = combine(
-        serverRepository.getServerFlowById(serverId),
-        serverController.activeServerId,
-        serverController.serverStatus,
-        tunnelManager.publicEndpoint,
-        tunnelManager.tunnelStatus,
-        tunnelManager.claimUrl,
-        tunnelManager.latencyMs
-    ) { server, activeId, status, endpoint, tunnelStat, claim, ping ->
+        combine(
+            serverRepository.getServerFlowById(serverId),
+            serverController.activeServerId,
+            serverController.serverStatus
+        ) { server, activeId, status ->
+            Triple(server, activeId, status)
+        },
+        combine(
+            tunnelManager.publicEndpoint,
+            tunnelManager.tunnelStatus,
+            tunnelManager.claimUrl,
+            tunnelManager.latencyMs
+        ) { endpoint, tunnelStat, claim, ping ->
+            TunnelUiInfo(endpoint, tunnelStat, claim, ping)
+        }
+    ) { (server, activeId, status), tunnelInfo ->
         val isThisActive = activeId == serverId
         val effectiveStatus = if (isThisActive) status else (server?.status ?: ServerStatus.STOPPED)
-        val effectiveEndpoint = if (isThisActive) endpoint ?: server?.publicEndpoint else server?.publicEndpoint
+        val effectiveEndpoint = if (isThisActive) tunnelInfo.endpoint ?: server?.publicEndpoint else server?.publicEndpoint
 
         ServerDetailUiState(
             server = server,
             isRunning = isThisActive && status.isRunning,
             currentStatus = effectiveStatus,
             publicEndpoint = effectiveEndpoint,
-            tunnelStatus = if (isThisActive) tunnelStat else TunnelStatus.DISCONNECTED,
-            claimUrl = if (isThisActive) claim else null,
-            latencyMs = if (isThisActive) ping else null,
+            tunnelStatus = if (isThisActive) tunnelInfo.status else TunnelStatus.DISCONNECTED,
+            claimUrl = if (isThisActive) tunnelInfo.claimUrl else null,
+            latencyMs = if (isThisActive) tunnelInfo.latencyMs else null,
             isLoading = false
         )
     }.stateIn(

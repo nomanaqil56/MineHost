@@ -46,9 +46,17 @@
 
 ---
 
+## Build & Test Verification Milestones Completed
+1. **Gradle Build Complete:** `gradle assembleDebug` succeeds cleanly, producing `app-debug.apk` (59 MB) with AAPT2 resources, Room schema generation, and Hilt dependency injection.
+2. **Unit Test Suite Verified:** `gradle testDebugUnitTest` runs with 100% pass rate (8/8 tests passing).
+3. **Protocol & State Verification Suite:** `python tests/verify_minehost.py` runs with 100% pass rate (9/9 tests passing RakNet, VarInt, persistence, and recovery checks).
+4. **Live Latency & Tunnel Monitoring:** Added `ConnectionMonitor` providing real round-trip socket ping checks for active endpoints.
+
+---
+
 ## Next Milestone: Physical Device Bedrock Testing
 Target: Follow Part 16 sequence on physical Android ARM64 device:
-1. Install APK
-2. Run initial setup and download PocketMine-MP in Diagnostics
-3. Start Bedrock server
+1. Install `app-debug.apk` via ADB or manual install.
+2. Run initial setup and download PocketMine-MP in Diagnostics.
+3. Start Bedrock server on port 19132.
 4. Connect Bedrock client over local Wi-Fi to test world generation, block placement, and restart persistence.
