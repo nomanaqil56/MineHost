@@ -34,3 +34,21 @@
 ### 2.1 First-Time Playit Agent Claiming
 - **Description:** On first launch, the Playit agent generates a unique cryptographic secret and requires a one-time claim on `https://playit.gg/claim/<code`.
 - **Mitigation:** MineHost captures this URL directly from agent stdout and presents a one-click "Claim Agent on Playit.gg" button in the Server Detail screen.
+
+---
+
+## 5. Findings from the 2026-11-09 source audit
+
+See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) for the full list. Unresolved items:
+
+- **No PHP or Java runtime is bundled.** `libphp.so` / `libjava.so` are expected in `nativeLibraryDir` but the repository has no `jniLibs/`. Bedrock and Java servers cannot start until this is solved.
+- **W^X:** executables downloaded into `filesDir` (e.g. the Playit agent) cannot run on Android 10+.
+- **Playit agent URL** uses an asset name (`playit-cli-linux-<arch>`) that does not match the official `playit-linux-*` naming; the download likely fails.
+- **Downloads are not integrity-verified** against any trusted checksum, and use `releases/latest`.
+- **EULA consent UI is missing.** `eula.txt` is written as `eula=false`, so Java servers refuse to start until consent exists.
+- **Cross-play is not implemented** (now reported as unsupported instead of falling back to Bedrock-only).
+- **ConnectionMonitor uses a TCP connect**, which cannot monitor a UDP (Bedrock) tunnel.
+- **Backup creation while a server is running** is not made consistent (no `save-off`/`save-all`).
+- **Diagnostics swallows download failures**, so install errors are invisible to the user.
+- **Release builds are signed with the debug key.**
+- **Stopping while STARTING:** `stopServer` returns success without effect until the process handle exists.

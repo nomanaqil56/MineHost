@@ -238,9 +238,9 @@ fun StepMinecraftEdition(state: CreateServerFormState, viewModel: CreateServerVi
 
         EditionOptionCard(
             title = "Cross-Play (Bedrock + Java)",
-            subtitle = "Enables both Bedrock and Java players via Geyser bridge",
-            selected = state.edition == MinecraftEdition.CROSSPLAY,
-            onClick = { viewModel.updateEdition(MinecraftEdition.CROSSPLAY) }
+            subtitle = "Not available yet: needs Paper + Geyser, which MineHost cannot run on Android yet",
+            selected = false,
+            onClick = { /* unsupported: intentionally does nothing */ }
         )
     }
 }

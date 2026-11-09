@@ -11,6 +11,11 @@
 
 ---
 
+
+> **Audit correction (2026-11-09):** In the table below, "AUTOMATED TESTED" means only that unit tests exist for helper logic (config generators, zip utilities, ANSI parsing). **No row has been verified on a device or with a real Minecraft client**, and the build/test results in "Build & Test Verification Milestones" were reported by the previous author and **not reproduced** in the audit. The Bedrock and Java engines are **BLOCKED** because no PHP/Java runtime is bundled. See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) for the verified status.
+
+---
+
 ## Live Implementation Inventory
 
 | Subsystem / Feature | Current Status | Verification Level | Notes & Realistic Limitations |

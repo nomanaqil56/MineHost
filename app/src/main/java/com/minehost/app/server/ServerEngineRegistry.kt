@@ -18,11 +18,18 @@ class ServerEngineRegistry @Inject constructor(
 
     fun getEngine(id: String): ServerEngine? = engines[id]
 
-    fun getEngineForEdition(edition: MinecraftEdition): ServerEngine {
+    /**
+     * Returns the engine for an edition, or null if the edition has no working engine.
+     *
+     * CROSSPLAY intentionally returns null: genuine cross-play needs Paper + Geyser running
+     * together, which is not implemented (see docs/KNOWN_ISSUES.md). It must never silently
+     * fall back to a Bedrock-only server.
+     */
+    fun getEngineForEdition(edition: MinecraftEdition): ServerEngine? {
         return when (edition) {
             MinecraftEdition.BEDROCK -> bedrockEngine
             MinecraftEdition.JAVA -> javaEngine
-            MinecraftEdition.CROSSPLAY -> bedrockEngine // Bridges to Java
+            MinecraftEdition.CROSSPLAY -> null
         }
     }
 

@@ -12,10 +12,9 @@ import java.io.BufferedWriter
 import java.io.File
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
-import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.Socket
 import java.util.concurrent.TimeUnit
+
+private const val LOCALHOST = "127.0.0.1"
 
 class ManagedServerProcess(
     private val command: List<String>,
@@ -24,8 +23,15 @@ class ManagedServerProcess(
     private val port: Int,
     private val isUdp: Boolean,
     private val listener: ProcessListener,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val startupTimeoutMs: Long = 180_000L
 ) : ServerProcessHandle {
+
+    /** True once the user (or timeout logic) asked the process to stop; exit is then expected. */
+    @Volatile private var stopRequested = false
+
+    /** True when startup failed and the error was already reported; suppress the follow-up exit event. */
+    @Volatile private var startupFailureReported = false
 
     private var process: Process? = null
     private var stdinWriter: BufferedWriter? = null
@@ -81,12 +87,16 @@ class ManagedServerProcess(
             scope.launch(Dispatchers.IO) {
                 val exitCode = p.waitFor()
                 AppLogger.i("ManagedServerProcess", "Process terminated with exit code $exitCode")
-                listener.onStopped(exitCode)
+                readinessJob?.cancel()
+                if (!startupFailureReported) {
+                    // A requested stop is a clean shutdown even though the OS reports a signal exit code.
+                    listener.onStopped(if (stopRequested) 0 else exitCode)
+                }
             }
 
             // Trigger readiness monitoring
             readinessJob = scope.launch(Dispatchers.IO) {
-                checkPortReadiness()
+                awaitReadiness()
             }
 
             Result.success(Unit)
@@ -97,43 +107,39 @@ class ManagedServerProcess(
         }
     }
 
-    private suspend fun checkPortReadiness() {
-        var attempts = 0
-        val maxAttempts = 60 // 60 seconds
-        while (attempts < maxAttempts && isAlive) {
-            val ready = if (isUdp) checkUdpPort(port) else checkTcpPort(port)
+    /**
+     * The server is reported ready ONLY after it answers a genuine Minecraft protocol probe
+     * (RakNet ping for Bedrock, Server List Ping for Java). If the process stays alive but never
+     * answers within [startupTimeoutMs], startup is reported as a failure and the process is killed.
+     */
+    private suspend fun awaitReadiness() {
+        val protocolName = if (isUdp) "Bedrock (RakNet/UDP)" else "Java (Server List Ping/TCP)"
+        val deadline = System.currentTimeMillis() + startupTimeoutMs
+        while (isAlive && System.currentTimeMillis() < deadline) {
+            val ready = if (isUdp) {
+                ReadinessProbe.probeBedrock(LOCALHOST, port)
+            } else {
+                ReadinessProbe.probeJava(LOCALHOST, port)
+            }
             if (ready) {
-                AppLogger.i("ManagedServerProcess", "Server port $port is open and verified ready!")
+                AppLogger.i("ManagedServerProcess", "Server answered $protocolName probe on port $port")
                 listener.onStarted()
                 return
             }
             kotlinx.coroutines.delay(1000L)
-            attempts++
         }
         if (isAlive) {
-            // Assume started even if port probe had quirks
-            listener.onStarted()
+            startupFailureReported = true
+            stopRequested = true
+            val seconds = startupTimeoutMs / 1000
+            listener.onError(
+                "Server process is running but did not answer a $protocolName status probe on port $port " +
+                    "within ${seconds}s, so it was stopped. Check the console for startup errors."
+            )
+            process?.destroyForcibly()
+            cleanupStreams()
         }
-    }
-
-    private fun checkTcpPort(port: Int): Boolean {
-        return try {
-            Socket(InetAddress.getByName("127.0.0.1"), port).use { true }
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    private fun checkUdpPort(port: Int): Boolean {
-        return try {
-            DatagramSocket(port, InetAddress.getByName("127.0.0.1")).use {
-                // If we can bind to it locally, the server hasn't claimed it yet!
-                false
-            }
-        } catch (e: Exception) {
-            // Port already bound by server => Port is active!
-            true
-        }
+        // If the process is no longer alive, the exit monitor reports the real exit code.
     }
 
     fun sendCommand(command: String): Boolean {
@@ -154,6 +160,7 @@ class ManagedServerProcess(
         if (!p.isAlive) return@withContext true
 
         AppLogger.i("ManagedServerProcess", "Initiating graceful shutdown (sending stop)...")
+        stopRequested = true
         sendCommand("stop")
 
         val exited = runCatching {
@@ -170,11 +177,13 @@ class ManagedServerProcess(
     }
 
     override fun destroy() {
+        stopRequested = true
         process?.destroy()
         cleanupStreams()
     }
 
     override fun destroyForcibly() {
+        stopRequested = true
         process?.destroyForcibly()
         cleanupStreams()
     }

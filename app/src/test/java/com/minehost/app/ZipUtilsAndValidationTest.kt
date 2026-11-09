@@ -44,6 +44,46 @@ class ZipUtilsAndValidationTest {
     }
 
     @Test
+    fun contentChecksumMatchesBackupChecksumAndDetectsTampering() {
+        val sourceDir = tempFolder.newFolder("checksum_world")
+        File(sourceDir, "level.dat").writeText("NBT")
+        File(File(sourceDir, "db").apply { mkdirs() }, "000001.ldb").writeText("CHUNKS")
+
+        val zip = File(tempFolder.root, "checksum_backup.zip")
+        val created = ZipUtils.zipDirectory(sourceDir, zip)
+
+        // Verification must reproduce exactly what backup creation recorded.
+        assertEquals(created, ZipUtils.computeContentChecksum(zip))
+
+        // An archive with different content must not match.
+        val otherSource = tempFolder.newFolder("other_world")
+        File(otherSource, "level.dat").writeText("DIFFERENT")
+        val otherZip = File(tempFolder.root, "other_backup.zip")
+        ZipUtils.zipDirectory(otherSource, otherZip)
+        assertTrue(created != ZipUtils.computeContentChecksum(otherZip))
+    }
+
+    @Test
+    fun truncatedArchiveFailsVerification() {
+        val sourceDir = tempFolder.newFolder("trunc_world")
+        File(sourceDir, "level.dat").writeText("A".repeat(50_000))
+        val zip = File(tempFolder.root, "trunc_backup.zip")
+        val created = ZipUtils.zipDirectory(sourceDir, zip)
+
+        val bytes = zip.readBytes()
+        val truncated = File(tempFolder.root, "trunc_cut.zip")
+        truncated.writeBytes(bytes.copyOf(bytes.size / 2))
+
+        // Either it throws (corrupt) or it yields a different checksum; it must never verify as intact.
+        val verified = try {
+            ZipUtils.computeContentChecksum(truncated) == created
+        } catch (e: Exception) {
+            false
+        }
+        assertTrue(!verified)
+    }
+
+    @Test
     fun testWorldValidation() {
         val validWorld = tempFolder.newFolder("valid_bedrock")
         File(validWorld, "level.dat").writeText("VALID")

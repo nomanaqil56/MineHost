@@ -121,21 +121,68 @@ class WorldBackupManager @Inject constructor(
                 return Resource.Error("Insufficient free storage space to restore backup")
             }
 
-            // Step 1: Create a safe pre-restore rollback snapshot of existing world if it has contents
+            // Step 1: Verify archive integrity BEFORE touching the live world. Nothing is modified
+            // if the archive is corrupt, truncated or does not match its recorded checksum.
+            val actualChecksum = try {
+                ZipUtils.computeContentChecksum(archiveFile)
+            } catch (e: Exception) {
+                return Resource.Error(
+                    "Backup archive is corrupt or unreadable (${e.message}). Your current world was not changed."
+                )
+            }
+            if (!actualChecksum.equals(backup.checksumSha256, ignoreCase = true)) {
+                return Resource.Error(
+                    "Backup checksum mismatch: the archive was modified or damaged since it was created. Your current world was not changed."
+                )
+            }
+
+            // Step 2: Extract into a temporary directory next to the world (same filesystem, so the
+            // final swap is a cheap rename). The live world is untouched while this runs.
+            val parentDir = worldDir.parentFile
+                ?: return Resource.Error("Cannot determine the world's parent directory. Your current world was not changed.")
+            val stamp = System.currentTimeMillis()
+            val tempDir = File(parentDir, ".restore_tmp_$stamp")
+            val oldDir = File(parentDir, ".restore_old_$stamp")
+            try {
+                ZipUtils.unzip(archiveFile, tempDir, onProgress)
+            } catch (e: Exception) {
+                FileUtils.deleteDirectoryRecursively(tempDir)
+                return Resource.Error("Restore failed while extracting the backup (${e.message}). Your current world was not changed.", e)
+            }
+
+            if (tempDir.listFiles().isNullOrEmpty()) {
+                FileUtils.deleteDirectoryRecursively(tempDir)
+                return Resource.Error("The backup archive contains no world data. Your current world was not changed.")
+            }
+
+            // Step 3: Safety snapshot of the existing world. If it cannot be made, abort.
             if (worldDir.exists() && worldDir.listFiles()?.isNotEmpty() == true) {
                 val preRestoreZip = File(
                     worldManager.getBackupsDirectory(backup.serverId),
-                    "pre_restore_${System.currentTimeMillis()}.zip"
+                    "pre_restore_$stamp.zip"
                 )
-                ZipUtils.zipDirectory(worldDir, preRestoreZip)
+                try {
+                    ZipUtils.zipDirectory(worldDir, preRestoreZip)
+                } catch (e: Exception) {
+                    preRestoreZip.delete()
+                    FileUtils.deleteDirectoryRecursively(tempDir)
+                    return Resource.Error("Could not create a safety snapshot of the current world (${e.message}). Restore cancelled; nothing was changed.", e)
+                }
             }
 
-            // Step 2: Clean active world folder
-            FileUtils.deleteDirectoryRecursively(worldDir)
-            worldDir.mkdirs()
-
-            // Step 3: Unzip backup archive into world folder
-            ZipUtils.unzip(archiveFile, worldDir, onProgress)
+            // Step 4: Swap. Move the old world aside, move the verified copy into place, and only
+            // delete the old world once the new one is in place. Roll back on any failure.
+            val hadOldWorld = worldDir.exists()
+            if (hadOldWorld && !worldDir.renameTo(oldDir)) {
+                FileUtils.deleteDirectoryRecursively(tempDir)
+                return Resource.Error("Could not move the current world aside. Restore cancelled; nothing was changed.")
+            }
+            if (!tempDir.renameTo(worldDir)) {
+                if (hadOldWorld) oldDir.renameTo(worldDir)
+                FileUtils.deleteDirectoryRecursively(tempDir)
+                return Resource.Error("Could not move the restored world into place. Your previous world was put back.")
+            }
+            if (hadOldWorld) FileUtils.deleteDirectoryRecursively(oldDir)
 
             AppLogger.i("WorldBackupManager", "World restored successfully from: $backupId")
             Resource.Success(Unit)
