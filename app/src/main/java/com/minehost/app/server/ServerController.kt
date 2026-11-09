@@ -66,8 +66,17 @@ class ServerController @Inject constructor(
             log(serverId, "[MineHost] Preparing to start ${server.name} (${server.edition})...")
 
             // 1. Select engine and verify installation
-            val engine = engineRegistry.getEngine(server.engineId)
-                ?: engineRegistry.getEngineForEdition(server.edition)
+            val engine = if (server.edition == MinecraftEdition.CROSSPLAY) {
+                null
+            } else {
+                engineRegistry.getEngine(server.engineId) ?: engineRegistry.getEngineForEdition(server.edition)
+            }
+            if (engine == null) {
+                val unsupportedMsg = "Cross-play (Java + Bedrock) is not supported yet: it requires Paper and Geyser running together, which MineHost does not implement. Create a Bedrock or Java server instead."
+                log(serverId, "[ERROR] $unsupportedMsg")
+                handleServerStopped(serverId, ServerStatus.ERROR)
+                return Resource.Error(unsupportedMsg)
+            }
             activeEngine = engine
 
             if (!engine.isInstalled()) {
@@ -110,7 +119,14 @@ class ServerController @Inject constructor(
             )
 
             log(serverId, "[MineHost] Writing engine configuration files...")
-            engine.configure(serverDir, serverConfig)
+            val configureResult = engine.configure(serverDir, serverConfig)
+            if (configureResult.isFailure) {
+                val configError = configureResult.exceptionOrNull()?.message ?: "unknown error"
+                val msg = "Could not write server configuration files: $configError"
+                log(serverId, "[ERROR] $msg")
+                handleServerStopped(serverId, ServerStatus.ERROR)
+                return Resource.Error(msg)
+            }
 
             // 5. Start foreground service
             startForegroundService(server.name, server.localPort)

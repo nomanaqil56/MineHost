@@ -7,6 +7,7 @@ import com.minehost.app.core.common.Resource
 import com.minehost.app.domain.model.BackupModel
 import com.minehost.app.domain.repository.BackupRepository
 import com.minehost.app.domain.repository.ServerRepository
+import com.minehost.app.server.ServerController
 import com.minehost.app.world.WorldBackupManager
 import com.minehost.app.world.WorldManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +34,8 @@ class BackupsViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
     private val backupRepository: BackupRepository,
     private val worldBackupManager: WorldBackupManager,
-    private val worldManager: WorldManager
+    private val worldManager: WorldManager,
+    private val serverController: ServerController
 ) : ViewModel() {
 
     val serverId: String = checkNotNull(savedStateHandle["serverId"])
@@ -85,6 +87,12 @@ class BackupsViewModel @Inject constructor(
 
     fun restoreBackup(backupId: String) {
         viewModelScope.launch {
+            if (serverController.activeServerId.value == serverId && serverController.serverStatus.value.isRunning) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Stop the server before restoring a backup. Restoring while it is running could corrupt the world."
+                )
+                return@launch
+            }
             _uiState.value = _uiState.value.copy(isRestoring = true, errorMessage = null)
             val result = worldBackupManager.restoreBackup(backupId) { progress ->
                 _uiState.value = _uiState.value.copy(progress = progress)

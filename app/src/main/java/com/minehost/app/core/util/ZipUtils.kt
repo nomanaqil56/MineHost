@@ -60,6 +60,31 @@ object ZipUtils {
     }
 
     /**
+     * Recomputes the content checksum of an archive created by [zipDirectory]: the SHA-256 of all
+     * file entry bytes, in archive order. Throws if the archive is unreadable or corrupt, so it
+     * doubles as an integrity check.
+     */
+    @Throws(IOException::class)
+    fun computeContentChecksum(zipFile: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        ZipInputStream(BufferedInputStream(FileInputStream(zipFile))).use { zis ->
+            val buffer = ByteArray(8192)
+            var entry: ZipEntry? = zis.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory) {
+                    var len: Int
+                    while (zis.read(buffer).also { len = it } != -1) {
+                        digest.update(buffer, 0, len)
+                    }
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
      * Unzips an archive into a target directory safely, guarding against Zip Slip path traversal.
      */
     @Throws(IOException::class)
