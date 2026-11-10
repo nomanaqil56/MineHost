@@ -104,7 +104,7 @@ class BedrockEngine @Inject constructor(
             listener.onError(errorMsg)
             return Result.failure(error)
         }
-        if (!modules.contains("webrtc", ignoreCase = true)) {
+        if ("webrtc" !in modules.lineSequence().map { it.trim().lowercase() }.toSet()) {
             val errorMsg = "The packaged PHP runtime is missing ext-webrtc. NetherNet is required for current Bedrock clients."
             AppLogger.e("BedrockEngine", errorMsg)
             listener.onError(errorMsg)
