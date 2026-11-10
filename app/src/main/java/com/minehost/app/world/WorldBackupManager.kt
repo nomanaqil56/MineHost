@@ -165,19 +165,47 @@ class WorldBackupManager @Inject constructor(
                 return Resource.Error("The backup archive contains no world data. Your current world was not changed.")
             }
 
-            // Extract the optional NetherNet identity key from the archive metadata area. It must
-            // be restored beside the server data, not inside the world directory.
+            // Extract the optional NetherNet identity key from the archive metadata area. Stage it
+            // outside the world tree, but do not replace the live key until the safety snapshot passes.
             val metadataDir = File(tempDir, "__minehost")
             val backupIdentityKey = File(metadataDir, "nethernet.key")
             val serverDir = worldManager.getServerDirectory(backup.serverId)
             val liveIdentityKey = File(serverDir, "nethernet.key")
             val stagedIdentityKey = File(serverDir, ".nethernet.key.restore-new-$stamp")
             val previousIdentityKey = File(serverDir, ".nethernet.key.restore-old-$stamp")
-            var identityKeyUpdated = false
-
-            if (backupIdentityKey.isFile) {
+            val hasBackupIdentityKey = backupIdentityKey.isFile
+            if (hasBackupIdentityKey) {
                 try {
                     backupIdentityKey.copyTo(stagedIdentityKey, overwrite = true)
+                } catch (e: Exception) {
+                    stagedIdentityKey.delete()
+                    FileUtils.deleteDirectoryRecursively(tempDir)
+                    return Resource.Error("Could not stage the NetherNet server identity key: ${e.message}. Your world was not changed.", e)
+                }
+            }
+            // Metadata is never restored inside the world directory.
+            metadataDir.deleteRecursively()
+
+            // Step 3: Safety snapshot of the existing world. If it cannot be made, abort.
+            if (worldDir.exists() && worldDir.listFiles()?.isNotEmpty() == true) {
+                val preRestoreZip = File(
+                    worldManager.getBackupsDirectory(backup.serverId),
+                    "pre_restore_$stamp.zip"
+                )
+                try {
+                    ZipUtils.zipDirectory(worldDir, preRestoreZip)
+                } catch (e: Exception) {
+                    preRestoreZip.delete()
+                    FileUtils.deleteDirectoryRecursively(tempDir)
+                    return Resource.Error("Could not create a safety snapshot of the current world (${e.message}). Restore cancelled; nothing was changed.", e)
+                }
+            }
+
+            // Step 4: Install the backup identity key only after the current world safety snapshot
+            // succeeded. Keep the previous key until the world swap is committed.
+            var identityKeyUpdated = false
+            if (hasBackupIdentityKey) {
+                try {
                     if (liveIdentityKey.isFile) {
                         liveIdentityKey.copyTo(previousIdentityKey, overwrite = true)
                     }
@@ -197,31 +225,16 @@ class WorldBackupManager @Inject constructor(
                     identityKeyUpdated = true
                 } catch (e: Exception) {
                     stagedIdentityKey.delete()
+                    if (!liveIdentityKey.exists() && previousIdentityKey.isFile) {
+                        previousIdentityKey.copyTo(liveIdentityKey, overwrite = true)
+                    }
                     previousIdentityKey.delete()
                     FileUtils.deleteDirectoryRecursively(tempDir)
                     return Resource.Error("Could not restore the NetherNet server identity key: ${e.message}. Your world was not changed.", e)
                 }
             }
 
-            // Metadata is now staged outside the world tree; never restore it into the world itself.
-            metadataDir.deleteRecursively()
-
-            // Step 3: Safety snapshot of the existing world. If it cannot be made, abort.
-            if (worldDir.exists() && worldDir.listFiles()?.isNotEmpty() == true) {
-                val preRestoreZip = File(
-                    worldManager.getBackupsDirectory(backup.serverId),
-                    "pre_restore_$stamp.zip"
-                )
-                try {
-                    ZipUtils.zipDirectory(worldDir, preRestoreZip)
-                } catch (e: Exception) {
-                    preRestoreZip.delete()
-                    FileUtils.deleteDirectoryRecursively(tempDir)
-                    return Resource.Error("Could not create a safety snapshot of the current world (${e.message}). Restore cancelled; nothing was changed.", e)
-                }
-            }
-
-            // Step 4: Swap with rollback (see WorldSwap). The old world is only deleted after the
+            // Step 5: Swap with rollback (see WorldSwap). The old world is only deleted after the
             // verified replacement is in place.
             when (val swap = WorldSwap.replace(worldDir, tempDir, oldDir, FileUtils::deleteDirectoryRecursively)) {
                 is WorldSwap.Result.Failed -> {
