@@ -66,7 +66,7 @@ for candidate in "${PHP_CANDIDATES[@]}"; do
   echo "QEMU PHP module list:" | tee -a "$REPORT"
   MODULE_OUTPUT="$("$QEMU_BIN" "$candidate" -n -m 2>&1)"
   printf '%s\n' "$MODULE_OUTPUT" | tee -a "$REPORT"
-  REQUIRED_MODULES=(curl gmp igbinary leveldb mbstring openssl phar sockets yaml zip zlib chunkutils2 crypto encoding morton pmmpthread)
+  REQUIRED_MODULES=(curl gmp igbinary leveldb mbstring openssl phar sockets yaml zip zlib chunkutils2 crypto encoding morton pmmpthread webrtc)
   MISSING=()
   for module in "${REQUIRED_MODULES[@]}"; do
     if ! grep -Eiq "^\${module}$" <<< "$MODULE_OUTPUT"; then
@@ -79,6 +79,14 @@ for candidate in "${PHP_CANDIDATES[@]}"; do
     exit 1
   fi
   echo "Required PHP module smoke check: PASS" | tee -a "$REPORT"
+  PHP_INI="$(dirname "$candidate")/php.ini"
+  if [[ -f "$PHP_INI" ]]; then
+    echo "Bundled php.ini smoke test ($PHP_INI):" | tee -a "$REPORT"
+    "$QEMU_BIN" "$candidate" -c "$PHP_INI" --ini 2>&1 | tee -a "$REPORT"
+    "$QEMU_BIN" "$candidate" -c "$PHP_INI" -m 2>&1 | tee -a "$REPORT"
+  else
+    echo "No bundled php.ini beside the CLI; using compiled-in defaults." | tee -a "$REPORT"
+  fi
   echo "PHP version constant:" | tee -a "$REPORT"
   "$QEMU_BIN" "$candidate" -n -r 'echo PHP_VERSION, PHP_EOL;' 2>&1 | tee -a "$REPORT"
 done

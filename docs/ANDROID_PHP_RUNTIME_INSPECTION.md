@@ -16,8 +16,8 @@ The runtime inspection job has now established from the release archive that:
 - The asset checksum matches the release's published SHA-256.
 - The PHP CLI is at `bin/php7/bin/php` inside the archive.
 - It is an AArch64 ELF executable with executable mode set.
-- It has no `PT_INTERP` segment and is reported by `file` as statically linked.
-- The CI job executes the ARM64 CLI under QEMU and checks the version and the PHP modules required by the selected PocketMine-compatible engine.
+- It has no `PT_INTERP` segment and is reported by `file` as statically linked. The CLI reports PHP 8.4.27 (ZTS), and its compiled module list includes the PocketMine/Axolotl extensions such as `chunkutils2`, `crypto`, `encoding`, `leveldb`, `morton`, `pmmpthread`, `webrtc`, and `yaml`.
+- The CI job executes the ARM64 CLI under QEMU, checks PHP 8.4's version, validates the PHP modules required by Axolotl-PM 5.51.1 (including `webrtc`), and exercises the bundled `php.ini` when present.
 
 This is a meaningful improvement over checking the archive structure alone. QEMU is an ARM64 userspace smoke test, not an Android device. It does not emulate app SELinux policy, Android's executable-memory restrictions, noexec mounts, or the device's process supervision behavior.
 
