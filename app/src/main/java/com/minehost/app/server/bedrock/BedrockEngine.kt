@@ -65,7 +65,7 @@ class BedrockEngine @Inject constructor(
         val phar = runtimeManager.getPocketMinePhar()
 
         if (phpBinary == null || !phpBinary.exists()) {
-            val errorMsg = "PHP runtime binary (libphp.so) was not found in native libraries or app runtimes. Please install the Bedrock runtime from Diagnostics or Setup."
+            val errorMsg = "A runnable Android ARM64 PHP CLI runtime was not found. The Bedrock engine package alone is insufficient; install a compatible PHP runtime and launcher before starting the server."
             AppLogger.e("BedrockEngine", errorMsg)
             listener.onError(errorMsg)
             return Result.failure(FileNotFoundException(errorMsg))

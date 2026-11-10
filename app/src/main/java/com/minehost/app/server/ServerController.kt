@@ -25,9 +25,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.net.DatagramSocket
 import java.net.ServerSocket
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -49,6 +52,8 @@ class ServerController @Inject constructor(
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    /** Serializes start/stop so a stop request cannot race process-handle creation. */
+    private val lifecycleMutex = Mutex()
 
     private val _activeServerId = MutableStateFlow<String?>(null)
     val activeServerId: StateFlow<String?> = _activeServerId.asStateFlow()
@@ -63,17 +68,21 @@ class ServerController @Inject constructor(
 
     private var activeProcessHandle: ServerProcessHandle? = null
     private var activeEngine: ServerEngine? = null
+    /** Distinguishes process generations, including restarts of the same server ID. */
+    private var activeSessionToken: String? = null
 
-    suspend fun startServer(serverId: String): Resource<Unit> {
+    suspend fun startServer(serverId: String): Resource<Unit> = lifecycleMutex.withLock {
         val server = serverRepository.getServerById(serverId)
-            ?: return Resource.Error("Server with ID $serverId not found")
+            ?: return@withLock Resource.Error("Server with ID $serverId not found")
 
-        if (_serverStatus.value.isRunning) {
-            return Resource.Error("Another server instance is already running")
+        if (_serverStatus.value.isRunning || activeProcessHandle?.isAlive == true) {
+            return@withLock Resource.Error("Another server instance is already running")
         }
 
-        return try {
+        val sessionToken = UUID.randomUUID().toString()
+        try {
             _activeServerId.value = serverId
+            activeSessionToken = sessionToken
             _serverStatus.value = ServerStatus.STARTING
             serverRepository.updateStatus(serverId, ServerStatus.STARTING)
             log(serverId, "[MineHost] Preparing to start ${server.name} (${server.edition})...")
@@ -87,23 +96,23 @@ class ServerController @Inject constructor(
             if (engine == null) {
                 val unsupportedMsg = "Cross-play (Java + Bedrock) is not supported yet: it requires Paper and Geyser running together, which MineHost does not implement. Create a Bedrock or Java server instead."
                 log(serverId, "[ERROR] $unsupportedMsg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(unsupportedMsg)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
+                return@withLock Resource.Error(unsupportedMsg)
             }
             activeEngine = engine
 
             if (!engine.isInstalled()) {
                 val notInstalledMsg = "Server engine '${engine.name}' is not installed on this device. Please download and install it via Diagnostics or Setup."
                 log(serverId, "[ERROR] $notInstalledMsg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(notInstalledMsg)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
+                return@withLock Resource.Error(notInstalledMsg)
             }
 
             if (server.edition == MinecraftEdition.JAVA && !server.eulaAccepted) {
                 val eulaMsg = "You must accept the Minecraft EULA (https://aka.ms/MinecraftEULA) before starting a Java server."
                 log(serverId, "[ERROR] $eulaMsg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(eulaMsg)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
+                return@withLock Resource.Error(eulaMsg)
             }
 
             // 2. Validate port conflict before starting
@@ -111,8 +120,8 @@ class ServerController @Inject constructor(
             if (isPortInUse(server.localPort, isUdp)) {
                 val portConflictMsg = "Port ${server.localPort} (${if (isUdp) "UDP" else "TCP"}) is already bound by another service on this device. Please select a different port in server settings."
                 log(serverId, "[ERROR] $portConflictMsg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(portConflictMsg)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
+                return@withLock Resource.Error(portConflictMsg)
             }
 
             // 3. Acquire system wake locks and thermal listener
@@ -145,8 +154,8 @@ class ServerController @Inject constructor(
                 val configError = configureResult.exceptionOrNull()?.message ?: "unknown error"
                 val msg = "Could not write server configuration files: $configError"
                 log(serverId, "[ERROR] $msg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(msg)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
+                return@withLock Resource.Error(msg)
             }
 
             // 5. Start foreground service
@@ -169,17 +178,32 @@ class ServerController @Inject constructor(
 
                 override fun onStarted() {
                     scope.launch {
+                        // A late readiness callback must not resurrect a server that is stopping
+                        // or overwrite the state of a different server instance.
+                        if (_activeServerId.value != serverId || activeSessionToken != sessionToken || _serverStatus.value != ServerStatus.STARTING) {
+                            AppLogger.w("ServerController", "Ignoring stale onStarted callback for $serverId")
+                            return@launch
+                        }
                         _serverStatus.value = ServerStatus.ONLINE
                         serverRepository.updateStatus(serverId, ServerStatus.ONLINE)
                         log(serverId, "[MineHost] Server process confirmed ONLINE on port ${server.localPort}!")
 
-                        // 7. Connect tunnel if enabled
-                        if (server.autoStartTunnel) {
+                        // 7. Connect tunnel if enabled. Re-check state after the suspend call:
+                        // stopServer may have run while the tunnel provider was connecting.
+                        if (server.autoStartTunnel &&
+                            _activeServerId.value == serverId &&
+                            _serverStatus.value == ServerStatus.ONLINE
+                        ) {
                             log(serverId, "[MineHost] Initiating worldwide reverse tunnel...")
                             val tunnelResult = tunnelManager.startTunnel(server.localPort, server.edition.defaultProtocol)
                             tunnelResult.onSuccess { endpoint ->
-                                serverRepository.updatePublicEndpoint(serverId, endpoint)
-                                log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
+                                if (_activeServerId.value == serverId && activeSessionToken == sessionToken && _serverStatus.value == ServerStatus.ONLINE) {
+                                    serverRepository.updatePublicEndpoint(serverId, endpoint)
+                                    log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
+                                } else {
+                                    // The server stopped while the tunnel was being established.
+                                    tunnelManager.stopTunnel()
+                                }
                             }.onFailure { err ->
                                 log(serverId, "[MineHost] Tunnel notice: ${err.message}. Server is running in LOCAL mode.")
                             }
@@ -190,14 +214,14 @@ class ServerController @Inject constructor(
                 override fun onStopped(exitCode: Int) {
                     scope.launch {
                         AppLogger.i("ServerController", "Server process exited with code: $exitCode")
-                        handleServerStopped(serverId, if (exitCode != 0) ServerStatus.CRASHED else ServerStatus.STOPPED)
+                        handleServerStopped(serverId, if (exitCode != 0) ServerStatus.CRASHED else ServerStatus.STOPPED, sessionToken)
                     }
                 }
 
                 override fun onError(error: String) {
                     scope.launch {
                         log(serverId, "[ERROR] $error")
-                        handleServerStopped(serverId, ServerStatus.ERROR)
+                        handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                     }
                 }
             }
@@ -205,21 +229,51 @@ class ServerController @Inject constructor(
             val launchResult = engine.start(serverDir, serverConfig, processListener)
             if (launchResult.isFailure) {
                 val error = launchResult.exceptionOrNull()?.message ?: "Unknown process launch failure"
-                handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error("Server start failed: $error")
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
+                return@withLock Resource.Error("Server start failed: $error")
             }
 
-            activeProcessHandle = launchResult.getOrNull()
+            val processHandle = launchResult.getOrNull()
+            if (processHandle == null) {
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
+                return@withLock Resource.Error("Server engine returned success without a process handle.")
+            }
+            activeProcessHandle = processHandle
+            if (!processHandle.isAlive) {
+                val finalStatus = if (_serverStatus.value == ServerStatus.ERROR) {
+                    ServerStatus.ERROR
+                } else {
+                    ServerStatus.CRASHED
+                }
+                activeProcessHandle = null
+                activeEngine = null
+                handleServerStopped(serverId, finalStatus, sessionToken)
+                return@withLock Resource.Error("Server process exited immediately after launch. Check the server console and runtime.")
+            }
             Resource.Success(Unit)
         } catch (e: Exception) {
             AppLogger.e("ServerController", "Exception starting server: ${e.message}", e)
-            handleServerStopped(serverId, ServerStatus.ERROR)
+            handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
             Resource.Error("Failed to start server: ${e.message}", e)
         }
     }
 
-    suspend fun stopServer(serverId: String): Resource<Unit> {
-        val handle = activeProcessHandle ?: return Resource.Success(Unit)
+    suspend fun stopServer(serverId: String): Resource<Unit> = lifecycleMutex.withLock {
+        val activeId = _activeServerId.value
+        if (activeId != null && activeId != serverId) {
+            return@withLock Resource.Error("Server '$activeId' is currently active; cannot stop '$serverId'.")
+        }
+        val sessionToken = activeSessionToken
+        val handle = activeProcessHandle
+        if (handle == null) {
+            if (activeId == serverId && _serverStatus.value.isRunning) {
+                // Do not claim success when the state machine says a process is active but
+                // no process handle exists. Reconcile the stale state instead.
+                handleServerStopped(serverId, ServerStatus.CRASHED, sessionToken)
+                return@withLock Resource.Error("The server was marked active but its process handle is missing. State was recovered; start it again.")
+            }
+            return@withLock Resource.Success(Unit)
+        }
         val engine = activeEngine
 
         _serverStatus.value = ServerStatus.STOPPING
@@ -233,12 +287,21 @@ class ServerController @Inject constructor(
         val stoppedCleanly = engine?.stop(handle, 15_000L) ?: true
         if (stoppedCleanly) {
             log(serverId, "[MineHost] Server process terminated gracefully.")
+        } else if (!handle.isAlive) {
+            log(serverId, "[MineHost] Graceful shutdown timed out; the process was forcibly terminated.")
         } else {
-            log(serverId, "[MineHost] Server process was forcibly stopped after timeout.")
+            // Do not clear the active handle, release the wake lock or claim STOPPED while
+            // the OS still reports the process alive. The process-exit watcher can reconcile
+            // the state if it exits later.
+            log(serverId, "[ERROR] Server process is still alive after the forced-stop timeout.")
+            return@withLock Resource.Error("The server did not exit after the forced-stop timeout. MineHost is keeping its active state and wake lock until process exit is confirmed.")
         }
 
-        handleServerStopped(serverId, ServerStatus.STOPPED)
-        return Resource.Success(Unit)
+        if (handle.isAlive) {
+            return@withLock Resource.Error("The server stop result could not be confirmed; the process is still alive.")
+        }
+        handleServerStopped(serverId, ServerStatus.STOPPED, sessionToken)
+        return@withLock Resource.Success(Unit)
     }
 
     fun sendCommand(command: String): Boolean {
@@ -305,12 +368,22 @@ class ServerController @Inject constructor(
         }
     }
 
-    private suspend fun handleServerStopped(serverId: String, finalStatus: ServerStatus) {
-        _serverStatus.value = finalStatus
+    private suspend fun handleServerStopped(
+        serverId: String,
+        finalStatus: ServerStatus,
+        sessionToken: String? = null
+    ) {
+        // A process-generation token prevents a late callback from a previous run (including
+        // a restart of the same server ID) from clearing the new process or its wake locks.
+        if (sessionToken != null && activeSessionToken != sessionToken) return
+        if (_activeServerId.value != serverId) return
+
         serverRepository.updateStatus(serverId, finalStatus)
         serverRepository.updatePublicEndpoint(serverId, null)
+        _serverStatus.value = finalStatus
         activeProcessHandle = null
         activeEngine = null
+        activeSessionToken = null
         _activeServerId.value = null
         playerTracker.reset()
         _onlinePlayers.value = emptySet()

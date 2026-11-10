@@ -99,8 +99,10 @@ class RuntimeManager @Inject constructor(
      * Checks whether device CPU architecture is 64-bit ARM (arm64-v8a) or x86_64.
      */
     fun isSupportedArchitecture(): Boolean {
-        val abis = Build.SUPPORTED_ABIS
-        return abis.any { it.contains("arm64") || it.contains("aarch64") || it.contains("x86_64") }
+        // The current runtime strategy targets Android ARM64/Bionic only.
+        // x86_64 Linux server assets are not compatible with Android merely because
+        // the emulator reports the same CPU architecture.
+        return Build.SUPPORTED_ABIS.any { it == "arm64-v8a" || it == "aarch64" }
     }
 
     fun getDeviceArchitecture(): String {
@@ -110,26 +112,33 @@ class RuntimeManager @Inject constructor(
     /**
      * Verifies that Bedrock PocketMine-MP and its PHP runtime are actually installed on disk.
      */
-    fun isBedrockPocketMineInstalled(): Boolean {
+    fun isPocketMinePharAvailable(): Boolean {
         val phar = File(baseEnginesDir, "bedrock/PocketMine-MP.phar")
+        return phar.isFile && phar.length() > 100_000
+    }
+
+    /** The engine is runnable only when both its server archive and PHP CLI runtime exist. */
+    fun isBedrockPocketMineInstalled(): Boolean {
         val phpBinary = getPhpExecutable()
-        return phar.exists() && phar.length() > 100_000 && phpBinary != null && phpBinary.exists()
+        return isPocketMinePharAvailable() && phpBinary != null && phpBinary.isFile && phpBinary.canExecute()
     }
 
     /**
-     * Finds the PHP executable either in nativeLibraryDir or in private app runtimes.
+     * Finds a PHP CLI launcher in the managed runtime layout.
+     *
+     * The app requires a real Android-compatible executable, not libphp.so as a
+     * generic shared library. A packaged libphp.so is accepted only as a potential
+     * CLI launcher artifact and must still pass an actual process-launch test.
      */
     fun getPhpExecutable(): File? {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val inNativeLib = File(nativeDir, "libphp.so")
-        if (inNativeLib.exists()) return inNativeLib
-
         val inRuntimes = File(baseRuntimesDir, "php/bin/php")
-        if (inRuntimes.exists() && inRuntimes.canExecute()) return inRuntimes
+        if (inRuntimes.isFile && inRuntimes.canExecute()) return inRuntimes
 
-        // Standalone binary in runtimes/php
         val inPhpRoot = File(baseRuntimesDir, "php/php")
-        if (inPhpRoot.exists()) return inPhpRoot
+        if (inPhpRoot.isFile && inPhpRoot.canExecute()) return inPhpRoot
+
+        val packagedCli = File(context.applicationInfo.nativeLibraryDir, "libphp.so")
+        if (packagedCli.isFile && packagedCli.canExecute()) return packagedCli
 
         return null
     }
@@ -145,10 +154,13 @@ class RuntimeManager @Inject constructor(
     /**
      * Verifies that PaperMC Java JAR is actually installed on disk.
      */
-    fun isPaperJavaInstalled(): Boolean {
+    fun isPaperJarAvailable(): Boolean {
         val jar = File(baseEnginesDir, "java/paper.jar")
-        return jar.exists() && jar.length() > 1_000_000
+        return jar.isFile && jar.length() > 1_000_000
     }
+
+    /** Paper is runnable only when both the server JAR and a Java launcher are present. */
+    fun isPaperJavaInstalled(): Boolean = isPaperJarAvailable() && getJavaExecutable() != null
 
     fun getPaperJar(): File? {
         val jar = File(baseEnginesDir, "java/paper.jar")
@@ -156,26 +168,35 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
+     * Returns the Java launcher from a complete runtime layout.
+     *
+     * A JVM shared library (for example libjava.so/libjvm.so) is not itself the
+     * command-line Java launcher. MineHost requires a complete runtime with bin/java.
+     * The launcher still needs a device-tested Android-compatible execution strategy.
+     */
+    fun getJavaHome(): File? {
+        val home = File(baseRuntimesDir, "java")
+        return home.takeIf { File(it, "bin/java").isFile }
+    }
+
+    fun getJavaExecutable(): File? {
+        val home = getJavaHome() ?: return null
+        return File(home, "bin/java").takeIf { it.isFile && it.canExecute() }
+    }
+
+    /**
      * Verifies that Playit agent executable exists and is executable.
      */
-    fun isPlayitAgentInstalled(): Boolean {
-        val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return true
-
-        val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        return inTunnels.exists() && inTunnels.length() > 100_000
-    }
+    fun isPlayitAgentInstalled(): Boolean = getPlayitExecutable() != null
 
     fun getPlayitExecutable(): File? {
         val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return inNativeLib
+        if (inNativeLib.isFile && inNativeLib.canExecute()) return inNativeLib
 
+        // Do not chmod downloaded files here: Android's app-data execution restrictions
+        // cannot be bypassed by setting the executable bit.
         val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        if (inTunnels.exists()) {
-            inTunnels.setExecutable(true)
-            return inTunnels
-        }
-        return null
+        return inTunnels.takeIf { it.isFile && it.length() > 100_000 && it.canExecute() }
     }
 
     // ------------------------------------------------------------------ source resolution

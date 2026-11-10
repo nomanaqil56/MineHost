@@ -1,79 +1,162 @@
-# MineHost — Supported Server Engines & Compatibility
+# MineHost — Server Engine Evaluation and Compatibility
 
-## 1. Supported Server Engines
+**Status:** No engine is currently physically verified on Android by MineHost. This is an evaluation matrix, not a list of production-supported engines.
 
-MineHost provides a modular server engine interface. Below is the detailed breakdown of supported engines, their installation requirements, runtime configurations, and known limitations.
+An engine may be shown as supported only after its exact engine/runtime/transport combination passes on a physical Android ARM64 device with a real Minecraft client.
 
----
+## 1. Bedrock Edition candidates
 
-## 2. Bedrock Edition Engines
+### VanillaMine — leading PHP candidate to investigate
+- Continuation of PocketMine-MP 5, currently advertises Bedrock 1.26.60 and NetherNet.
+- Its current published PHP binaries are listed for Linux x86-64 and Windows x64; its install docs say ARM builds are not yet available.
+- NetherNet helper pm-nethernet is included; Android/Bionic helper compatibility is not proven.
+- Requires PHP 8.4 with engine-specific native extensions.
+- **MineHost status:** not integrated as a validated runtime; Android ARM64 PHP + helper build is a critical blocker.
 
-### 2.1 PocketMine-MP (v5.x)
-- **Engine ID:** `bedrock-pocketmine-v5`
-- **Architecture:** PHP 8.2+ (ZTS - Zend Thread Safety) compiled for `aarch64-linux-android`.
-- **Target Minecraft Client:** Bedrock 1.20.x - 1.21.x (updated via RakLib & protocol updates).
-- **Default Port:** `19132` (UDP RakNet).
-- **Binary Components:**
-  - `PocketMine-MP.phar`: Core server archive.
-  - Native PHP binary (`libphp.so` in `nativeLibraryDir`).
-  - `start.sh` or direct executable invocation via ProcessBuilder.
-- **Resource Footprint:**
-  - Idle RAM: ~180 MB.
-  - Active (2-4 players): ~350 MB.
-- **Advantages:** Extremely low memory and CPU usage; instantaneous startup; low thermal impact on mobile devices.
-- **Limitations:**
-  - Does not implement vanilla mob AI by default (requires plugins like PureEntitiesX).
-  - Nether/The End dimensions require plugins or custom world generators.
-  - Redstone mechanics are limited compared to Bedrock Dedicated Server.
+Sources: [VanillaMine](https://vanillamine.com/), [Install](https://docs.vanillamine.com/server/install), [Networking](https://docs.vanillamine.com/server/network).
 
-### 2.2 PowerNukkitX (PNX)
-- **Engine ID:** `bedrock-powernukkitx`
-- **Architecture:** Java 21 on Android ARM64 JVM.
-- **Target Minecraft Client:** Bedrock 1.20.x - 1.21.x.
-- **Default Port:** `19132` (UDP RakNet).
-- **Binary Components:**
-  - `powernukkitx.jar`.
-  - Android JRE 21 runtime.
-- **Resource Footprint:**
-  - Idle RAM: ~650 MB.
-  - Active (2-4 players): ~1.2 GB.
-- **Advantages:**
-  - Extensive vanilla feature parity: mob AI, complete redstone simulation, water physics, multi-dimensions (Overworld, Nether, End).
-  - Modern Java plugin API with reflection and events.
-- **Limitations:** Higher RAM and battery consumption than PocketMine-MP. Requires devices with at least 6GB physical RAM.
+### Altay — secondary PHP candidate
+- Current downloads page advertises Altay 5.45.1 for Bedrock 1.26.60 and provides its own PHP binaries/extensions.
+- Android ARM64 support and NetherNet behaviour must be verified from its exact release/build system.
+- **MineHost status:** evaluation only.
 
----
+Sources: [Altay](https://getaltay.org/), [Downloads](https://getaltay.org/downloads).
 
-## 3. Java Edition Engines
+### Original PocketMine-MP
+- Original upstream and its PHP-Binaries repository are archived; its last upstream release is reported as Bedrock 1.26.30.
+- Do not treat the old pmmp/PocketMine-MP latest-release downloader as the long-term current Bedrock engine.
+- **MineHost status:** existing adapter is legacy scaffolding; do not advertise as current Bedrock support.
 
-### 3.1 PaperMC
-- **Engine ID:** `java-paper`
-- **Architecture:** Java 17/21 OpenJDK.
-- **Target Minecraft Client:** Java Edition (versions 1.20.4, 1.21+).
-- **Default Port:** `25565` (TCP).
-- **Binary Components:**
-  - `paper-<version>.jar`.
-  - Android JRE 17/21.
-- **Startup Parameters:**
-  - `-Xms256M -Xmx1536M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -jar paper.jar --nogui`
-- **Resource Footprint:**
-  - Idle RAM: ~900 MB.
-  - Active (2-4 players): ~1.8 GB.
-- **Advantages:** Industry-standard optimization, anti-X-ray, async chunk loading, Bukkit/Spigot/Paper plugin support.
-- **Limitations:** Requires substantial memory; not recommended for low-end devices with <= 4GB RAM.
+Sources: [PocketMine docs](https://doc.pmmp.io/en/rtfd/), [Archived PHP-Binaries](https://github.com/pmmp/PHP-Binaries).
 
----
+### Allay
+- Java 21 Bedrock server with multi-version goals and a shaded JAR.
+- Potentially shares the JVM runtime layer with Paper.
+- Current public README does not prove NetherNet 26.60+ or Android device compatibility.
+- **MineHost status:** evaluate only after verifying current protocol support and Android JVM performance.
 
-## 4. Cross-Play Integration (Geyser & Floodgate)
+Source: [Allay GitHub](https://github.com/AllayMC/Allay).
 
-### 4.1 Geyser-Standalone Bridge
-- **Engine ID:** `crossplay-geyser-standalone`
-- **Target Setup:** Runs alongside PaperMC.
-- **Ports:**
-  - Bedrock Facing: `19132` (UDP).
-  - Java Facing: `127.0.0.1:25565` (TCP loopback).
-- **Authentication Modes:**
-  - `online`: Bedrock players log in with their Java-licensed Microsoft account.
-  - `floodgate`: Bedrock players can join using their Bedrock Xbox credentials via automatic public/private key verification without purchasing a separate Java account.
-- **Configuration:** Auto-generated `config.yml` synchronizing server MOTD, player limits, and loopback forwarding.
+### PowerNukkitX / Cloudburst Nukkit
+- Java-based Bedrock candidates.
+- Require the same complete Android-compatible Java runtime as Java Edition hosting.
+- Current NetherNet/client compatibility must be independently verified.
+- **MineHost status:** future candidates, not selected.
 
+### Official Bedrock Dedicated Server
+- Mojang's current downloads are documented for Windows x64 and Ubuntu Linux x64, not ARM-based devices.
+- Do not use x86 emulation as the default mobile path.
+- **MineHost status:** not a native Android ARM64 option.
+
+Source: [Mojang Bedrock server setup](https://help.minecraft.net/hc/en-us/articles/49914677714957).
+
+## 2. Bedrock transport compatibility
+
+Bedrock 26.60+ uses NetherNet; older RakNet-only probing is not sufficient. NetherNet uses WebRTC data channels with HTTP signaling and ICE. Current server connections require TCP signaling and UDP gameplay. iOS clients require HTTPS signaling with a trusted certificate.
+
+Requirements for each engine:
+- Correct GET /v1/join capability and metadata response.
+- Correct POST /v1/join/{networkId} SDP exchange.
+- Valid server identity assertion and stable operator identity key.
+- Reachable ICE candidate from the player's network.
+- Working DTLS/SCTP data channels and engine bridge.
+- TCP and UDP reachability.
+- Real clients from Android, Windows and iOS where advertised.
+
+The existing MineHost RakNet UDP probe must only be used for an engine/client combination that actually supports RakNet. Implement a separate NetherNet-aware readiness test; an HTTP endpoint alone is not enough to prove a data channel can carry gameplay.
+
+Source: [Mojang NetherNet onboarding guide](https://mojang.github.io/bedrock-protocol-docs/guides/nether-net-onboarding-guide/).
+
+## 3. Java Edition candidate — PaperMC
+
+- Existing source adapter ID: java-paper.
+- Requires a complete Java 17/21-compatible JVM distribution and launcher for Android ARM64.
+- Android ART does not execute desktop Java server JARs as a substitute for a desktop JVM.
+- Amethyst-Android (the maintained successor to discontinued PojavLauncher) documents mobile OpenJDK 17/21 ARM64 ports; this is a runtime research lead, not proof that the runtime can execute headless Paper.
+- Validate TLS, modules, native libraries, threads, filesystem, signal handling and headless server operation.
+- Measure RAM, GC pauses, tick time, chunk generation and thermal load on real phones.
+- **MineHost status:** Paper adapter/downloader source present; JVM and gameplay BLOCKED/UNVERIFIED.
+
+Sources: [Amethyst-Android](https://github.com/AngelAuraMC/Amethyst-Android), [Amethyst runtime builds](https://github.com/AngelAuraMC/android-openjdk-build-multiarch).
+
+## 4. Java/Bedrock cross-play
+
+Candidate stack:
+- PaperMC (or a validated Java server) as the Java server.
+- GeyserMC as the Bedrock-to-Java bridge.
+- Floodgate where the selected authentication model requires it.
+
+Current Geyser builds support NetherNet (build 1237+) and Geyser build 1276 advertises Bedrock 26.40–26.63 / Java 26.3 support. Configure bedrock.transport: nethernet; the Bedrock endpoint requires TCP signaling and UDP gameplay on its port. The Bedrock port must not collide with Paper's Java TCP port.
+
+Sources: [Geyser downloads](https://geysermc.org/download/), [Geyser NetherNet migration guide](https://geysermc.org/blog/preparing-for-nethernet/), [Geyser setup](https://geysermc.org/wiki/geyser/setup/).
+
+**MineHost status:** configuration scaffolding only; operational cross-play NOT IMPLEMENTED/VERIFIED.
+
+## 5. Runtime execution is a first-class dependency
+
+For every engine/runtime combination, record:
+- CPU ABI and Android API levels tested.
+- Exact runtime build, source URL, licence and provenance.
+- ELF type, interpreter, libc dependencies and native extensions.
+- Trusted checksum/signature and verification result.
+- Launcher path and executable placement.
+- Startup logs and protocol readiness response.
+- Stop/restart behaviour.
+- RAM, CPU, battery and thermal measurements.
+- Real client protocol versions tested.
+
+A PHAR/JAR download is not a runnable server. A file named libphp.so or libjava.so is not automatically a CLI executable. Android 10+ execution from writable app data requires a proven launch strategy; setExecutable(true) alone is not enough.
+
+## 6. Compatibility matrix
+
+| Engine | Runtime | Android API/ABI | Bedrock/Java versions | Transport | LAN join | Remote join | Status |
+|---|---|---|---|---|---|---|---|
+| VanillaMine | PHP 8.4 + extensions + pm-nethernet | ARM64 Android build required | 1.26.60+ | NetherNet + legacy RakNet | Pending | Pending | EVALUATION |
+| Altay | Project PHP build | ARM64 Android build required | 1.26.60 advertised | Verify | Pending | Pending | EVALUATION |
+| Allay | Java 21 | Android ARM64 JVM required | Verify | Verify NetherNet | Pending | Pending | EVALUATION |
+| Paper | Java 17/21 | Android ARM64 JVM required | Exact tested versions | TCP | Pending | Pending | BLOCKED |
+| Paper + Geyser | Java 17/21 + Geyser | Android ARM64 JVM required | Java 26.3 / Bedrock 26.40–26.63 advertised by current Geyser | TCP + NetherNet | Pending | Pending | NOT IMPLEMENTED |
+
+Never fill this table with guessed compatibility or untested RAM numbers.
+
+## 7. Selection principle
+
+Choose the smallest maintained engine set that meets the product promise:
+1. One Bedrock engine with a reproducible Android ARM64 runtime and current NetherNet support.
+2. One Java engine with a reproducible Android ARM64 JVM and real client join.
+3. Geyser/Floodgate only after both underlying runtime and transport paths work.
+
+Prioritize stability, low resource use, current protocol support and maintainability over the number of engine options in the UI.
+
+
+## 8. New implementation findings (2026-11-10)
+
+### Bedrock runtime path
+
+VanillaMine remains the leading proof-of-concept candidate, not a selected production engine:
+- Pin a current VanillaMine release that supports the target Bedrock protocol (the reviewed 5.48.4 release advertises 1.26.60).
+- Build or obtain an Android ARM64 PHP 8.4 runtime with the exact extension versions required by that release. The available Altay PHP-Binaries Android PHP 8.4 archive is a useful feasibility lead, but its inspected `chunkutils2` version (0.3.5) is behind VanillaMine's documented 0.3.15 requirement.
+- Build `pm-nethernet` for Android ARM64 from its Go source (MIT, Go 1.26.0). The helper path is configurable in VanillaMine; package it as an Android executable only after ELF and physical-device launch tests.
+- Do not bundle a Linux ARM64 helper and assume it is an Android binary.
+
+Altay is a secondary candidate. Its Android-targeted PHP build and pure-PHP NetherNet implementation are interesting, but the `altayofficial/network` dependency is GPL-3.0-or-later and needs licence review. The Android PHP archive's extension versions must be matched to the exact Altay release too.
+
+### Java and cross-play candidate
+
+The first Java stack worth validating is:
+- Paper 1.21.11 on a Java 21 ARM64 runtime.
+- ViaVersion 5.12.0 to support newer Java 26.3 clients while the backend remains on a Java-21-compatible Paper release.
+- Current Geyser build 1276 (reviewed compatibility range: Bedrock 26.40–26.63 / Java 26.3) with `bedrock.transport: nethernet`.
+- Floodgate where the selected authentication model requires it.
+
+Amethyst-Android's OpenJDK 21 ARM64 runtime is a candidate, not a verified headless server runtime. Paper must be started and joined by a real Java client before this stack is selected.
+
+### Port model for cross-play
+
+A cross-play server needs separate public ports:
+- Java: TCP only (Paper server port).
+- Bedrock: TCP signaling + UDP gameplay (Geyser NetherNet port).
+
+The Bedrock port cannot be shared with Paper's Java TCP port. If HTTPS signaling is terminated by a MineHost relay, Geyser's internal signaling TCP port can differ from its public Bedrock port; the relay maps public TCP to internal signaling TCP and public UDP to the WebRTC gameplay port. Geyser must trust the local proxy and use the forwarded client address. See [Geyser HTTPS for NetherNet](https://github.com/GeyserMC/GeyserWebsite/blob/master/wiki/geyser/nethernet-https.mdx).
+
+**None of these stacks is currently integrated or physically verified by MineHost.**

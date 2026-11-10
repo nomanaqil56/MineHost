@@ -1,89 +1,112 @@
-# MineHost — Build & Installation Guide
+# MineHost — Build and Device Test Guide
+
+This guide covers building the Android application. **A successful APK build does not mean Minecraft hosting works.** Runtime execution and gameplay remain blocked until verified on physical Android hardware. See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
 
 ## 1. Prerequisites
 
-To build MineHost from source, ensure you have:
-- **Operating System:** Windows 10/11, macOS, or Linux.
-- **JDK:** OpenJDK 17 or 21 (Temurin, Zulu, or Microsoft OpenJDK).
-- **Android SDK:**
-  - Android SDK Platform 34 (Android 14).
-  - Android SDK Build-Tools 34.0.0.
-  - CMake 3.22+ and NDK 26.x (optional for custom C++ modules).
-- **Git:** Git 2.30+ installed and configured.
+- Windows 10/11, macOS or Linux.
+- JDK 17.
+- Android SDK Platform 36 and Build Tools 36.0.0 (matching the current project configuration).
+- Git.
+- Android ARM64 physical device and ADB for end-to-end testing.
 
----
+The project targets Android 16 (API 36) and currently uses Gradle Wrapper 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.21, Compose BOM 2026.04.01, KSP 2.3.9, Room 2.8.5, Hilt 2.57.2 and JDK 17. Use the checked-in wrapper rather than a globally installed Gradle. The API 36 stack passed unit tests, lint and debug APK assembly in CI run 42754538024. The expanded workflow also verifies release lint, unsigned release APK and App Bundle; check the latest branch run for its result.
 
-## 2. Building the Debug APK
+## 2. Build and test locally
 
-### Option A: Local Build with Gradle Wrapper
-```bash
-# Clone the repository
-git clone https://github.com/nomanaqil56/MineHost.git
-cd MineHost
+### Windows PowerShell
 
-# On Linux / macOS
-chmod +x gradlew
-./gradlew assembleDebug
-
-# On Windows PowerShell
+```powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat lintDebug
 .\gradlew.bat assembleDebug
 ```
-The output APK is generated at:
+
+### macOS / Linux
+
+```bash
+chmod +x ./gradlew
+./gradlew testDebugUnitTest
+./gradlew lintDebug
+./gradlew assembleDebug
+./gradlew lintRelease
+./gradlew assembleRelease bundleRelease
+```
+
+Debug APK output:
+
 `app/build/outputs/apk/debug/app-debug.apk`
 
-### Option B: Automated Build via GitHub Actions CI
-Every commit pushed to `nomanaqil56/MineHost` triggers `.github/workflows/build-apk.yml`.
-1. Open [https://github.com/nomanaqil56/MineHost/actions](https://github.com/nomanaqil56/MineHost/actions).
-2. Select the latest build run.
-3. Download the `minehost-debug-apk` artifact.
+## 3. Continuous integration
 
----
+The repository includes `.github/workflows/android-ci.yml`. The API 36 debug baseline [run 42754538024](https://github.com/nomanaqil56/MineHost/actions/runs/42754538024) passed unit tests, Android lint and debug APK assembly. The expanded workflow additionally runs release lint, assembles the unsigned release APK and Android App Bundle, and uploads both debug and release artifacts. Check the latest branch run before relying on the expanded release result. This is build verification only; it does not prove runtime launch or gameplay.
 
-## 3. Physical-Device Installation & Testing Guide
+CI does not replace physical-device or real Minecraft-client testing.
 
-### Step 1: Install APK onto Android Device
+## 4. Install on a physical device
+
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
-*Alternatively, transfer the APK file to your device via USB or download it directly from GitHub, then tap to install (enable "Install unknown apps" if prompted).*
 
-### Step 2: Grant Required Permissions
-1. Open **MineHost**.
-2. Grant **Notification Permission** (required on Android 13+ to display the ongoing server status and stop controls).
-3. In **Diagnostics & Setup** screen, tap **Disable Battery Optimization** to ensure Android does not kill the server when the screen locks.
+Grant only the permissions required by the app. Review notification, battery-optimization and foreground-service prompts. OEM battery settings differ; a foreground service does not guarantee immunity from all vendor process-killing policies.
 
-### Step 3: Install Server Engine Components
-1. In MineHost, navigate to **Diagnostics & Setup** (top-right gear icon).
-2. Under **Server Engines & Runtimes**, tap **Download** next to **Bedrock Engine (PocketMine-MP)**.
-3. The app will download and verify `PocketMine-MP.phar` directly into your private app files.
+## 5. Current runtime limitation
 
-### Step 4: Create and Start Your Bedrock Server
-1. Return to the **Dashboard** and tap the **+** (Create Server) button.
-2. Enter a server name (e.g. *Survival World*).
-3. Select **Bedrock Edition** (Default Port: `19132`).
-4. Keep **Worldwide Public Tunnel** checked (or uncheck for local Wi-Fi only).
-5. Tap **Create Server**.
-6. On the Server Details screen, tap **START SERVER**.
-7. The notification will show the server status.
+The Diagnostics screen may report that PHP or Java runtime components are unavailable. Do not assume downloading a server PHAR/JAR alone is sufficient:
+- The leading Bedrock proof-of-concept candidate is VanillaMine, which requires a current Android ARM64 PHP 8.4 runtime with matching extensions and an Android ARM64 `pm-nethernet` helper. Altay is a secondary candidate; its PHP runtime and licence obligations need separate validation.
+- The Java proof-of-concept candidate is Paper 1.21.11 on a complete Android-compatible ARM64 Java 21 runtime. ViaVersion/Geyser/Floodgate are not yet operationally integrated.
+- A desktop Linux executable or a file named `libphp.so` / `libjava.so` is not automatically runnable on Android.
 
-### Step 5: Connect Second Minecraft Device (Local Wi-Fi)
-1. Connect a second device (phone, tablet, or PC) to the same Wi-Fi network.
-2. Open **Minecraft: Bedrock Edition**.
-3. Go to **Play -> Servers -> Add Server**.
-4. Server Name: `MineHost Local`
-5. Server Address: Enter the local IP address of your Android phone (e.g. `192.168.1.50`).
-6. Port: `19132`.
-7. Tap **Save** and **Join Server**.
-8. Build something, break blocks, and chat!
+Do not proceed to gameplay acceptance testing until the selected runtime is validated on the target device.
 
-### Step 6: Worldwide Multiplayer (Playit.gg)
-1. If Worldwide Tunnel is enabled, MineHost will initialize the Playit agent.
-2. If first time, tap **Claim Agent on Playit.gg** to link your free agent.
-3. Once assigned, your public address (e.g. `xyz.gl.joinmc.link:38491`) appears on screen.
-4. Friends can join from another Wi-Fi or cellular network from anywhere in the world!
+## 6. Physical-device acceptance sequence
 
-### Step 7: Stop & Persistence Verification
-1. Tap **STOP SERVER** in MineHost.
-2. Wait for graceful shutdown.
-3. Tap **START SERVER** again.
-4. Rejoin from Minecraft to confirm world blocks and inventory are preserved!
+Follow [DEVICE_TESTING.md](DEVICE_TESTING.md). At minimum:
+
+1. Record device model, Android version, ABI, available RAM and free storage.
+2. Install the debug APK and verify the app opens without crash.
+3. Verify database migration by upgrading over a prior test install with test data.
+4. Install the selected engine and runtime from verified sources.
+5. Start the server and confirm ONLINE only after a real protocol readiness response.
+6. Join from a second device on the same Wi-Fi network.
+7. Place/break blocks, stop and restart; verify persistence.
+8. Create and restore a backup of a real world.
+9. Lock the screen and run a sustained hosting test while monitoring temperature, battery and memory.
+10. Test cellular and external connectivity only after MineHost's own relay implementation is available.
+11. Record logs, failure details and reproducible steps.
+
+## 7. Release build signing
+
+Release signing is configured through environment variables or uncommitted `local.properties` entries:
+
+- `MINEHOST_KEYSTORE_FILE`
+- `MINEHOST_KEYSTORE_PASSWORD`
+- `MINEHOST_KEY_ALIAS`
+- `MINEHOST_KEY_PASSWORD`
+
+Never commit keystores or passwords. Without a configured production key, the release build is intentionally unsigned. Do not use the debug key for distribution.
+
+## 8. Verification record
+
+For each acceptance run, record:
+- Commit SHA.
+- Build variant and CI run URL.
+- Device model, Android version and ABI.
+- Engine/runtime version and source.
+- Minecraft client version and platform.
+- Network type and ISP/region (avoid recording personal IPs in public logs).
+- Steps performed and pass/fail outcome.
+- Relevant redacted logs and metrics (p50/p95 RTT, jitter, loss, TPS/MSPT, thermal state).
+
+Never mark a feature as device-tested or production-ready based only on a successful compile.
+
+
+## 9. Latest CI evidence
+
+- Branch: `work/production-readiness`
+- Commit: `d02fa9c1909886cdad1ca1e008eb32d391c2f292`
+- Workflow: [Android CI run 42753556848](https://github.com/nomanaqil56/MineHost/actions/runs/42753556848)
+- Result: unit tests PASS, lint PASS, debug APK assembly PASS.
+- Debug APK artifact: `minehost-debug-apk` (68.9 MB APK inside the workflow ZIP; temporary artifact expires after 14 days).
+- This is not a release-signed APK and does not include the not-yet-integrated PHP/JVM runtimes or MineHost relay. Use it only to inspect the app shell and exercise current implemented UI/source paths.

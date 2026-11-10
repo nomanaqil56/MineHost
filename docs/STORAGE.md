@@ -1,95 +1,96 @@
-# MineHost — Local World Storage & Backup Management
+# MineHost — Local World Storage and Backup Management
 
-## 1. Storage Architecture & Privacy
+**Product rule:** the user's worlds remain on the Android host device. MineHost does not require cloud world storage. The user must be able to export their world/server data and move it to another host.
 
-MineHost strictly adheres to the principle of **local data ownership**:
-- **Zero Cloud Storage:** World files, player inventories, and logs remain on the host's physical device.
-- **Durable Storage Path:** Located in `context.filesDir/minehost/`, immune to cache clearing or temp cleaning by the OS.
-- **Scoped Storage Access Framework (SAF):** User world import/export operations use Android's `ActivityResultContracts.OpenDocument` and `CreateDocument` to interact safely with external storage or SD cards without requiring broad `MANAGE_EXTERNAL_STORAGE` permissions on Android 11+.
+This document describes the current storage design and safeguards. Real engine-specific world backup/restore still requires physical-device testing.
 
----
+## 1. Storage and privacy
 
-## 2. Directory Layout
+- Server metadata, logs and world files are stored under app-private `context.filesDir/minehost/`.
+- Cache directories are not used for durable world data.
+- Import/export should use Android Storage Access Framework pickers (OpenDocument/CreateDocument) rather than broad storage permissions.
+- MineHost should not upload world contents to its control plane or relay infrastructure.
+- App uninstall can remove app-private data; users must be clearly told to export or back up important worlds before uninstalling.
 
-```
+## 2. Expected directory layout
+
+```text
 /data/data/com.minehost.app/files/minehost/
-│
-├── servers/
-│   └── <server_uuid>/
-│       ├── server.json             # Application metadata (name, port, engine, settings)
-│       ├── server.properties       # Standard Minecraft engine properties
-│       │
-│       ├── worlds/                 # World files
-│       │   └── world/              # Active world save
-│       │       ├── level.dat       # NBT world header
-│       │       ├── db/             # Bedrock LevelDB database OR
-│       │       └── region/         # Java Anvil .mca region files
-│       │
-│       ├── plugins/                # Plugins / Addons
-│       ├── logs/                   # Server execution and console logs
-│       └── backups/                # Local compressed backup archives (.zip)
-│
-├── engines/
-│   ├── bedrock/
-│   │   └── pmmp/PocketMine-MP.phar
-│   └── java/
-│       └── paper/paper-1.20.4.jar
-│
-└── backups_global/                 # Restorable multi-server archive index
+  servers/
+    <server-id>/
+      worlds/
+      plugins/
+      logs/
+      backups/
+      config/
+  engines/
+    bedrock/
+    java/
+  runtimes/
+  tunnels/
+  runtime_manifest.json
 ```
 
----
+Engine adapters own the exact engine-specific paths. Bedrock LevelDB and Java Anvil worlds are not interchangeable. Never assume the same world layout or import compatibility.
 
-## 3. World Backup & Snapshot Management
+## 3. Backup creation
 
-### 3.1 Consistent Snapshot Protocol
-Copying active world files (LevelDB `.ldb` or Anvil `.mca`) while the server process is writing risks corrupting chunk index tables. MineHost enforces the following backup protocol:
+### Offline backup
+1. Verify the server process is stopped.
+2. Resolve the exact world path from the engine adapter.
+3. Check available storage.
+4. Create an archive in a temporary location.
+5. Generate a content checksum/manifest.
+6. Verify the archive can be read.
+7. Atomically move it into the backup directory and persist metadata.
 
-1. **Online Backup:**
-   - Dispatches `save-off` (or engine equivalent) to the server console.
-   - Dispatches `save-all flush` to ensure all cached chunks are committed to disk.
-   - Waits for console confirmation (`Save completed` or `Flushed world data`).
-   - Recursively reads and compresses the world directory into a timestamped `.zip` archive.
-   - Dispatches `save-on` to resume normal autosaves.
-2. **Offline Backup:**
-   - Automatically executed before engine upgrades, world imports, or world restorations.
-   - Directly packages the quiescent world folder.
+### Online backup
+The current source attempts to pause world saving, issue a save/flush command, wait a fixed interval, archive the world, then resume saving in a `finally` block.
 
-### 3.2 Backup Metadata & Recovery
-Each backup archive contains a companion `backup_manifest.json`:
-```json
-{
-  "backupId": "backup_20261106_143000",
-  "serverId": "srv_a1b2c3d4",
-  "serverName": "Survival Realm",
-  "edition": "BEDROCK",
-  "engine": "bedrock-pocketmine-v5",
-  "minecraftVersion": "1.20.80",
-  "worldName": "world",
-  "createdAt": "2026-11-06T14:30:00Z",
-  "sizeBytes": 48291040,
-  "fileCount": 184,
-  "checksumSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-}
-```
+**Known limitation:** the implementation currently uses a fixed settle delay; it does not have a confirmed server-side completion acknowledgement for every supported engine. A fixed wait is best-effort, not a guarantee that every large world has fully flushed.
 
-### 3.3 Restoration Safety Guard
-Before restoring any backup archive over an active server:
-1. Validates the integrity and checksum of the backup archive.
-2. Verifies available free storage (requires at least 2.5x the unpacked backup size).
-3. Automatically generates a pre-restore recovery snapshot of the existing world (`pre_restore_<timestamp>.zip`).
-4. Replaces the target world folder cleanly and updates database metadata.
+Before production:
+- Implement engine-specific save/flush acknowledgement where possible.
+- Fail or clearly label a backup as best-effort if a save command cannot be sent or acknowledged.
+- Ensure save-on is always restored.
+- Test with large, active real worlds and abrupt process termination.
 
----
+## 4. Backup integrity and restore
 
-## 4. World Import & Export
+The code includes checksum verification, safe archive extraction, path validation and a temporary-directory swap with rollback safeguards. These mechanisms have pure-logic tests, but a real Bedrock LevelDB and Java Anvil world restore has not yet been verified on-device.
 
-- **Import Formats:**
-  - Bedrock: `.mcworld` (ZIP archive containing `level.dat` and `db/`), standard ZIP archives.
-  - Java: ZIP archives containing `level.dat` and `region/`.
-- **Validation Engine:** `WorldValidation.kt` checks for:
-  - Magic bytes and valid GZIP/NBT header in `level.dat`.
-  - Format compatibility (warns if a Java world is imported into a Bedrock server).
-  - Storage quota verification prior to extraction.
-- **Exporting:** Packages the full world structure into standard `.mcworld` or `.zip` and prompts the user with the Android System Share Sheet or file picker.
+Required restore sequence:
+1. Refuse restore while the server is STARTING, ONLINE or STOPPING.
+2. Verify archive checksum against stored metadata.
+3. Reject path traversal, absolute paths, symlinks or unreasonable archive expansion.
+4. Extract into a fresh temporary directory.
+5. Validate expected engine-specific world structure.
+6. Create a safety snapshot of the current world; abort if that fails.
+7. Swap using same-filesystem atomic rename where supported.
+8. Roll back if the swap fails.
+9. Update metadata only after the replacement is confirmed.
+10. Start the server and verify it can load the restored world.
 
+Never delete the live world before a validated replacement and rollback path exist.
+
+## 5. Import and export
+
+Planned formats and behaviour:
+- Bedrock: support formats actually accepted by the selected Bedrock engine; validate `.mcworld`/ZIP structure and database directory.
+- Java: ZIP export/import with a valid Java world structure, including expected region and metadata files.
+- Export the complete server directory where practical, including configuration and plugins, while excluding transient PID/lock files and credentials.
+- Clearly warn when moving worlds across editions, engines or Minecraft versions may be unsupported.
+- Provide a share/save picker and verify the exported file after writing.
+
+## 6. Acceptance tests
+
+- [ ] Create world on a physical device.
+- [ ] Place blocks and change inventory with a real client.
+- [ ] Stop and restart server; verify persistence.
+- [ ] Create offline backup and verify archive checksum.
+- [ ] Create online backup on a large active world; verify engine save completion.
+- [ ] Corrupt a backup and confirm restore refuses it without damaging the current world.
+- [ ] Restore a valid backup and verify the engine loads it.
+- [ ] Test insufficient storage and interrupted archive creation.
+- [ ] Export world/server files and import on a fresh test installation.
+- [ ] Verify no world content is sent to MineHost control-plane or relay services.

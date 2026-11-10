@@ -14,6 +14,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.util.concurrent.TimeUnit
 
+private const val FORCED_STOP_WAIT_MS = 5_000L
 private const val LOCALHOST = "127.0.0.1"
 
 class ManagedServerProcess(
@@ -170,10 +171,18 @@ class ManagedServerProcess(
         if (!exited) {
             AppLogger.w("ManagedServerProcess", "Graceful shutdown timed out after ${timeoutMs}ms. Forcing termination.")
             destroyForcibly()
+            val terminated = runCatching {
+                p.waitFor(FORCED_STOP_WAIT_MS, TimeUnit.MILLISECONDS)
+            }.getOrDefault(false)
+            if (!terminated) {
+                AppLogger.e("ManagedServerProcess", "Process did not exit within ${FORCED_STOP_WAIT_MS}ms after forced termination.")
+            }
         }
 
         cleanupStreams()
-        return@withContext true
+        // True means the server honoured the graceful stop command; false means a force-kill
+        // was needed (or termination could not be confirmed).
+        return@withContext exited
     }
 
     override fun destroy() {

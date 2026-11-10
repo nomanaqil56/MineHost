@@ -16,6 +16,7 @@ import com.minehost.app.services.DeviceThermalState
 import com.minehost.app.services.ThermalManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,8 +33,8 @@ data class DiagnosticsUiState(
     val totalRamMb: Long = 0L,
     val availRamMb: Long = 0L,
     val freeStorageGb: Long = 0L,
-    val isPocketMineInstalled: Boolean = false,
-    val isPaperInstalled: Boolean = false,
+    val isPocketMinePharAvailable: Boolean = false,
+    val isPaperJarAvailable: Boolean = false,
     val isPlayitInstalled: Boolean = false,
     val serverStatus: ServerStatus = ServerStatus.STOPPED,
     val tunnelStatus: TunnelStatus = TunnelStatus.DISCONNECTED,
@@ -45,7 +46,7 @@ data class DiagnosticsUiState(
     val downloadError: String? = null,
     /** libphp.so (or another PHP) found. Without it a Bedrock server cannot start. */
     val isPhpRuntimeAvailable: Boolean = false,
-    /** libjava.so found. Without it a Java server cannot start. */
+    /** Complete bin/java launcher found. Device launchability still needs verification. */
     val isJavaRuntimeAvailable: Boolean = false
 )
 
@@ -88,8 +89,8 @@ class DiagnosticsViewModel @Inject constructor(
             totalRamMb = memInfo.totalMem / (1024 * 1024),
             availRamMb = memInfo.availMem / (1024 * 1024),
             freeStorageGb = freeBytes / (1024 * 1024 * 1024),
-            isPocketMineInstalled = runtimeManager.isBedrockPocketMineInstalled(),
-            isPaperInstalled = runtimeManager.isPaperJavaInstalled(),
+            isPocketMinePharAvailable = runtimeManager.isPocketMinePharAvailable(),
+            isPaperJarAvailable = runtimeManager.isPaperJarAvailable(),
             isPlayitInstalled = runtimeManager.isPlayitAgentInstalled(),
             serverStatus = status,
             tunnelStatus = tunnel,
@@ -99,7 +100,7 @@ class DiagnosticsViewModel @Inject constructor(
             isDownloading = downloading,
             downloadError = download.error,
             isPhpRuntimeAvailable = runtimeManager.getPhpExecutable() != null,
-            isJavaRuntimeAvailable = java.io.File(context.applicationInfo.nativeLibraryDir, "libjava.so").exists()
+            isJavaRuntimeAvailable = runtimeManager.getJavaExecutable() != null
         )
     }.stateIn(
         scope = viewModelScope,
@@ -109,16 +110,20 @@ class DiagnosticsViewModel @Inject constructor(
 
     /** Runs one install at a time and reports the real outcome, including failures. */
     private fun runDownload(label: String, block: suspend ((Float, String) -> Unit) -> Result<*>) {
-        if (_isDownloading.value) return
+        // Atomic gate: two rapid taps must not start concurrent downloads before the
+        // first coroutine gets scheduled and updates the StateFlow.
+        if (!_isDownloading.compareAndSet(expect = false, update = true)) return
         viewModelScope.launch {
-            _isDownloading.value = true
             _downloadState.value = DownloadState()
             val result: Result<*> = try {
                 block { progress, msg -> _downloadState.value = DownloadState(progress, msg) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure<Unit>(e)
+            } finally {
+                _isDownloading.value = false
             }
-            _isDownloading.value = false
             _downloadState.value = DownloadState(
                 error = result.exceptionOrNull()?.let { "$label failed: ${it.message ?: it.javaClass.simpleName}" }
             )

@@ -61,8 +61,8 @@ class JavaEngine @Inject constructor(
         config: ServerConfiguration,
         listener: ProcessListener
     ): Result<ServerProcessHandle> {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val javaBinary = File(nativeDir, "libjava.so")
+        val javaHome = runtimeManager.getJavaHome()
+        val javaBinary = runtimeManager.getJavaExecutable()
         val jarFile = runtimeManager.getPaperJar()
 
         if (jarFile == null || !jarFile.exists()) {
@@ -72,8 +72,8 @@ class JavaEngine @Inject constructor(
             return Result.failure(FileNotFoundException(errorMsg))
         }
 
-        if (!javaBinary.exists()) {
-            val errorMsg = "ARM64 Java runtime binary (libjava.so) was not found in native library directory. A Java 17/21 JRE is required to run PaperMC."
+        if (javaHome == null || javaBinary == null || !javaBinary.exists()) {
+            val errorMsg = "A complete Java 17/21 runtime was not found. MineHost requires a tested Android ARM64 runtime with a bin/java launcher and its full library layout; a libjava.so file alone is not sufficient."
             AppLogger.e("JavaEngine", errorMsg)
             listener.onError(errorMsg)
             return Result.failure(FileNotFoundException(errorMsg))
@@ -89,8 +89,14 @@ class JavaEngine @Inject constructor(
             "--nogui"
         )
 
+        val javaLibDirs = listOf(
+            File(javaHome, "lib"),
+            File(javaHome, "lib/server")
+        ).filter { it.isDirectory }.joinToString(":") { it.absolutePath }
         val env = mapOf(
-            "LD_LIBRARY_PATH" to nativeDir.absolutePath,
+            "JAVA_HOME" to javaHome.absolutePath,
+            "PATH" to "${File(javaHome, "bin").absolutePath}:${System.getenv("PATH").orEmpty()}",
+            "LD_LIBRARY_PATH" to javaLibDirs,
             "TMPDIR" to context.cacheDir.absolutePath
         )
 
