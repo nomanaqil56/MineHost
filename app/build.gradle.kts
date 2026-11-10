@@ -1,3 +1,6 @@
+import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -30,9 +33,9 @@ android {
 
     // Release signing is read from environment variables or local.properties (never committed):
     //   MINEHOST_KEYSTORE_FILE, MINEHOST_KEYSTORE_PASSWORD, MINEHOST_KEY_ALIAS, MINEHOST_KEY_PASSWORD
-    val localProps = java.util.Properties().apply {
+    val localProps = Properties().apply {
         val f = rootProject.file("local.properties")
-        if (f.exists()) f.inputStream().use { load(it) }
+        if (f.exists()) f.inputStream().use { this.load(it) }
     }
     fun signingValue(name: String): String? = System.getenv(name) ?: localProps.getProperty(name)
 
@@ -79,14 +82,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
-        )
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -99,6 +94,16 @@ android {
         jniLibs {
             useLegacyPackaging = true
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+        freeCompilerArgs.addAll(
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
+        )
     }
 }
 
