@@ -99,8 +99,10 @@ class RuntimeManager @Inject constructor(
      * Checks whether device CPU architecture is 64-bit ARM (arm64-v8a) or x86_64.
      */
     fun isSupportedArchitecture(): Boolean {
-        val abis = Build.SUPPORTED_ABIS
-        return abis.any { it.contains("arm64") || it.contains("aarch64") || it.contains("x86_64") }
+        // The current runtime strategy targets Android ARM64/Bionic only.
+        // x86_64 Linux server assets are not compatible with Android merely because
+        // the emulator reports the same CPU architecture.
+        return Build.SUPPORTED_ABIS.any { it == "arm64-v8a" || it == "aarch64" }
     }
 
     fun getDeviceArchitecture(): String {
@@ -113,23 +115,25 @@ class RuntimeManager @Inject constructor(
     fun isBedrockPocketMineInstalled(): Boolean {
         val phar = File(baseEnginesDir, "bedrock/PocketMine-MP.phar")
         val phpBinary = getPhpExecutable()
-        return phar.exists() && phar.length() > 100_000 && phpBinary != null && phpBinary.exists()
+        return phar.exists() && phar.length() > 100_000 && phpBinary != null && phpBinary.isFile && phpBinary.canExecute()
     }
 
     /**
-     * Finds the PHP executable either in nativeLibraryDir or in private app runtimes.
+     * Finds a PHP CLI launcher in the managed runtime layout.
+     *
+     * The app requires a real Android-compatible executable, not libphp.so as a
+     * generic shared library. A packaged libphp.so is accepted only as a potential
+     * CLI launcher artifact and must still pass an actual process-launch test.
      */
     fun getPhpExecutable(): File? {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val inNativeLib = File(nativeDir, "libphp.so")
-        if (inNativeLib.exists()) return inNativeLib
-
         val inRuntimes = File(baseRuntimesDir, "php/bin/php")
-        if (inRuntimes.exists() && inRuntimes.canExecute()) return inRuntimes
+        if (inRuntimes.isFile && inRuntimes.canExecute()) return inRuntimes
 
-        // Standalone binary in runtimes/php
         val inPhpRoot = File(baseRuntimesDir, "php/php")
-        if (inPhpRoot.exists()) return inPhpRoot
+        if (inPhpRoot.isFile && inPhpRoot.canExecute()) return inPhpRoot
+
+        val packagedCli = File(context.applicationInfo.nativeLibraryDir, "libphp.so")
+        if (packagedCli.isFile && packagedCli.canExecute()) return packagedCli
 
         return null
     }
@@ -169,7 +173,7 @@ class RuntimeManager @Inject constructor(
 
     fun getJavaExecutable(): File? {
         val home = getJavaHome() ?: return null
-        return File(home, "bin/java").takeIf { it.isFile }
+        return File(home, "bin/java").takeIf { it.isFile && it.canExecute() }
     }
 
     /**
