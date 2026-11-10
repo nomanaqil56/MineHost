@@ -22,8 +22,9 @@ Do not describe MineHost as production-grade or claim that it already provides s
 |---|---|---|
 | Source inspection | App, engine, runtime, network, storage and service code present | Inspected |
 | Unit tests | Gradle `testDebugUnitTest` passed in CI run 42753556848; earlier notes also report 40/40 standalone pure-Kotlin tests | CI VERIFIED (unit tests) |
-| Gradle Android build | Latest notes say Android-dependent code was not compiled in that environment | NOT VERIFIED |
-| Android lint | Passed in CI run 42753556848 | VERIFIED |\n| Android instrumented tests | No device run recorded | NOT VERIFIED |
+| Gradle Android build | API 36 debug APK assembled in CI run 42753556848 | ANDROID BUILD VERIFIED (debug only) |
+| Android lint | Passed in CI run 42753556848 | VERIFIED |
+| Android instrumented tests | No device run recorded | NOT VERIFIED |
 | Physical Android device | No device acceptance run recorded | NOT VERIFIED |
 | Real Minecraft client | No local or remote client join recorded | NOT VERIFIED |
 | Public tunnel | No live provider claim and external join recorded | NOT VERIFIED |
