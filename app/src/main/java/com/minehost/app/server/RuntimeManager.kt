@@ -113,25 +113,43 @@ class RuntimeManager @Inject constructor(
     fun isBedrockPocketMineInstalled(): Boolean {
         val phar = File(baseEnginesDir, "bedrock/PocketMine-MP.phar")
         val phpBinary = getPhpExecutable()
-        return phar.exists() && phar.length() > 100_000 && phpBinary != null && phpBinary.exists()
+        return phar.isFile && phar.length() > 100_000 &&
+            phpBinary?.let { it.isFile && it.canExecute() } == true
     }
 
     /**
-     * Finds the PHP executable either in nativeLibraryDir or in private app runtimes.
+     * Finds an actual PHP CLI executable in the managed runtime layout.
+     *
+     * A JNI shared library such as libphp.so is not a command-line executable and
+     * must never be passed to ProcessBuilder as if it were one. A candidate path
+     * is accepted only when it is a regular file with its executable bit set.
+     * Android's executable-memory / SELinux policy can still reject process launch;
+     * the caller must handle that failure and a physical-device launch test is required.
      */
     fun getPhpExecutable(): File? {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val inNativeLib = File(nativeDir, "libphp.so")
-        if (inNativeLib.exists()) return inNativeLib
+        val candidates = listOf(
+            File(baseRuntimesDir, "php/bin/php"),
+            File(baseRuntimesDir, "php/php")
+        )
+        return candidates.firstOrNull { it.isFile && it.canExecute() }
+    }
 
-        val inRuntimes = File(baseRuntimesDir, "php/bin/php")
-        if (inRuntimes.exists() && inRuntimes.canExecute()) return inRuntimes
+    /** Returns true only when a complete Java launcher candidate is present. */
+    fun isPaperJavaInstalled(): Boolean {
+        val jar = File(baseEnginesDir, "java/paper.jar")
+        return jar.isFile && jar.length() > 1_000_000 && getJavaExecutable() != null
+    }
 
-        // Standalone binary in runtimes/php
-        val inPhpRoot = File(baseRuntimesDir, "php/php")
-        if (inPhpRoot.exists()) return inPhpRoot
-
-        return null
+    /**
+     * Finds a Java CLI launcher. A libjava.so shared library by itself is not
+     * a JVM distribution or an executable Java command.
+     */
+    fun getJavaExecutable(): File? {
+        val candidates = listOf(
+            File(baseRuntimesDir, "java/bin/java"),
+            File(baseRuntimesDir, "java/java")
+        )
+        return candidates.firstOrNull { it.isFile && it.canExecute() }
     }
 
     /**
