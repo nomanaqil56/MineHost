@@ -1,6 +1,7 @@
 # MineHost — Complete Project Progress Report
 
 **Last updated:** 2026-11-10  
+**Current app version:** `1.0.1` (source: root `VERSION`; Android `versionCode`: `1000001`)
 **Repository:** `nomanaqil56/MineHost`  
 **Active workstream:** Phase 1 — Bedrock local-hosting completion and acceptance  
 **Authoritative device record:** [DEVICE_TEST_RESULTS.md](../device-evidence/DEVICE_TEST_RESULTS.md)  
