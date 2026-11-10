@@ -117,21 +117,16 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Finds the PHP executable either in nativeLibraryDir or in private app runtimes.
+     * Returns only the APK-packaged Android PHP executable.
+     *
+     * Do not execute a downloaded ELF from filesDir: modern Android restricts execution
+     * from app-writable directories. The build-time preparation script packages the
+     * statically linked ARM64 executable as jniLibs/arm64-v8a/libphp.so, which Android
+     * extracts into nativeLibraryDir.
      */
     fun getPhpExecutable(): File? {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val inNativeLib = File(nativeDir, "libphp.so")
-        if (inNativeLib.exists()) return inNativeLib
-
-        val inRuntimes = File(baseRuntimesDir, "php/bin/php")
-        if (inRuntimes.exists() && inRuntimes.canExecute()) return inRuntimes
-
-        // Standalone binary in runtimes/php
-        val inPhpRoot = File(baseRuntimesDir, "php/php")
-        if (inPhpRoot.exists()) return inPhpRoot
-
-        return null
+        val executable = File(context.applicationInfo.nativeLibraryDir, "libphp.so")
+        return executable.takeIf { it.isFile && it.canExecute() }
     }
 
     /**
