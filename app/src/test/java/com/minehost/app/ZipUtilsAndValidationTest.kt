@@ -64,6 +64,41 @@ class ZipUtilsAndValidationTest {
     }
 
     @Test
+    fun additionalServerIdentityFileIsIncludedAndCoveredByChecksum() {
+        val sourceDir = tempFolder.newFolder("identity_world")
+        File(sourceDir, "level.dat").writeText("WORLD")
+        val identityKey = File(tempFolder.root, "nethernet.key").apply { writeText("PRIVATE_SERVER_IDENTITY") }
+        val zip = File(tempFolder.root, "identity_backup.zip")
+
+        val created = ZipUtils.zipDirectory(
+            sourceDir,
+            zip,
+            additionalFiles = mapOf("__minehost/nethernet.key" to identityKey)
+        )
+
+        assertEquals(created, ZipUtils.computeContentChecksum(zip))
+        val restoredDir = tempFolder.newFolder("identity_restored")
+        ZipUtils.unzip(zip, restoredDir)
+        assertEquals(
+            "PRIVATE_SERVER_IDENTITY",
+            File(restoredDir, "__minehost/nethernet.key").readText()
+        )
+    }
+
+    @Test
+    fun additionalZipEntryRejectsPathTraversal() {
+        val sourceDir = tempFolder.newFolder("identity_safe_world")
+        File(sourceDir, "level.dat").writeText("WORLD")
+        val identityKey = File(tempFolder.root, "unsafe.key").apply { writeText("KEY") }
+        val zip = File(tempFolder.root, "unsafe_backup.zip")
+
+        val result = runCatching {
+            ZipUtils.zipDirectory(sourceDir, zip, additionalFiles = mapOf("../nethernet.key" to identityKey))
+        }
+        assertTrue(result.isFailure)
+    }
+
+    @Test
     fun truncatedArchiveFailsVerification() {
         val sourceDir = tempFolder.newFolder("trunc_world")
         File(sourceDir, "level.dat").writeText("A".repeat(50_000))
