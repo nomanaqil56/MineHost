@@ -1,5 +1,8 @@
 package com.minehost.app.networking
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.LinkProperties
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
@@ -41,27 +44,51 @@ object LocalNetwork {
             .map { it.address }
             .distinct()
 
-    /** Reads the device's interfaces. Returns an empty list when there is no LAN connection. */
-    fun detect(): List<String> = try {
-        val found = mutableListOf<Candidate>()
-        val interfaces = NetworkInterface.getNetworkInterfaces()
-        while (interfaces != null && interfaces.hasMoreElements()) {
-            val nif = interfaces.nextElement()
-            for (addr: InetAddress in nif.inetAddresses.toList()) {
-                if (addr !is Inet4Address) continue
-                found += Candidate(
-                    interfaceName = nif.name.orEmpty(),
-                    address = addr.hostAddress.orEmpty(),
-                    isUp = nif.isUp,
-                    isLoopback = nif.isLoopback || addr.isLoopbackAddress,
-                    isPointToPoint = nif.isPointToPoint,
-                    isSiteLocal = addr.isSiteLocalAddress,
-                    isLinkLocal = addr.isLinkLocalAddress
-                )
+    /**
+     * Prefer the active Android network's LinkProperties so VPN, cellular and stale
+     * interfaces do not accidentally win over the Wi-Fi address. Fall back to interface
+     * enumeration on devices whose connectivity service does not expose a usable address.
+     */
+    fun detect(context: Context? = null): List<String> {
+        val activeNetworkAddresses = runCatching {
+            val connectivity = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            val activeNetwork = connectivity?.activeNetwork
+            val properties: LinkProperties? = activeNetwork?.let(connectivity::getLinkProperties)
+            val interfaceName = properties?.interfaceName.orEmpty()
+            properties?.linkAddresses.orEmpty()
+                .mapNotNull { it.address as? Inet4Address }
+                .filter { it.isSiteLocalAddress && !it.isLoopbackAddress && !it.isLinkLocalAddress }
+                .map { it.hostAddress.orEmpty() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .let { addresses ->
+                    if (addresses.isEmpty()) emptyList()
+                    else addresses.sortedBy { if (interfaceName.startsWith("wlan") || interfaceName.startsWith("eth")) 0 else 1 }
+                }
+        }.getOrDefault(emptyList())
+        if (activeNetworkAddresses.isNotEmpty()) return activeNetworkAddresses
+
+        return try {
+            val found = mutableListOf<Candidate>()
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces != null && interfaces.hasMoreElements()) {
+                val nif = interfaces.nextElement()
+                for (addr: InetAddress in nif.inetAddresses.toList()) {
+                    if (addr !is Inet4Address) continue
+                    found += Candidate(
+                        interfaceName = nif.name.orEmpty(),
+                        address = addr.hostAddress.orEmpty(),
+                        isUp = nif.isUp,
+                        isLoopback = nif.isLoopback || addr.isLoopbackAddress,
+                        isPointToPoint = nif.isPointToPoint,
+                        isSiteLocal = addr.isSiteLocalAddress,
+                        isLinkLocal = addr.isLinkLocalAddress
+                    )
+                }
             }
+            pickLanAddresses(found)
+        } catch (_: Exception) {
+            emptyList()
         }
-        pickLanAddresses(found)
-    } catch (e: Exception) {
-        emptyList()
     }
 }
