@@ -201,6 +201,26 @@ class ReadinessProbeTest {
     }
 
     @Test
+    fun netherNetProbeRejectsUnsupportedEndpointStatus() {
+        ServerSocket(0).use { server ->
+            val responder = thread(start = true) {
+                try {
+                    server.accept().use { socket ->
+                        socket.getInputStream().bufferedReader().readLine()
+                        socket.getOutputStream().write(
+                            "HTTP/1.1 404 Not Found\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n".toByteArray()
+                        )
+                        socket.getOutputStream().flush()
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            assertFalse(ReadinessProbe.probeNetherNet("127.0.0.1", server.localPort, timeoutMs = 2000))
+            responder.join(2000)
+        }
+    }
+
+    @Test
     fun javaProbeSucceedsAgainstAStatusResponderAndFailsAgainstAPlainOpenPort() {
         // Responder that speaks Server List Ping
         ServerSocket(0).use { good ->
