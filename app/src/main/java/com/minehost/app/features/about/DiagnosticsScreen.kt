@@ -214,7 +214,7 @@ fun DiagnosticsScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (state.thermalState >= DeviceThermalState.SEVERE) {
-                            "Warning: Device is overheating. MineHost will throttle or auto-save world to prevent hardware damage."
+                            "Warning: Device is overheating. Performance may drop or Android may shut down workloads. Reduce server load or stop hosting and let the device cool; automatic thermal throttling is not implemented in this build."
                         } else {
                             "Operating within normal mobile thermal parameters."
                         },
