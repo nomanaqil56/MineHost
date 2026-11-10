@@ -1,6 +1,8 @@
 package com.minehost.app.server
 
 import java.io.ByteArrayOutputStream
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.io.DataInputStream
 import java.io.EOFException
 import java.io.InputStream
@@ -8,12 +10,15 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.URL
+import javax.net.ssl.HttpsURLConnection
 
 /**
  * Protocol-level readiness probes for real Minecraft servers.
  *
  * A server is only considered ready when it answers a genuine Minecraft protocol request:
- *  - Bedrock: RakNet "Unconnected Ping" -> "Unconnected Pong" over UDP.
+ *  - Bedrock: NetherNet HTTP capability probe (GET /v1/join, including HTTPS when configured),
+ *    with legacy RakNet Unconnected Ping as a compatibility fallback.
  *  - Java: Server List Ping (handshake + status request) -> JSON status response over TCP.
  *
  * Merely binding/not-binding a port, or the process being alive, is NOT proof of readiness.
@@ -31,7 +36,7 @@ object ReadinessProbe {
     private const val ID_UNCONNECTED_PING = 0x01
     private const val ID_UNCONNECTED_PONG = 0x1C
 
-    // ---------------------------------------------------------------- Bedrock (RakNet)
+    // ---------------------------------------------------------------- Bedrock (NetherNet + legacy RakNet)
 
     fun buildRakNetPing(timeMillis: Long, clientGuid: Long): ByteArray {
         val out = ByteArrayOutputStream()
@@ -52,8 +57,61 @@ object ReadinessProbe {
         return true
     }
 
-    /** Returns true only if a RakNet server answers an unconnected ping on [host]:[port]. */
-    fun probeBedrock(host: String, port: Int, timeoutMs: Int = 1500): Boolean {
+    /**
+     * Bedrock readiness. Current Axolotl-PM servers expose NetherNet signaling at GET /v1/join
+     * over TCP; older servers may still answer the legacy RakNet UDP ping.
+     *
+     * A successful NetherNet signaling probe does NOT prove that the WebRTC UDP/ICE gameplay
+     * channel is reachable from the public internet. That requires a real client join test.
+     */
+    fun probeBedrock(host: String, port: Int, timeoutMs: Int = 1500): Boolean =
+        probeNetherNet(host, port, timeoutMs) || probeRakNet(host, port, timeoutMs)
+
+    /** GET /v1/join returns 2xx when the server supports NetherNet signaling. */
+    fun probeNetherNet(host: String, port: Int, timeoutMs: Int = 1500): Boolean {
+        if (probeNetherNetHttp(host, port, timeoutMs)) return true
+        return probeNetherNetHttps(host, port, timeoutMs)
+    }
+
+    private fun probeNetherNetHttp(host: String, port: Int, timeoutMs: Int): Boolean {
+        return try {
+            Socket().use { socket ->
+                socket.soTimeout = timeoutMs
+                socket.connect(InetSocketAddress(host, port), timeoutMs)
+                val hostHeader = if (host.contains(":") && !host.startsWith("[")) "[$host]" else host
+                val request = "GET /v1/join HTTP/1.1\r\nHost: $hostHeader:$port\r\nConnection: close\r\n\r\n"
+                socket.getOutputStream().write(request.toByteArray(Charsets.US_ASCII))
+                socket.getOutputStream().flush()
+                val statusLine = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.US_ASCII)).readLine()
+                    ?: return false
+                val statusCode = statusLine.split(' ').getOrNull(1)?.toIntOrNull() ?: return false
+                statusCode in 200..299
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun probeNetherNetHttps(host: String, port: Int, timeoutMs: Int): Boolean {
+        return try {
+            val authority = if (host.contains(":") && !host.startsWith("[")) "[$host]" else host
+            val connection = URL("https://$authority:$port/v1/join").openConnection() as HttpsURLConnection
+            connection.connectTimeout = timeoutMs
+            connection.readTimeout = timeoutMs
+            connection.requestMethod = "GET"
+            connection.instanceFollowRedirects = false
+            try {
+                connection.responseCode in 200..299
+            } finally {
+                connection.disconnect()
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Returns true only if a legacy RakNet server answers an unconnected ping on [host]:[port]. */
+    fun probeRakNet(host: String, port: Int, timeoutMs: Int = 1500): Boolean {
         return try {
             DatagramSocket().use { socket ->
                 socket.soTimeout = timeoutMs
@@ -127,7 +185,7 @@ object ReadinessProbe {
 
     // ---------------------------------------------------------------- round-trip timing
 
-    /** Round-trip time in ms of a successful RakNet ping, or null if the server did not answer. */
+    /** Signaling/reachability RTT (NetherNet GET /v1/join or legacy RakNet ping), not gameplay RTT. */
     fun measureBedrockMs(host: String, port: Int, timeoutMs: Int = 2000): Long? =
         timed { probeBedrock(host, port, timeoutMs) }
 
