@@ -326,9 +326,11 @@ class RuntimeManager @Inject constructor(
      */
     fun verifyExecutable(binary: File, vararg args: String, timeoutSeconds: Long = 10): Result<String> {
         return try {
-            val process = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
+            val builder = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
                 .redirectErrorStream(true)
-                .start()
+            // Match the bundled-runtime launch environment used by PocketMine's start script.
+            builder.environment()["PHPRC"] = ""
+            val process = builder.start()
             if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
                 process.destroyForcibly()
                 Result.failure(IOException("${binary.name} started but did not exit within ${timeoutSeconds}s."))
