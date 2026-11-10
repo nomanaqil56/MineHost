@@ -53,7 +53,8 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run unit tests
-        run: ./gradlew --no-daemon --console=plain --stacktrace testDebugUnitTest
+        timeout-minutes: 15
+        run: ./gradlew --no-daemon --console=plain --stacktrace --info testDebugUnitTest
 
       - name: Run Android lint
         run: ./gradlew --no-daemon --console=plain --stacktrace lintDebug
