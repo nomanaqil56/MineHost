@@ -38,11 +38,12 @@ Java and Bedrock must not be treated as one generic tunnel.
 - UDP hole punching alone does not solve Java TCP reachability.
 
 ### Bedrock Edition
-- Transport is version-dependent. Track the selected server engine's supported protocol and the actual client transport.
-- Older versions commonly use RakNet over UDP; do not assume this is the only current transport.
-- Probe the real protocol, not just whether UDP port 19132 is open.
-- Preserve datagram boundaries and size limits where the selected transport requires them.
-- Verify signaling and gameplay sockets independently.
+- Transport is version-dependent. Bedrock 26.60+ uses NetherNet; older versions may use RakNet depending on client/server support.
+- NetherNet uses HTTP signaling (GET /v1/join, POST /v1/join/{networkId} with SDP) and WebRTC DTLS/SCTP data channels. Gameplay uses UDP; the signaling endpoint uses TCP/HTTP(S).
+- NetherNet server identity assertions and the operator key must be implemented and protected. iOS clients require HTTPS signaling with a trusted certificate.
+- The Mojang onboarding guide documents full ICE with trickle ICE disabled and no client STUN/TURN URLs by default. Do not assume generic STUN/TURN or a UDP-only tunnel solves CGNAT. Test the actual client ICE candidates and session flow.
+- A MineHost relay may need to proxy the HTTP SDP exchange and provide a reachable ICE candidate or terminate/forward WebRTC traffic over the phone tunnel. This architecture is a proof-of-concept blocker, not an already solved feature.
+- Probe the real signaling and data-channel protocol, not just whether TCP/UDP port 19132 is open. Keep RakNet and NetherNet probes separate.
 - A RakNet readiness probe only proves compatibility with a RakNet-speaking endpoint; it must not be treated as a universal current Bedrock probe.
 
 ### Java + Bedrock cross-play
