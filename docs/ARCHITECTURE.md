@@ -1,5 +1,7 @@
 # MineHost — System Architecture Specification
 
+> **Implementation-status note (2026-11-10):** This document describes the intended architecture, not a verified production system. No server engine has been launched successfully through MineHost on a physical device. Bedrock now targets Axolotl-PM with an Android ARM64 PHP runtime candidate; runtime packaging/launch is still blocked. Java and cross-play remain blocked. Playit is only an optional test adapter, not the final network design.
+
 ## 1. Architectural Overview
 
 MineHost is built according to **Clean Architecture** principles and the modern Android development stack:
@@ -40,7 +42,7 @@ flowchart TD
         ForegroundService["Server Foreground Service"]
         WakeLockMgr["WakeLock & Thermal Manager"]
         EngineProcess["Server Engine Process (ProcessBuilder)"]
-        TunnelClient["Tunnel Client Process (Playit CLI)"]
+        TunnelClient["Optional tunnel adapter process (Playit test integration)"]
     end
 
     UI --> Domain
@@ -104,7 +106,7 @@ stateDiagram-v2
     INSTALLING --> ERROR: Download/Config Failed
     
     STOPPED --> STARTING: Start Server
-    STARTING --> ONLINE: Readiness Port Check Passed
+    STARTING --> ONLINE: Protocol Readiness Response Received
     STARTING --> ERROR: Startup Failed / Port In Use
     
     ONLINE --> STOPPING: Stop Requested
@@ -117,14 +119,14 @@ stateDiagram-v2
 ```
 
 ### 2.3 Networking & Tunnel Architecture
-External players connect across the internet without router configuration:
+Illustrative optional tunnel-provider flow for early experiments only. It is not the final MineHost networking architecture; MineHost-owned relays and direct-first connectivity are not implemented yet:
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Player as External Player (Bedrock / Java)
     participant Relay as Public Relay (Anycast Edge)
-    participant Client as Playit Tunnel Client (Android)
+    participant Client as Optional Tunnel Adapter (Android)
     participant Server as Local Minecraft Server (Android)
     
     Note over Client,Server: Android Device Local Execution
@@ -156,10 +158,11 @@ files/minehost/
 │       ├── logs/                   # Log history & crash reports
 │       └── backups/                # Local compressed world snapshots (.zip)
 ├── engines/
-│   ├── bedrock/                    # Bedrock engine binaries / phar files
+│   ├── bedrock/                    # Axolotl-PM PHAR (runtime launch still blocked)
 │   └── java/                       # Java server JARs
 ├── runtimes/
-│   └── jre/                        # Portable Java Runtime Environment
+│   ├── php/                        # Candidate PHP runtime layout (not yet installed)
+│   └── java/                       # Candidate Android-compatible JVM layout (not yet installed)
 └── tunnels/
     └── playit/                     # Tunnel agent configuration & identity cache
 ```
@@ -172,5 +175,5 @@ files/minehost/
 2. **Native Execution:** Executables adhere to Android API 29+ W^X policies by executing from `context.applicationInfo.nativeLibraryDir`.
 3. **No Root Requirement:** Operates entirely within standard unprivileged Android user space.
 4. **Console Shell Protection:** Command console strictly passes input to Minecraft server standard input; operating system shell commands (`/bin/sh`, PowerShell, cmd) are blocked.
-5. **Relay Token Protection:** Playit authentication secret keys and sensitive tokens are encrypted using Android Keystore / EncryptedSharedPreferences.
+5. **Relay Token Protection:** Tunnel credentials are kept in app-private storage with restricted file permissions; Android Keystore-backed encryption is not yet implemented and must be completed before production use.
 
