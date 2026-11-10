@@ -96,11 +96,12 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Checks whether device CPU architecture is 64-bit ARM (arm64-v8a) or x86_64.
+     * The currently selected server runtimes are ARM64-only. Do not report x86_64
+     * emulators/devices as supported merely because they are 64-bit: no matching
+     * PHP/JVM runtime has been validated for that ABI.
      */
     fun isSupportedArchitecture(): Boolean {
-        val abis = Build.SUPPORTED_ABIS
-        return abis.any { it.contains("arm64") || it.contains("aarch64") || it.contains("x86_64") }
+        return Build.SUPPORTED_ABIS.any { it == "arm64-v8a" || it.equals("aarch64", ignoreCase = true) }
     }
 
     fun getDeviceArchitecture(): String {
