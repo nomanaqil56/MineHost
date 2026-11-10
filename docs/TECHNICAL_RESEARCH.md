@@ -1,5 +1,7 @@
 # MineHost — Technical Research & Feasibility Analysis
 
+> **Research update (2026-11-10):** The original PocketMine-MP and PMMP PHP-Binaries upstream repositories have been archived. Axolotl-PM is now the selected maintained PocketMine-compatible fork, with a matching Android ARM64 PHP runtime candidate. The archive has not yet been inspected or launched through MineHost; no runtime support is claimed. See [Decision 0001](decisions/0001-bedrock-engine-and-php-runtime.md).
+
 ## 1. Executive Summary
 
 MineHost transforms an Android device (smartphones and tablets) into a dedicated, self-contained Minecraft server host. Unlike cloud-managed services where mobile apps serve only as dashboards for remote virtual machines, MineHost executes the Minecraft server process directly on Android's ARM64 hardware, stores all world and player data within local device storage, and bridges incoming traffic across cellular NAT / CGNAT via a high-performance UDP/TCP reverse tunnel.
@@ -14,14 +16,14 @@ This document presents the technical evaluation of server engines, Android runti
 
 | Engine | Primary Language | Vanilla Parity | ARM64 Android Support | Memory Footprint | Recommendation |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **PocketMine-MP (PM5)** | PHP 8.2+ (ZTS) | Moderate (No native AI/Redstone without plugins) | Excellent (Native ARM64 CLI binary) | Very Low (150MB - 350MB) | **Primary Bedrock Engine for low-spec devices** |
+| **Axolotl-PM (PM5 fork)** | PHP 8.4 (selected runtime baseline) | Moderate (not full vanilla parity) | Android ARM64 runtime archive exists; MineHost launch path unverified | Not measured on MineHost | **Primary Bedrock engine candidate** |
 | **PowerNukkitX (PNX)** | Java 21 | High (Vanilla mobs, blocks, redstone, dimensions) | High (Requires Android ARM64 JVM) | Medium (600MB - 1.2GB) | **Primary Bedrock Engine for high parity** |
 | **Bedrock Dedicated Server (BDS)** | C++ | 100% Official Vanilla | Incompatible (Only x86_64 Linux/Windows; no ARM64 binary) | Medium (500MB - 1GB) | Not viable natively without heavy x86 emulation |
 | **Cloudburst Nukkit** | Java 17 | Moderate-High | High (Requires Android ARM64 JVM) | Medium (400MB - 800MB) | Supported alternative |
 
 #### Key Technical Findings:
 1. **Mojang Bedrock Dedicated Server (BDS):** Mojang only ships precompiled x86_64 Linux and Windows binaries. There are no official ARM64 Linux or Android builds. Running BDS on ARM64 requires Box64 / QEMU user-mode translation, which introduces significant CPU overhead and instability on mobile chips. It is therefore unsuitable as a primary engine.
-2. **PocketMine-MP:** Highly optimized, event-driven, multi-threaded C-extension PHP. Runs exceptionally well on mobile ARM64 cores with low battery consumption and fast startup (<3 seconds). Best suited for survival/creative multiplayer with friends where lightweight execution is paramount.
+2. **Axolotl-PM:** Maintained continuation of PocketMine-MP after the original upstream was archived in July 2026. Its matching PHP-Binaries project publishes Android ARM64 archives. The current selected candidate is Axolotl-PM 5.51.1 / Bedrock 1.26.60 with PHP 8.4. No MineHost device performance or launch test has yet been completed.
 3. **PowerNukkitX:** Offers superior vanilla parity (water physics, nether/end dimensions, redstone, entity AI). Requires Java 21 runtime.
 
 ---
@@ -53,14 +55,13 @@ To enable Minecraft Bedrock players (iOS, Android, Windows, Consoles) to join a 
 
 ## 3. Android Runtime & Execution Strategy
 
-### 3.1 Android 10+ (API 29+) W^X Security Enforcement
-On modern Android (API 29 through 35+), the kernel enforces W^X (Write XOR Execute) and SELinux policies:
-- Applications **cannot** execute binaries from writable directories such as `/data/data/<package>/files/` or external storage (`/sdcard`). Attempting `execve()` results in `EACCES (Permission Denied)`.
-- **Sanctioned Solution:** Executables packaged in the APK under `jniLibs/<abi>/lib<name>.so` and installed with `android:extractNativeLibs="true"` in `AndroidManifest.xml` are extracted by the Android Package Manager to `context.applicationInfo.nativeLibraryDir` (`/data/app/.../lib/arm64`). The OS mounts this directory with `+x` (execute) permissions.
-- MineHost uses this sanctioned mechanism:
-  - Tunnel client binary: `libplayit.so`
-  - Engine launcher binary: `libserverlauncher.so`
-  - PHP runtime: `libphp.so`
+### 3.1 Android 10+ Executable Policy and Runtime Packaging
+Android process execution is constrained by filesystem mount flags, SELinux and dynamic-linker requirements:
+- Do not assume a file downloaded into app-writable `filesDir` can be executed just because `setExecutable(true)` succeeds.
+- Do not assume that naming an ELF file `libphp.so` makes it a shared library or makes it runnable. Inspect its ELF type, architecture, program interpreter, dependencies and actual `execve` result.
+- Packaging a binary under `jniLibs/<abi>/` may make it available in `nativeLibraryDir`, but a normal shared library is not a CLI process and a musl-linked binary may still require a matching interpreter and libraries.
+- MineHost has **not yet** proven an Android PHP runtime packaging strategy. The Axolotl-PM Android ARM64 archive is a candidate pending archive inspection and physical-device launch testing.
+- Until that gate passes, Bedrock runtime installation and server start must remain unavailable rather than falsely reporting a runtime as installed.
 
 ### 3.2 Process Management & Isolation
 - Server engines run as child processes managed via `ProcessBuilder`.
