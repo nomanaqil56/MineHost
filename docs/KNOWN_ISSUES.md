@@ -1,13 +1,13 @@
 # MineHost — Known Issues & Technical Limitations
 
+> **Main-branch update (2026-11-10):** Runtime detection has been hardened. MineHost no longer treats `libphp.so`, `libjava.so`, or `libplayit.so` as executable CLI programs. The PHP and Java runtime launch paths remain blocked until complete compatible runtimes are supplied and verified. The new Android CI workflow has not yet produced a confirmed successful run.
+
 ## 1. Android Platform Constraints
 
 ### 1.1 Android 10+ (API 29+) W^X Restrictions
 - **Description:** Starting with Android 10, the operating system blocks executing executable binaries from application data directories (`/data/data/<package>/files`).
 - **Impact:** Binaries downloaded dynamically into `filesDir` cannot be executed directly via `Runtime.exec()` or `ProcessBuilder` without execute permissions.
-- **Mitigation:**
-  - Pre-packaged native binaries must be placed in `jniLibs/<abi>/lib<name>.so` and installed with `android:extractNativeLibs="true"`, placing them in `applicationInfo.nativeLibraryDir` with execute permissions.
-  - Dynamically updated components utilize `RuntimeManager` with appropriate file permission enforcement or validated userspace loaders.
+- **Mitigation:** Do not assume that `jniLibs` turns a shared library into a standalone CLI program. JNI libraries are loaded into the app process; server runtimes and helper agents need a separately validated launch strategy. A downloaded file's executable bit is not proof that Android/SELinux will permit execution. Test the exact packaging/loader approach on each supported Android API level.
 
 ### 1.2 Android ART vs Desktop Java Virtual Machine
 - **Description:** Android's native runtime is ART (Android Runtime), which only executes DEX bytecode. ART cannot directly execute standard Java `.class` or `.jar` files.
@@ -37,18 +37,16 @@
 
 ---
 
-## 5. Findings from the 2026-11-09 source audit
+## 5. Findings from the 2026-11-09 source audit (historical; see current-main update below)
 
 See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) for the full list. Unresolved items:
 
-- **No PHP or Java runtime is bundled.** `libphp.so` / `libjava.so` are expected in `nativeLibraryDir` but the repository has no `jniLibs/`. Bedrock and Java servers cannot start until this is solved.
-- **W^X:** executables downloaded into `filesDir` (e.g. the Playit agent) cannot run on Android 10+.
-- **Playit agent URL** uses an asset name (`playit-cli-linux-<arch>`) that does not match the official `playit-linux-*` naming; the download likely fails.
-- **Downloads are not integrity-verified** against any trusted checksum, and use `releases/latest`.
-- **EULA consent UI is missing.** `eula.txt` is written as `eula=false`, so Java servers refuse to start until consent exists.
-- **Cross-play is not implemented** (now reported as unsupported instead of falling back to Bedrock-only).
-- **ConnectionMonitor uses a TCP connect**, which cannot monitor a UDP (Bedrock) tunnel.
-- **Backup creation while a server is running** is not made consistent (no `save-off`/`save-all`).
-- **Diagnostics swallows download failures**, so install errors are invisible to the user.
-- **Release builds are signed with the debug key.**
-- **Stopping while STARTING:** `stopServer` returns success without effect until the process handle exists.
+- **PHP and Java runtimes are not bundled.** The current main code requires executable PHP and Java CLI launchers under the managed runtime directories. The repo still has no validated Android ARM64 runtime package; Bedrock and Java remain blocked.
+- **Android executable policy is unresolved.** The downloaded Playit agent may be rejected by Android/SELinux even when its executable bit is set; a real device launch test is required.
+- **Playit is not the final network architecture.** Asset resolution now uses release metadata, but Android compatibility and an external client join are unverified. MineHost-owned relay/control-plane infrastructure is not implemented.
+- **Download integrity and version policy need final audit.** Published SHA-256 digests are compared when available; version pinning and provenance policy still need review.
+- **Cross-play is not operational.** Geyser/Floodgate runtime integration is blocked by the Java runtime.
+- **ConnectionMonitor transport handling** must be verified separately for TCP Java and UDP Bedrock.
+- **Backup consistency** needs real-server verification even where save/flush commands are issued.
+- **Release signing** now reads owner-controlled environment variables or `local.properties`; without them, release output is unsigned. No production signing key is committed.
+- **Build/device status:** the new CI workflow has not yet produced a confirmed successful run; no physical-device or real-client test is recorded.
