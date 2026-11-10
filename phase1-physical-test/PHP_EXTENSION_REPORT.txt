@@ -1,0 +1,32 @@
+﻿================================================================================
+MINEHOST PHP 8.4 RUNTIME & EXTENSION ACCEPTANCE AUDIT
+================================================================================
+PHP Version:        8.4.27
+SAPI Name:          cli
+ZTS (Thread Safe):  ENABLED (1)
+PHP Binary OS:      Linux
+Integer Size:       64-bit
+Configuration File: None (running with -n)
+================================================================================
+
+--- 17 REQUIRED AXOLOTL-PM EXTENSIONS AUDIT ---
+ [PASS] curl           | Version: 8.4.27          | Status: LOADED
+ [PASS] gmp            | Version: 8.4.27          | Status: LOADED
+ [PASS] igbinary       | Version: 3.2.16          | Status: LOADED
+ [PASS] leveldb        | Version: 0.3.0           | Status: LOADED
+ [PASS] mbstring       | Version: 8.4.27          | Status: LOADED
+ [PASS] openssl        | Version: 8.4.27          | Status: LOADED
+ [PASS] phar           | Version: 8.4.27          | Status: LOADED
+ [PASS] sockets        | Version: 8.4.27          | Status: LOADED
+ [PASS] yaml           | Version: 2.3.0           | Status: LOADED
+ [PASS] zip            | Version: 1.22.8          | Status: LOADED
+ [PASS] zlib           | Version: 8.4.27          | Status: LOADED
+ [PASS] chunkutils2    | Version: 0.3.5           | Status: LOADED
+ [PASS] crypto         | Version: 0.3.2           | Status: LOADED
+ [PASS] encoding       | Version: 1.0.0           | Status: LOADED
+ [PASS] morton         | Version: 0.1.2           | Status: LOADED
+ [PASS] pmmpthread     | Version: 6.3.0           | Status: LOADED
+ [PASS] webrtc         | Version: 0.3.1           | Status: LOADED
+
+Audit Summary: 17 / 17 required extensions present.
+Audit Verdict: 100% PASS - ALL 17 EXTENSIONS VERIFIED

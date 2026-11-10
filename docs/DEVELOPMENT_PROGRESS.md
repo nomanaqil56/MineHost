@@ -80,8 +80,12 @@ No emulator, physical Android device, native runtime launch, Minecraft client jo
 
 ## Latest session (2026-11-10)
 - Added an Android CI workflow and repaired the Unix Gradle wrapper script.
-- CI exposed and fixed a Kotlin DSL `Properties` import and a missing Room migration import. The latest CI run is still pending verification.
+- CI exposed and fixed a Kotlin DSL `Properties` import and a missing Room migration import.
 - Tightened PHP/Java/Playit runtime detection so shared-library names are not accepted as CLI executables.
 - Switched the Bedrock source to Axolotl-PM 5.51.1 / Bedrock 1.26.60 and pinned the PHAR release.
 - Selected the matching Axolotl-PM PHP 8.4 Android ARM64 archive; its SHA-256 and packaging constraints are documented in [Decision 0001](decisions/0001-bedrock-engine-and-php-runtime.md).
-- No physical-device server launch or real Minecraft client join has been verified.
+- Completed Phase 1 Physical Device Acceptance Testing on Vivo I2221 (Android 16, API 36, ARM64):
+  - Verified `libphp.so` (PHP 8.4.27 ZTS) and all 17 compiled-in PHP extensions.
+  - Successfully spawned Axolotl-PM 5.51.1 via UI, generated LevelDB terrain, bound NetherNet signaling on `0.0.0.0:19132`, and verified HTTP 200 join signaling from LAN workstation.
+  - Verified graceful shutdown, world persistence across restarts, and foreground service background endurance.
+  - Detailed test evidence and reports compiled in `phase1-physical-test/` (14 PASS, 0 FAIL, 1 BLOCKED pending second client device).

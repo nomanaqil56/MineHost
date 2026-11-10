@@ -1,0 +1,17 @@
+﻿=== NOTIFICATION AUDIT ===
+    NotificationRecord(0x06a966ce: pkg=com.minehost.app.debug user=UserHandle{0} id=1001 tag=null importance=2 key=0|com.minehost.app.debug|1001|null|10335: Notification(channel=minehost_server_channel shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|NO_CLEAR|FOREGROUND_SERVICE color=0x00000000 actions=1 vis=PRIVATE internalType=0 internalPriority=0 internalGroupPriority=0 internalFlag=0))
+      icon=Icon(typ=RESOURCE pkg=com.minehost.app.debug id=0x0108009b)
+                android.text=String (ExtremeBedrock. running locally on port 19132)
+      sbn=StatusBarNotification(pkg=com.minehost.app.debug user=UserHandle{0} id=1001 tag=null key=0|com.minehost.app.debug|1001|null|10335 : Notification(channel=minehost_server_channel shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|NO_CLEAR|FOREGROUND_SERVICE color=0x00000000 actions=1 vis=PRIVATE internalType=0 internalPriority=0 internalGroupPriority=0 internalFlag=0))
+
+=== BATTERY OPTIMIZATION & DOZE WHITELIST ===
+user,com.minehost.app.debug,10335
+
+=== MINIMIZING APP (HOME KEYEVENT 3) ===
+
+=== PROCESS TABLE IN BACKGROUND ===
+u0_a335       1980  2376 1 17:35:44 ?     00:00:07 com.minehost.app.debug
+u0_a335       9305  1980 4 17:43:14 ?     00:00:06 Axolotl-PM 5.51.1
+u0_a335       9344  9305 0 17:43:15 ?     00:00:00 PocketMine-MP Console Reader
+shell        11665 26451 1 17:45:38 ?     00:00:00 sh -c echo '=== NOTIFICATION AUDIT ==='?dumpsys notification --noredact | grep -E 'pkg=com.minehost.app.debug|Server Foreground|ExtremeBedrock' | head -n 10?echo ''?echo '=== BATTERY OPTIMIZATION & DOZE WHITELIST ==='?dumpsys deviceidle whitelist | grep com.minehost.app.debug || echo 'Not in deviceidle whitelist'?echo ''?echo '=== MINIMIZING APP (HOME KEYEVENT 3) ==='?input keyevent 3?sleep 3?echo ''?echo '=== PROCESS TABLE IN BACKGROUND ==='?ps -ef | grep u0_a335
+shell        11882 11665 9 17:45:41 ?     00:00:00 grep u0_a335

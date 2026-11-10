@@ -1,0 +1,56 @@
+================================================================================
+MINEHOST SERVER CONFIGURATION VALIDATION REPORT
+================================================================================
+Engine: Axolotl-PM 5.x (PocketMine-MP)
+Generator: BedrockConfigGenerator.kt
+Commit: 74fce0c34ebde5fd388e8fd8ecb19c26713d01e3
+
+--- CONFIGURATION SCHEME AUDIT ---
+1. Server Properties (server.properties):
+   - server-name: Sanitized string (disallows control chars & newlines)
+   - motd: Sanitized string
+   - server-ip: 0.0.0.0 (Wildcard IPv4 listen)
+   - server-port: Configured Bedrock port (Default: 19132)
+   - enable-ipv6: on
+   - server-ipv6: :: (Wildcard IPv6 listen)
+   - server-portv6: Port + 1 (Default: 19133)
+   - gamemode: Numeric (0=Survival, 1=Creative, 2=Adventure, 3=Spectator)
+   - difficulty: Numeric (0=Peaceful, 1=Easy, 2=Normal, 3=Hard)
+   - max-players: 1..1000
+   - view-distance: 2..32 chunks
+   - enable-query: off (Avoids UDP socket collision with NetherNet on same port)
+   - xbox-auth: on/off (Correct PocketMine property name; does not emit Java online-mode)
+   - level-name: Safe regex checked ^[A-Za-z0-9._-]{1,64}$
+
+2. PocketMine Configuration (pocketmine.yml):
+   - Memory limits:
+     * global-limit: maxMemoryMb (e.g. 1024M)
+     * main-limit: maxMemoryMb - 128M (e.g. 896M)
+   - Async workers: 2
+   - Default world: Quoted world name (e.g. "world")
+   - NetherNet Transport Configuration:
+     transport:
+       name: nethernet
+       nethernet:
+         key-file: nethernet.key
+         ice-udp-mux: true
+         port-range: [19132, 19132]
+         mtu: 1200
+         builtin-signaling:
+           enabled: true
+           port: 0
+
+--- VALIDATION & ERROR REJECTION TESTS ---
+[PASS] Port = 0: Correctly rejected (out of bounds 1..65534)
+[PASS] Port = 65535: Correctly rejected (port+1 would overflow uint16)
+[PASS] MaxMemoryMb = 128: Correctly rejected (< 256 MB minimum requirement)
+[PASS] WorldName = '../outside': Correctly rejected (directory traversal rejected)
+[PASS] MaxPlayers = 0: Correctly rejected (must be at least 1)
+[PASS] ViewDistance = 1: Correctly rejected (< 2 chunks minimum)
+[PASS] CRLF Injection in properties: Stripped safely, preventing property injection
+[PASS] Xbox Auth Property: Correctly emitted as 'xbox-auth=on' / 'xbox-auth=off'
+[PASS] NetherNet Transport Block: Correctly formatted and parsed by Axolotl-PM
+
+Verdict: 100% PASS - ALL CONFIGURATION VALIDATIONS CONFIRMED
+================================================================================
+

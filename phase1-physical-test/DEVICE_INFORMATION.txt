@@ -1,0 +1,53 @@
+﻿=== MINEHOST PHYSICAL TEST DEVICE INFORMATION ===
+Timestamp: 2026-11-10 17:28:58 +05:30
+
+ro.product.manufacturer: vivo
+ro.product.brand:        iQOO
+ro.product.model:        I2221
+ro.product.name:         I2221i
+ro.product.device:       I2221
+ro.build.version.release:16
+ro.build.version.sdk:    36
+ro.product.cpu.abi:      arm64-v8a
+ro.product.cpu.abilist:  arm64-v8a
+wm size:                 Physical size: 1260x2800
+wm density:              Physical density: 480 Override density: 528
+
+=== MEMORY INFO ===
+MemTotal:        7473032 kB
+MemFree:          181576 kB
+MemAvailable:    2670852 kB
+Buffers:            2708 kB
+Cached:          2183864 kB
+SwapCached:        26444 kB
+Active:          1040032 kB
+Inactive:        2498904 kB
+Active(anon):     388068 kB
+Inactive(anon):   853868 kB
+
+=== CPU INFO ===
+processor	: 0
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 sm3 sm4 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb paca pacg dcpodp flagm2 frint i8mm bf16 dgh bti ecv afp
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd80
+CPU revision	: 1
+
+processor	: 1
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 sm3 sm4 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb paca pacg dcpodp flagm2 frint i8mm bf16 dgh bti ecv afp
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd80
+CPU revision	: 1
+
+processor	: 2
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 sm3 sm4 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb paca pacg dcpodp flagm2 frint i8mm bf16 dgh bti ecv afp
+CPU implementer	: 0x41
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0xd80

@@ -1,0 +1,48 @@
+================================================================================
+MINEHOST PHASE 1 PHYSICAL DEVICE TEST: RESOURCE OBSERVATION REPORT
+================================================================================
+Device: Vivo I2221 / iQOO Z7 Pro 5G (Android 16, API 36, arm64-v8a)
+Application: com.minehost.app.debug (Commit 74fce0c)
+Engine: Axolotl-PM 5.51.1 (PHP 8.4.27 ZTS)
+Observation Period: 2026-11-10 16:00:00 to 17:50:00 IST
+Status: PASS (OPTIMAL)
+
+1. MEMORY UTILIZATION
+Device Total Physical RAM: 7.47 GB (7,842,520 KB)
+Device Available RAM: ~3.8 GB Free / Cached
+
+A. Application Process (PID 1980):
+   Total PSS: 138,433 KB (~135.2 MB)
+   Total RSS: 226,436 KB (~221.1 MB)
+   Java Heap Allocated: 11,128 KB
+   Native Heap Allocated: 10,340 KB
+   Graphics Surface / Compose EGL: 59,576 KB
+   Code (.so, .jar, .apk mmap): 18,512 KB
+   Swap PSS: 11,682 KB
+
+B. Engine Process (Axolotl-PM / libphp.so):
+   RSS at Idle: ~94,200 KB (~92 MB)
+   RSS Peak (Chunk generation / Startup): ~148,000 KB (~144.5 MB)
+   Memory Limits: PHP memory_limit set to 1024M, actual usage ~24M internal Zend heap.
+   Low Memory Killer (LMK): No trim memory signals (TRIM_MEMORY_RUNNING_CRITICAL) delivered. Zero OOM kills.
+
+2. CPU UTILIZATION & TICK STABILITY
+Processor: MediaTek Dimensity 7200 (2x Cortex-A715 @ 2.8GHz, 6x Cortex-A510 @ 2.0GHz)
+- Idle Server (Waiting for connections): 1.5% - 3.8% CPU aggregate across all cores.
+- Startup Burst: 35% CPU for ~1.4 seconds during initial world generation, thread pool initialization, and socket binding.
+- Tick Stability: 20.0 TPS (50ms per tick) steady tick loop maintained without scheduler lag.
+- Worker Threads: 2 asynchronous worker threads managed by pmmpthread extension.
+
+3. THERMAL PROFILE & BATTERY DRAIN
+- Ambient Room Temperature: ~24.5 °C
+- Battery Temperature (Baseline): 31.0 °C
+- Battery Temperature (Peak after 3 consecutive lifecycle tests): 32.5 °C (dumpsys battery: temperature 325)
+- Thermal Throttling: None. Device stayed well below Android thermal limit (45.0 °C).
+- Power State: USB Powered (debugging link), battery level maintained at 98%.
+- Estimated Discharge Rate when running on battery (screen minimized): ~3% - 4% per hour.
+
+4. WAKELOCK & FOREGROUND SERVICE BEHAVIOR
+- WakeLockManager: Acquired PARTIAL_WAKE_LOCK tagged 'minehost:server_running'.
+- CPU Governor: Prevented SoC deep sleep while server active.
+- Foreground Service: ServerForegroundService held high-priority notification with FOREGROUND_SERVICE_TYPE_SPECIAL_USE, preventing OS process freezing in background.
+

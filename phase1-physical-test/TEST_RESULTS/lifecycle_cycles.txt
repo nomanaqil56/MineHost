@@ -1,0 +1,32 @@
+﻿================================================================================
+MINEHOST SERVER REPEATED LIFECYCLE AUDIT (3 FULL START/STOP CYCLES)
+================================================================================
+Timestamp: 2026-11-10 17:48:10 +05:30
+
+>>> STARTING CYCLE 1 <<<
+  Cycle 1 Start Process: u0_a335      12559  1980 34 17:48:14 ?    00:00:01 Axolotl-PM 5.51.1
+  Cycle 1 NetherNet Probe: {"dataVersion":7,"name":"A MineHost server","protocol":2225,"version":"1.26.60","level":"Axolotl-PM","players":0,"maxPlayers":10,"gameType":0,"editor":false,"hardcore":false,"onlineAuth":true,"selfSignedAuth":false,"nonce":"f8e7c96225b3f5f4","transportLayer":2,"connection":4}
+  Cycle 1 Start Result: PASS (ONLINE and Responding)
+>>> STOPPING CYCLE 1 <<<
+  Cycle 1 Stop Process: 
+  Cycle 1 Stop Result: PASS (Clean Graceful Exit)
+
+>>> STARTING CYCLE 2 <<<
+  Cycle 2 Start Process: u0_a335      12647  1980 33 17:48:27 ?    00:00:01 Axolotl-PM 5.51.1
+  Cycle 2 NetherNet Probe: {"dataVersion":7,"name":"A MineHost server","protocol":2225,"version":"1.26.60","level":"Axolotl-PM","players":0,"maxPlayers":10,"gameType":0,"editor":false,"hardcore":false,"onlineAuth":true,"selfSignedAuth":false,"nonce":"54ae40ca10a54827","transportLayer":2,"connection":4}
+  Cycle 2 Start Result: PASS (ONLINE and Responding)
+>>> STOPPING CYCLE 2 <<<
+  Cycle 2 Stop Process: 
+  Cycle 2 Stop Result: PASS (Clean Graceful Exit)
+
+>>> STARTING CYCLE 3 <<<
+  Cycle 3 Start Process: u0_a335      12787  1980 31 17:48:41 ?    00:00:01 Axolotl-PM 5.51.1
+  Cycle 3 NetherNet Probe: {"dataVersion":7,"name":"A MineHost server","protocol":2225,"version":"1.26.60","level":"Axolotl-PM","players":0,"maxPlayers":10,"gameType":0,"editor":false,"hardcore":false,"onlineAuth":true,"selfSignedAuth":false,"nonce":"7c9a5032a1ac0b74","transportLayer":2,"connection":4}
+  Cycle 3 Start Result: PASS (ONLINE and Responding)
+>>> STOPPING CYCLE 3 <<<
+  Cycle 3 Stop Process: 
+  Cycle 3 Stop Result: PASS (Clean Graceful Exit)
+
+================================================================================
+3-CYCLE AUDIT VERDICT: 100% PASS - ALL 3 CYCLES STARTED & STOPPED CLEANLY
+================================================================================

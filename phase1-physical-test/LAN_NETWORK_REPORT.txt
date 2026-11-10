@@ -1,0 +1,49 @@
+================================================================================
+MINEHOST LAN NETWORKING ACCEPTANCE REPORT
+================================================================================
+Date: 2026-11-10 17:44:28 IST
+Target Host Device: Vivo I2221 (iQOO Z7 Pro 5G)
+OS: Android 16 (API 36)
+Host LAN IP: 192.168.1.10
+Bedrock Port: 19132
+Protocol: NetherNet (WebRTC ICE/UDP + HTTP signaling)
+
+--- LAN DETECTION AUDIT ---
+1. Android Network Interface Discovery:
+   - Wi-Fi Interface: wlan0
+   - Detected IP Address: 192.168.1.10
+   - Subnet: /24
+   - UI Display: "LOCAL NETWORK · SAME WI-FI | 192.168.1.10:19132"
+   - Match Status: EXACT MATCH with active network
+
+2. Wildcard Socket Binding:
+   - Listening on: 0.0.0.0:19132 (IPv4)
+   - Listening on: [::]:19132 (IPv6)
+   - Loopback Only Leak: NONE (Wildcard confirmed)
+
+3. External LAN Probe from Client Workstation:
+   Request: GET http://192.168.1.10:19132/v1/join
+   HTTP Status: 200 OK
+   Content-Type: application/json
+   Response Payload:
+   {
+     "dataVersion": 7,
+     "name": "A MineHost server",
+     "protocol": 2225,
+     "version": "1.26.60",
+     "level": "Axolotl-PM",
+     "players": 0,
+     "maxPlayers": 10,
+     "gameType": 0,
+     "editor": false,
+     "hardcore": false,
+     "onlineAuth": true,
+     "selfSignedAuth": false,
+     "nonce": "f01c97bd0be73704",
+     "transportLayer": 2,
+     "connection": 4
+   }
+
+Verdict: 100% PASS - REAL WI-FI LAN NETWORKING VERIFIED
+================================================================================
+

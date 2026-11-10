@@ -1,0 +1,21 @@
+================================================================================
+MINEHOST ENGINE INSTALLATION AUDIT REPORT
+================================================================================
+Engine: Axolotl-PM Bedrock Engine
+File: PocketMine-MP.phar
+Path: /data/user/0/com.minehost.app.debug/files/minehost/engines/bedrock/PocketMine-MP.phar
+Size: 3,647,735 bytes
+
+--- SHA-256 INTEGRITY VERIFICATION ---
+Expected SHA-256: bcfbd0deff349c2b25b1688299a7d54f1fc8a080d2f95e19884f8e341319021a
+Actual SHA-256:   bcfbd0deff349c2b25b1688299a7d54f1fc8a080d2f95e19884f8e341319021a
+Checksum Status:  EXACT MATCH (VERIFIED)
+
+--- PHAR EXECUTION (libphp.so -n PocketMine-MP.phar --version) ---
+Deleted stale phar cache at /data/user/0/com.minehost.app.debug/cache/PocketMine-MP-phar-cache.0/PMMPntpu8brvtdr46IbbJoL
+Preparing PocketMine-MP.phar decompressed cache...
+Cache ready at /data/user/0/com.minehost.app.debug/cache/PocketMine-MP-phar-cache.0/PMMPm3a5ldftgh8leoKIMbk.tar in 0.18s
+Axolotl-PM 5.51.1 (git hash e881fc1bc1c401545baf6bd1f824e41ff3f57bd1) for Minecraft: Bedrock Edition v26.60
+
+Engine Status: VERIFIED AND READY FOR EXECUTION
+================================================================================
