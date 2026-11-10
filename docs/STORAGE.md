@@ -31,7 +31,7 @@ MineHost strictly adheres to the principle of **local data ownership**:
 │
 ├── engines/
 │   ├── bedrock/
-│   │   └── axolotl-pm/Axolotl-PM/PocketMine-MP.phar
+│   │   └── axolotl-pm/PocketMine-MP.phar
 │   └── java/
 │       └── paper/paper-1.20.4.jar
 │
@@ -64,7 +64,7 @@ Each backup archive contains a companion `backup_manifest.json`:
   "serverName": "Survival Realm",
   "edition": "BEDROCK",
   "engine": "bedrock-pocketmine-v5",
-  "minecraftVersion": "1.20.80",
+  "minecraftVersion": "1.26.60",
   "worldName": "world",
   "createdAt": "2026-11-06T14:30:00Z",
   "sizeBytes": 48291040,
