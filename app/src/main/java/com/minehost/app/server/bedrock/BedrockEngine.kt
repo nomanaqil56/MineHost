@@ -24,10 +24,10 @@ class BedrockEngine @Inject constructor(
 ) : ServerEngine {
 
     override val id: String = "bedrock-pocketmine-v5"
-    override val name: String = "PocketMine-MP (Bedrock)"
+    override val name: String = "Axolotl-PM (Bedrock)"
     override val edition: MinecraftEdition = MinecraftEdition.BEDROCK
-    override val defaultVersion: String = "1.20.80"
-    override val supportedVersions: List<String> = listOf("1.20.80", "1.21.0")
+    override val defaultVersion: String = "5.51.1"
+    override val supportedVersions: List<String> = listOf("5.51.1")
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -36,7 +36,7 @@ class BedrockEngine @Inject constructor(
     }
 
     override suspend fun install(onProgress: (Float, String) -> Unit): Result<Unit> {
-        AppLogger.i("BedrockEngine", "Installing PocketMine-MP engine...")
+        AppLogger.i("BedrockEngine", "Installing Axolotl-PM Bedrock engine...")
         if (!runtimeManager.isSupportedArchitecture()) {
             return Result.failure(
                 UnsupportedOperationException(
