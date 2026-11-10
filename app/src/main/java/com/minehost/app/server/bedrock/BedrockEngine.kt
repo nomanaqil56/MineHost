@@ -97,6 +97,13 @@ class BedrockEngine @Inject constructor(
             return Result.failure(phpCheck.exceptionOrNull() ?: IllegalStateException(errorMsg))
         }
 
+        val versionError = BedrockRuntimeContract.validatePhpVersion(phpCheck.getOrThrow())
+        if (versionError != null) {
+            AppLogger.e("BedrockEngine", versionError)
+            listener.onError(versionError)
+            return Result.failure(IllegalStateException(versionError))
+        }
+
         // Use the compiled-in module set in the exact no-ini mode used by the server.
         // The upstream php.ini references external modules that are not packaged with
         // this static Android CLI and caused false missing-extension failures on device.
