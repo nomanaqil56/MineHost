@@ -409,19 +409,20 @@ class RuntimeManager @Inject constructor(
         val outputFile = File(context.cacheDir, "runtime-check-${System.nanoTime()}.log")
         var process: Process? = null
         return try {
-            process = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
+            val child = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
                 .redirectErrorStream(true)
                 .redirectOutput(outputFile)
                 .start()
-            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                if (!process.waitFor(2, TimeUnit.SECONDS)) {
+            process = child
+            if (!child.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+                child.destroyForcibly()
+                if (!child.waitFor(2, TimeUnit.SECONDS)) {
                     return Result.failure(IOException("${binary.name} timed out and could not be terminated."))
                 }
                 Result.failure(IOException("${binary.name} started but did not exit within ${timeoutSeconds}s."))
             } else {
                 val output = outputFile.takeIf { it.isFile }?.readText()?.take(300).orEmpty()
-                val exitCode = process.exitValue()
+                val exitCode = child.exitValue()
                 if (exitCode == 0) Result.success(output)
                 else Result.failure(IOException("${binary.name} exited with code $exitCode: $output"))
             }
@@ -442,9 +443,11 @@ class RuntimeManager @Inject constructor(
             Result.failure(e)
         } finally {
             // If an exceptional path occurs after start, do not leak a child process.
-            if (process?.isAlive == true) {
-                process.destroyForcibly()
-                runCatching { process.waitFor(2, TimeUnit.SECONDS) }
+            process?.let { child ->
+                if (child.isAlive) {
+                    child.destroyForcibly()
+                    runCatching { child.waitFor(2, TimeUnit.SECONDS) }
+                }
             }
             outputFile.delete()
         }

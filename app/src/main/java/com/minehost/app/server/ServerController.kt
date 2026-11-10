@@ -234,8 +234,8 @@ class ServerController @Inject constructor(
         if (!stopped || handle.isAlive) {
             val message = "The server process is still alive after the shutdown timeout. MineHost has not marked it STOPPED; retry shutdown or force-close the app only as a last resort."
             log(serverId, "[ERROR] $message")
-            _serverStatus.value = ServerStatus.ERROR
-            serverRepository.updateStatus(serverId, ServerStatus.ERROR)
+            _serverStatus.value = ServerStatus.STOPPING
+            serverRepository.updateStatus(serverId, ServerStatus.STOPPING)
             return Resource.Error(message)
         }
 
