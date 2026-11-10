@@ -57,6 +57,8 @@ See [Production Readiness](PRODUCTION_READINESS.md), [Testing Status](TESTING.md
 
 ## 4. Workstream B — Real server runtimes and engines
 
+See [ENGINE_EVALUATION.md](ENGINE_EVALUATION.md). PocketMine-MP and its official PHP-Binaries repository were archived in 2026; do not assume PocketMine remains the default. Reopen engine selection and complete the Go/Java/PHP feasibility spikes before committing to a production engine.
+
 ### Bedrock
 - [ ] Research and select a maintained Bedrock server implementation with a suitable licence.
 - [ ] Verify current Minecraft protocol support, including Bedrock transport changes and version compatibility.
