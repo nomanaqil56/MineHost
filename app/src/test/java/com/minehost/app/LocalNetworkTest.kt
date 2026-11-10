@@ -19,12 +19,12 @@ class LocalNetworkTest {
     ) = Candidate(name, addr, up, loopback, p2p, siteLocal, linkLocal)
 
     @Test
-    fun picksTheWifiAddressAndIgnoresLoopbackVpnAndCellular() {
+    fun picksWifiAndIgnoresLoopbackVpnAndCellular() {
         val result = LocalNetwork.pickLanAddresses(
             listOf(
                 c("lo", "127.0.0.1", loopback = true, siteLocal = false),
-                c("rmnet0", "100.64.3.9", siteLocal = false),            // carrier-grade NAT, not a LAN
-                c("tun0", "10.8.0.2", p2p = true),                       // VPN
+                c("rmnet0", "10.64.3.9"),                              // cellular private address
+                c("tun0", "10.8.0.2", p2p = true),                     // VPN
                 c("wlan0", "192.168.1.23")
             )
         )
@@ -43,10 +43,10 @@ class LocalNetworkTest {
     }
 
     @Test
-    fun wifiComesBeforeHotspotAndOthers() {
+    fun prioritizesWifiThenHotspotThenEthernet() {
         val result = LocalNetwork.pickLanAddresses(
             listOf(
-                c("dummy0", "10.1.1.1"),
+                c("eth0", "10.1.1.1"),
                 c("ap0", "192.168.43.1"),
                 c("wlan0", "192.168.1.23")
             )
@@ -55,8 +55,35 @@ class LocalNetworkTest {
     }
 
     @Test
-    fun noDuplicatesAndEmptyInputGivesEmptyResult() {
-        assertEquals(listOf("192.168.1.5"), LocalNetwork.pickLanAddresses(listOf(c("wlan0", "192.168.1.5"), c("wlan1", "192.168.1.5"))))
+    fun rejectsUnknownAndCellularInterfacesEvenWhenAddressIsPrivate() {
+        val result = LocalNetwork.pickLanAddresses(
+            listOf(
+                c("rmnet_data0", "10.12.0.5"),
+                c("dummy0", "10.1.1.1"),
+                c("tun0", "192.168.8.2")
+            )
+        )
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun supportsEthernetAndUsbTetherInterfaces() {
+        val result = LocalNetwork.pickLanAddresses(
+            listOf(c("eth0", "192.168.10.2"), c("rndis0", "192.168.42.2"))
+        )
+        assertEquals(listOf("192.168.10.2", "192.168.42.2"), result)
+    }
+
+    @Test
+    fun removesDuplicateAddresses() {
+        assertEquals(
+            listOf("192.168.1.5"),
+            LocalNetwork.pickLanAddresses(listOf(c("wlan0", "192.168.1.5"), c("wlan1", "192.168.1.5")))
+        )
+    }
+
+    @Test
+    fun emptyInputGivesEmptyResult() {
         assertTrue(LocalNetwork.pickLanAddresses(emptyList()).isEmpty())
     }
 }
