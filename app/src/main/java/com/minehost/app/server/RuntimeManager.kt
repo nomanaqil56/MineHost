@@ -160,14 +160,6 @@ class RuntimeManager @Inject constructor(
         return if (phar.exists() && phar.length() > 0) phar else null
     }
 
-    /**
-     * Verifies that PaperMC Java JAR is actually installed on disk.
-     */
-    fun isPaperJavaInstalled(): Boolean {
-        val jar = File(baseEnginesDir, "java/paper.jar")
-        return jar.exists() && jar.length() > 1_000_000
-    }
-
     fun getPaperJar(): File? {
         val jar = File(baseEnginesDir, "java/paper.jar")
         return if (jar.exists() && jar.length() > 0) jar else null
