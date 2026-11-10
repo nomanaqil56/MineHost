@@ -42,6 +42,10 @@ MineHost is not a cloud game-server rental service and must not silently move a 
 
 Do not equate an engine adapter or downloader with a working server. An engine is supported only after its runtime, launch method, configuration, readiness protocol, local client join, persistence and stop/restart flow pass on physical Android hardware.
 
+Bedrock 26.60+ has migrated to NetherNet (WebRTC data channels with HTTP signaling and ICE); the previous RakNet-only assumption is obsolete for current clients. The current MineHost RakNet readiness probe is not sufficient. Evaluate VanillaMine (PocketMine continuation; current 1.26.60 release but no published ARM PHP build), Altay (1.26.60 release; ARM/transport need verification), and Allay (Java 21; NetherNet/Android need verification). Original PocketMine-MP and its PHP-Binaries repository are archived. Do not ship the old PocketMine downloader as the current production engine without a maintained fork/runtime decision.
+
+NetherNet adds a protocol-specific requirement: current clients perform HTTP SDP signaling, exchange identity assertions, then establish WebRTC DTLS/SCTP data channels. iOS requires HTTPS signaling. The Mojang onboarding guide documents full ICE with trickle ICE disabled and no client STUN/TURN URLs by default. A generic UDP relay or a RakNet ping is not enough. MineHost must prove direct and CGNAT relay paths with a real 26.60+ client before finalizing the Bedrock network architecture.
+
 Candidates to evaluate, not promises:
 - Bedrock: a maintained ARM64-compatible implementation. Re-evaluate PocketMine-MP's maintenance status and actual gameplay/transport compatibility before committing. Evaluate PowerNukkitX only if its Java runtime path is viable.
 - Java: PaperMC with a real Android-compatible ARM64 JVM and complete runtime libraries.
