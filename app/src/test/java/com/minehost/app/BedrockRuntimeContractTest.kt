@@ -40,6 +40,13 @@ class BedrockRuntimeContractTest {
     }
 
     @Test
+    fun acceptsOnlyPinnedPhpVersionAndThreadSafeBuild() {
+        assertNull(BedrockRuntimeContract.validatePhpVersion("PHP 8.4.27 (cli) (ZTS)"))
+        assertNotNull(BedrockRuntimeContract.validatePhpVersion("PHP 8.3.0 (cli) (ZTS)"))
+        assertNotNull(BedrockRuntimeContract.validatePhpVersion("PHP 8.4.27 (cli) (NTS)"))
+    }
+
+    @Test
     fun phpModuleCheckFindsMissingRequiredExtensions() {
         val output = """
             [PHP Modules]
