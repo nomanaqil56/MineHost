@@ -156,6 +156,23 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
+     * Returns the Java launcher from a complete runtime layout.
+     *
+     * A JVM shared library (for example libjava.so/libjvm.so) is not itself the
+     * command-line Java launcher. MineHost requires a complete runtime with bin/java.
+     * The launcher still needs a device-tested Android-compatible execution strategy.
+     */
+    fun getJavaHome(): File? {
+        val home = File(baseRuntimesDir, "java")
+        return home.takeIf { File(it, "bin/java").isFile }
+    }
+
+    fun getJavaExecutable(): File? {
+        val home = getJavaHome() ?: return null
+        return File(home, "bin/java").takeIf { it.isFile }
+    }
+
+    /**
      * Verifies that Playit agent executable exists and is executable.
      */
     fun isPlayitAgentInstalled(): Boolean {
