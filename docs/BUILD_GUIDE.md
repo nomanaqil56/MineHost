@@ -6,7 +6,7 @@ This guide covers building the Android application. **A successful APK build doe
 
 - Windows 10/11, macOS or Linux.
 - JDK 17.
-- Android SDK Platform 36 and Build Tools 35.0.0 (matching the current project configuration).
+- Android SDK Platform 36 and Build Tools 36.0.0 (matching the current project configuration).
 - Git.
 - Android ARM64 physical device and ADB for end-to-end testing.
 
