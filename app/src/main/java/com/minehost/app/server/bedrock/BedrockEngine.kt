@@ -113,6 +113,10 @@ class BedrockEngine @Inject constructor(
 
         val command = listOf(
             phpBinary.absolutePath,
+            "-d", "phar.readonly=0",
+            "-d", "phar.require_hash=1",
+            "-d", "zend.assertions=1",
+            "-d", "memory_limit=${config.maxMemoryMb}M",
             phar.absolutePath,
             "--no-wizard",
             "--enable-ansi=false",
