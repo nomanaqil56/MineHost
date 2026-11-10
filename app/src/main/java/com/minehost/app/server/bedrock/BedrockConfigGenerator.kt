@@ -59,7 +59,8 @@ object BedrockConfigGenerator {
             difficulty=$difficultyNum
             max-players=${config.maxPlayers}
             white-list=off
-            # NetherNet uses TCP signaling and UDP WebRTC on server-port; avoid a UDP query socket collision.\n            enable-query=off
+            # NetherNet uses TCP signaling and UDP WebRTC on server-port; avoid a UDP query socket collision.
+            enable-query=off
             enable-rcon=off
             view-distance=${config.viewDistance}
             pvp=${if (config.pvpEnabled) "on" else "off"}
@@ -88,6 +89,16 @@ object BedrockConfigGenerator {
             level-settings:
               default-world: ${yamlQuoted(config.levelName)}
               auto-save: true
+            transport:
+              name: nethernet
+              nethernet:
+                key-file: nethernet.key
+                ice-udp-mux: true
+                port-range: [19132, 19132]
+                mtu: 1200
+                builtin-signaling:
+                  enabled: true
+                  port: 0
         """.trimIndent()
     }
 
