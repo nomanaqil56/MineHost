@@ -240,7 +240,6 @@ fun ServerDetailScreen(
                 endpoint = uiState.publicEndpoint,
                 localPort = server.localPort,
                 tunnelStatus = uiState.tunnelStatus,
-                claimUrl = uiState.claimUrl,
                 localAddress = uiState.localAddress,
                 remoteReachable = uiState.remoteReachable,
                 isServerRunning = uiState.isRunning,
@@ -324,7 +323,6 @@ fun ConnectionCard(
     endpoint: com.minehost.app.domain.model.PublicEndpoint?,
     localPort: Int,
     tunnelStatus: com.minehost.app.core.common.TunnelStatus,
-    claimUrl: String?,
     localAddress: String?,
     remoteReachable: Boolean?,
     isServerRunning: Boolean,
@@ -351,7 +349,7 @@ fun ConnectionCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Worldwide Public Address",
+                        text = "Connection Access",
                         style = MaterialTheme.typography.titleMedium,
                         color = TextPrimary
                     )
@@ -383,43 +381,7 @@ fun ConnectionCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (claimUrl != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(DarkBackground)
-                        .padding(12.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "Playit Agent Setup Required",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = StatusYellow,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Your tunnel agent must be claimed once to assign your static public domain.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                        Button(
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(claimUrl))
-                                context.startActivity(intent)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryEmerald),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.padding(top = 4.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Claim Agent on Playit.gg")
-                        }
-                    }
-                }
-            } else if (endpoint != null) {
+            if (endpoint != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -465,7 +427,7 @@ fun ConnectionCard(
                 }
             } else {
                 Text(
-                    text = "Server running locally on port $localPort (LAN only). Enable tunnel or check Diagnostics if Playit agent is not running.",
+                    text = "Local network only on port $localPort. MineHost public connectivity is under development; this build does not use a third-party tunnel.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
