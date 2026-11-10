@@ -54,7 +54,7 @@ The new Android CI workflow is intended to provide reproducible build and unit-t
 
 ## Important source-level risks to investigate
 
-1. RuntimeManager.getPhpExecutable() only searches expected locations; it does not install a PHP runtime.
+1. RuntimeManager.getPhpExecutable() now accepts only an executable packaged in nativeLibraryDir; it does not install a PHP runtime.
 2. JavaEngine requires libjava.so but no JVM package or installer is present.
 3. Runtime downloads must be reviewed against Android W^X restrictions and Google Play's dynamically loaded code policy. A successful download and chmod do not prove execution is permitted.
 4. RuntimeManager accepts downloads when the upstream release provides no checksum, recording the file as not verified. Production policy should pin versions and require trusted integrity evidence for executable/runtime assets.
@@ -63,7 +63,7 @@ The new Android CI workflow is intended to provide reproducible build and unit-t
 7. A tunnel process or assigned public hostname does not prove remote protocol reachability.
 8. Server readiness probes must match the selected server engine and exact Minecraft transport/version.
 9. Backup consistency must be verified against real Bedrock LevelDB and Java worlds, not only temporary files.
-10. The current target SDK is API 34; new Google Play submissions now require API 36.
+10. Main previously targeted API 34. The development branch now targets API 36 with an upgraded toolchain; this migration is not yet CI-verified.
 11. Foreground-service special-use eligibility is reviewed by Google Play and is not guaranteed by adding a manifest declaration.
 12. No measured network or server performance benchmark exists yet.
 
