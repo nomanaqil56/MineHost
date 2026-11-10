@@ -61,6 +61,20 @@ object BedrockConfigGenerator {
             level-settings:
               default-world: "${config.levelName}"
               auto-save: true
+            transport:
+              # Bedrock 1.26.60+ requires NetherNet; legacy RakNet is no longer supported.
+              name: nethernet
+              nethernet:
+                key-file: nethernet.key
+                # Keep a dedicated UDP port per player. UDP multiplexing cannot be used with TURN.
+                ice-udp-mux: false
+                port-range: [${config.localPort}, ${(config.localPort + config.maxPlayers.coerceAtLeast(1) - 1).coerceAtMost(65535)}]
+                mtu: 1200
+                builtin-signaling:
+                  enabled: true
+                  port: 0
+                  # Plain HTTP uses Trust On First Use. MineHost's public relay must provide
+                  # HTTPS termination before this is considered production-ready.
         """.trimIndent()
     }
 
