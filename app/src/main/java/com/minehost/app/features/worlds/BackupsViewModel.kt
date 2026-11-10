@@ -64,13 +64,17 @@ class BackupsViewModel @Inject constructor(
             val server = serverRepository.getServerById(serverId) ?: return@launch
             _uiState.value = _uiState.value.copy(isCreatingBackup = true, errorMessage = null)
 
-            val result = worldBackupManager.createBackup(
-                serverId = serverId,
-                serverName = server.name,
-                worldName = "world",
-                note = note
-            ) { progress ->
-                _uiState.value = _uiState.value.copy(progress = progress)
+            // If the server is online, world saving is paused while the archive is written so the
+            // backup is not taken mid-write (see ServerController.withWorldSavePaused).
+            val result = serverController.withWorldSavePaused(serverId) {
+                worldBackupManager.createBackup(
+                    serverId = serverId,
+                    serverName = server.name,
+                    worldName = "world",
+                    note = note
+                ) { progress ->
+                    _uiState.value = _uiState.value.copy(progress = progress)
+                }
             }
 
             when (result) {

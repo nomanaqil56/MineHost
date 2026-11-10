@@ -48,7 +48,9 @@ fun ServerEntity.toDomain(): ServerModel {
         createdAt = createdAt,
         updatedAt = updatedAt,
         lastStartedAt = lastStartedAt,
-        lastStoppedAt = lastStoppedAt
+        lastStoppedAt = lastStoppedAt,
+        eulaAccepted = eulaAccepted,
+        eulaAcceptedAt = eulaAcceptedAt
     )
 }
 
@@ -79,7 +81,9 @@ fun ServerModel.toEntity(): ServerEntity {
         createdAt = createdAt,
         updatedAt = updatedAt,
         lastStartedAt = lastStartedAt,
-        lastStoppedAt = lastStoppedAt
+        lastStoppedAt = lastStoppedAt,
+        eulaAccepted = eulaAccepted,
+        eulaAcceptedAt = eulaAcceptedAt
     )
 }
 

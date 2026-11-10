@@ -31,7 +31,9 @@ data class ServerModel(
     val createdAt: Long,
     val updatedAt: Long,
     val lastStartedAt: Long?,
-    val lastStoppedAt: Long?
+    val lastStoppedAt: Long?,
+    val eulaAccepted: Boolean = false,
+    val eulaAcceptedAt: Long? = null
 )
 
 data class PublicEndpoint(

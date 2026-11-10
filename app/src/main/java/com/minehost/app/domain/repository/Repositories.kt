@@ -16,6 +16,7 @@ interface ServerRepository {
     suspend fun saveServer(server: ServerModel)
     suspend fun updateStatus(id: String, status: ServerStatus)
     suspend fun updatePublicEndpoint(id: String, endpoint: PublicEndpoint?)
+    suspend fun updateEulaConsent(id: String, accepted: Boolean)
     suspend fun deleteServer(id: String)
 }
 

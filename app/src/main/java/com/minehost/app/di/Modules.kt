@@ -40,7 +40,9 @@ object DatabaseModule {
             context,
             MineHostDatabase::class.java,
             Constants.DATABASE_NAME
-        ).fallbackToDestructiveMigration().build()
+        )
+            .addMigrations(MIGRATION_1_2)
+            .build()
     }
 
     @Provides

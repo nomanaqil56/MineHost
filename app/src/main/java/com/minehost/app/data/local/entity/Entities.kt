@@ -36,7 +36,9 @@ data class ServerEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val lastStartedAt: Long? = null,
-    val lastStoppedAt: Long? = null
+    val lastStoppedAt: Long? = null,
+    val eulaAccepted: Boolean = false,
+    val eulaAcceptedAt: Long? = null
 )
 
 @Entity(

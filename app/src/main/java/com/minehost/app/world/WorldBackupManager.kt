@@ -170,19 +170,12 @@ class WorldBackupManager @Inject constructor(
                 }
             }
 
-            // Step 4: Swap. Move the old world aside, move the verified copy into place, and only
-            // delete the old world once the new one is in place. Roll back on any failure.
-            val hadOldWorld = worldDir.exists()
-            if (hadOldWorld && !worldDir.renameTo(oldDir)) {
-                FileUtils.deleteDirectoryRecursively(tempDir)
-                return Resource.Error("Could not move the current world aside. Restore cancelled; nothing was changed.")
+            // Step 4: Swap with rollback (see WorldSwap). The old world is only deleted after the
+            // verified replacement is in place.
+            when (val swap = WorldSwap.replace(worldDir, tempDir, oldDir, FileUtils::deleteDirectoryRecursively)) {
+                is WorldSwap.Result.Failed -> return Resource.Error(swap.message)
+                WorldSwap.Result.Success -> Unit
             }
-            if (!tempDir.renameTo(worldDir)) {
-                if (hadOldWorld) oldDir.renameTo(worldDir)
-                FileUtils.deleteDirectoryRecursively(tempDir)
-                return Resource.Error("Could not move the restored world into place. Your previous world was put back.")
-            }
-            if (hadOldWorld) FileUtils.deleteDirectoryRecursively(oldDir)
 
             AppLogger.i("WorldBackupManager", "World restored successfully from: $backupId")
             Resource.Success(Unit)

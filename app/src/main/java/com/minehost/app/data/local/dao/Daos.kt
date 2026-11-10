@@ -37,6 +37,9 @@ interface ServerDao {
     @Query("UPDATE servers SET publicHostname = :hostname, publicPort = :port, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updatePublicEndpoint(id: String, hostname: String?, port: Int?, updatedAt: Long = System.currentTimeMillis())
 
+    @Query("UPDATE servers SET eulaAccepted = :accepted, eulaAcceptedAt = :acceptedAt, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateEula(id: String, accepted: Boolean, acceptedAt: Long?, updatedAt: Long = System.currentTimeMillis())
+
     @Delete
     suspend fun deleteServer(server: ServerEntity)
 

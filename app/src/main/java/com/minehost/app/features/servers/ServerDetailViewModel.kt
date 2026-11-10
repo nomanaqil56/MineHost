@@ -28,7 +28,13 @@ data class ServerDetailUiState(
     val claimUrl: String? = null,
     val latencyMs: Long? = null,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val showEulaDialog: Boolean = false
+)
+
+private data class ServerDetailTransient(
+    val error: String? = null,
+    val showEula: Boolean = false
 )
 
 private data class TunnelUiInfo(
@@ -47,6 +53,8 @@ class ServerDetailViewModel @Inject constructor(
 ) : ViewModel() {
 
     val serverId: String = checkNotNull(savedStateHandle["serverId"])
+
+    private val _transient = kotlinx.coroutines.flow.MutableStateFlow(ServerDetailTransient())
 
     val uiState: StateFlow<ServerDetailUiState> = combine(
         combine(
@@ -79,6 +87,8 @@ class ServerDetailViewModel @Inject constructor(
             latencyMs = if (isThisActive) tunnelInfo.latencyMs else null,
             isLoading = false
         )
+    }.combine(_transient) { ui, transient ->
+        ui.copy(errorMessage = transient.error, showEulaDialog = transient.showEula)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -90,11 +100,46 @@ class ServerDetailViewModel @Inject constructor(
             val isCurrentRunning = serverController.activeServerId.value == serverId &&
                     serverController.serverStatus.value.isRunning
             if (isCurrentRunning) {
-                serverController.stopServer(serverId)
+                val stopResult = serverController.stopServer(serverId)
+                if (stopResult is com.minehost.app.core.common.Resource.Error) {
+                    _transient.value = _transient.value.copy(error = stopResult.message)
+                }
             } else {
-                serverController.startServer(serverId)
+                val server = serverRepository.getServerById(serverId)
+                if (server != null &&
+                    server.edition == com.minehost.app.core.common.MinecraftEdition.JAVA &&
+                    !server.eulaAccepted
+                ) {
+                    // Never accept the EULA silently: ask the user first.
+                    _transient.value = ServerDetailTransient(showEula = true)
+                    return@launch
+                }
+                startAndReportErrors()
             }
         }
+    }
+
+    private suspend fun startAndReportErrors() {
+        _transient.value = ServerDetailTransient()
+        val result = serverController.startServer(serverId)
+        if (result is com.minehost.app.core.common.Resource.Error) {
+            _transient.value = ServerDetailTransient(error = result.message)
+        }
+    }
+
+    fun acceptEulaAndStart() {
+        viewModelScope.launch {
+            serverRepository.updateEulaConsent(serverId, true)
+            startAndReportErrors()
+        }
+    }
+
+    fun declineEula() {
+        _transient.value = ServerDetailTransient()
+    }
+
+    fun dismissError() {
+        _transient.value = _transient.value.copy(error = null)
     }
 
     fun deleteServer(onDeleted: () -> Unit) {

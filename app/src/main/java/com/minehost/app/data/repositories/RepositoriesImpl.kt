@@ -55,6 +55,10 @@ class ServerRepositoryImpl @Inject constructor(
         serverDao.updatePublicEndpoint(id, endpoint?.hostname, endpoint?.port)
     }
 
+    override suspend fun updateEulaConsent(id: String, accepted: Boolean) {
+        serverDao.updateEula(id, accepted, if (accepted) System.currentTimeMillis() else null)
+    }
+
     override suspend fun deleteServer(id: String) {
         serverDao.deleteServerById(id)
     }

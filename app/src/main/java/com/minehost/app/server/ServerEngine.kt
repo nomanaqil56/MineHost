@@ -26,7 +26,9 @@ data class ServerConfiguration(
     val levelName: String = "world",
     val minMemoryMb: Int = 256,
     val maxMemoryMb: Int = 1024,
-    val customJvmArgs: List<String> = emptyList()
+    val customJvmArgs: List<String> = emptyList(),
+    /** True only after the user explicitly accepted the Minecraft EULA in the app. */
+    val eulaAccepted: Boolean = false
 )
 
 interface ProcessListener {

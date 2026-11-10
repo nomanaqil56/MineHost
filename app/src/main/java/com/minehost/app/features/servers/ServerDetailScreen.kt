@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -48,6 +49,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -160,6 +162,53 @@ fun ServerDetailScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            if (uiState.showEulaDialog) {
+                val eulaContext = LocalContext.current
+                AlertDialog(
+                    onDismissRequest = { viewModel.declineEula() },
+                    title = { Text("Minecraft EULA") },
+                    text = {
+                        Text(
+                            "Java Edition servers require you to accept the Minecraft End User License Agreement " +
+                                "(https://aka.ms/MinecraftEULA). MineHost records your acceptance and starts the server " +
+                                "only if you agree."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { viewModel.acceptEulaAndStart() }) {
+                            Text("I agree", color = PrimaryEmerald)
+                        }
+                    },
+                    dismissButton = {
+                        Row {
+                            TextButton(onClick = {
+                                runCatching {
+                                    eulaContext.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse("https://aka.ms/MinecraftEULA"))
+                                    )
+                                }
+                            }) { Text("Read EULA") }
+                            TextButton(onClick = { viewModel.declineEula() }) { Text("Decline") }
+                        }
+                    }
+                )
+            }
+
+            uiState.errorMessage?.let { message ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = message,
+                        color = StatusRed,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { viewModel.dismissError() }) { Text("Dismiss") }
+                }
+            }
 
             // Main Start / Stop Button
             Button(

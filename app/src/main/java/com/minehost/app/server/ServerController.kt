@@ -19,6 +19,7 @@ import com.minehost.app.world.WorldManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,6 +41,11 @@ class ServerController @Inject constructor(
     private val wakeLockManager: WakeLockManager,
     private val thermalManager: ThermalManager
 ) {
+    private companion object {
+        /** Fixed wait after `save-off` + flush before a backup reads the world files. */
+        const val SAVE_SETTLE_MS = 5_000L
+    }
+
     private val scope = CoroutineScope(Dispatchers.IO)
 
     private val _activeServerId = MutableStateFlow<String?>(null)
@@ -86,6 +92,13 @@ class ServerController @Inject constructor(
                 return Resource.Error(notInstalledMsg)
             }
 
+            if (server.edition == MinecraftEdition.JAVA && !server.eulaAccepted) {
+                val eulaMsg = "You must accept the Minecraft EULA (https://aka.ms/MinecraftEULA) before starting a Java server."
+                log(serverId, "[ERROR] $eulaMsg")
+                handleServerStopped(serverId, ServerStatus.ERROR)
+                return Resource.Error(eulaMsg)
+            }
+
             // 2. Validate port conflict before starting
             val isUdp = server.edition == MinecraftEdition.BEDROCK
             if (isPortInUse(server.localPort, isUdp)) {
@@ -115,7 +128,8 @@ class ServerController @Inject constructor(
                 pvpEnabled = server.pvpEnabled,
                 onlineMode = server.onlineMode,
                 minMemoryMb = server.minMemoryMb,
-                maxMemoryMb = server.maxMemoryMb
+                maxMemoryMb = server.maxMemoryMb,
+                eulaAccepted = server.eulaAccepted
             )
 
             log(serverId, "[MineHost] Writing engine configuration files...")
@@ -216,10 +230,47 @@ class ServerController @Inject constructor(
         val engine = activeEngine ?: return false
         val serverId = _activeServerId.value ?: return false
 
+        if (!CommandSanitizer.isSafe(command)) {
+            AppLogger.w("ServerController", "Rejected a console command that was blank, too long or contained control characters")
+            return false
+        }
+
         scope.launch {
             log(serverId, "> $command")
         }
         return engine.sendCommand(handle, command)
+    }
+
+    /**
+     * Runs [block] (normally a world backup) while the server's world saving is paused, so the
+     * files on disk are consistent. If the server is not online, [block] simply runs.
+     *
+     * Sequence: `save-off`, flush (`save-all flush` on Java, `save-all` on Bedrock), wait, [block],
+     * then `save-on` in a `finally` so saving is always re-enabled.
+     *
+     * LIMITATION: there is no completion signal from the server here, so the flush wait is a fixed
+     * [SAVE_SETTLE_MS]. A very large world may need longer. Not verified against a real server.
+     */
+    suspend fun <T> withWorldSavePaused(serverId: String, block: suspend () -> T): T {
+        val online = _activeServerId.value == serverId && _serverStatus.value == ServerStatus.ONLINE
+        if (!online) return block()
+
+        val edition = serverRepository.getServerById(serverId)?.edition
+        val flushCommand = if (edition == MinecraftEdition.JAVA) "save-all flush" else "save-all"
+
+        if (!sendCommand("save-off")) {
+            log(serverId, "[MineHost] WARNING: could not pause world saving; the backup may capture a world that is mid-write.")
+            return block()
+        }
+        sendCommand(flushCommand)
+        log(serverId, "[MineHost] World saving paused for backup; waiting ${SAVE_SETTLE_MS / 1000}s for the flush...")
+        delay(SAVE_SETTLE_MS)
+        try {
+            return block()
+        } finally {
+            sendCommand("save-on")
+            log(serverId, "[MineHost] World saving resumed.")
+        }
     }
 
     private fun isPortInUse(port: Int, isUdp: Boolean): Boolean {

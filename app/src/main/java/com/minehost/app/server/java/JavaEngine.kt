@@ -51,7 +51,7 @@ class JavaEngine @Inject constructor(
 
     override suspend fun configure(serverDir: File, config: ServerConfiguration): Result<Unit> {
         return runCatching {
-            JavaConfigGenerator.writeConfigurations(serverDir, config)
+            JavaConfigGenerator.writeConfigurations(serverDir, config, config.eulaAccepted)
             AppLogger.i("JavaEngine", "Java Paper configured at: ${serverDir.absolutePath}")
         }
     }

@@ -10,9 +10,15 @@ import com.minehost.app.core.util.ZipUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.BufferedInputStream
@@ -20,6 +26,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -33,8 +41,25 @@ data class InstalledComponent(
     val installedPath: String,
     val sizeBytes: Long,
     val sha256Checksum: String,
-    val installedAt: Long = System.currentTimeMillis()
+    val installedAt: Long = System.currentTimeMillis(),
+    /** True only if the download was compared against a checksum published by the source. */
+    val verified: Boolean = false
 )
+
+@Serializable
+private data class GhAsset(
+    val name: String,
+    @SerialName("browser_download_url") val url: String,
+    val digest: String? = null
+)
+
+@Serializable
+private data class GhRelease(
+    @SerialName("tag_name") val tagName: String,
+    val assets: List<GhAsset> = emptyList()
+)
+
+private const val USER_AGENT = "MineHost/1.0 (+https://github.com/nomanaqil56/MineHost)"
 
 @Serializable
 data class RuntimeManifest(
@@ -49,6 +74,9 @@ class RuntimeManager @Inject constructor(
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            chain.proceed(chain.request().newBuilder().header("User-Agent", USER_AGENT).build())
+        }
         .build()
 
     val baseEnginesDir: File by lazy {
@@ -150,167 +178,279 @@ class RuntimeManager @Inject constructor(
         return null
     }
 
+    // ------------------------------------------------------------------ source resolution
+
+    private fun fetchText(url: String): Result<String> {
+        return try {
+            httpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Result.failure(IOException("HTTP ${response.code} from $url"))
+                } else {
+                    Result.success(response.body?.string() ?: "")
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun latestGithubRelease(repo: String): Result<GhRelease> {
+        return fetchText("https://api.github.com/repos/$repo/releases/latest")
+            .mapCatching { json.decodeFromString<GhRelease>(it) }
+    }
+
+    /** GitHub publishes asset checksums as "sha256:<64 hex>". Returns the hex, or null if absent/other algorithm. */
+    private fun sha256FromDigest(digest: String?): String? {
+        val hex = digest?.removePrefix("sha256:") ?: return null
+        return hex.takeIf { it.length == 64 && it.all { c -> c.isDigit() || c in 'a'..'f' || c in 'A'..'F' } }?.lowercase()
+    }
+
     /**
-     * Downloads the official PocketMine-MP.phar from pmmp/PocketMine-MP releases.
+     * Downloads PocketMine-MP.phar from the latest official pmmp/PocketMine-MP release.
+     * The download is checked against the checksum GitHub publishes for the asset when available.
      */
     suspend fun downloadPocketMinePhar(
         onProgress: (Float, String) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
+        onProgress(0.02f, "Looking up the latest PocketMine-MP release...")
+        val release = latestGithubRelease("pmmp/PocketMine-MP").getOrElse {
+            return@withContext Result.failure(IOException("Could not query PocketMine-MP releases: ${it.message}", it))
+        }
+        val asset = release.assets.firstOrNull { it.name == "PocketMine-MP.phar" }
+            ?: return@withContext Result.failure(IOException("Release ${release.tagName} has no PocketMine-MP.phar asset."))
+
         val targetDir = File(baseEnginesDir, "bedrock").apply { mkdirs() }
-        val targetFile = File(targetDir, "PocketMine-MP.phar")
-
-        val downloadUrl = "https://github.com/pmmp/PocketMine-MP/releases/latest/download/PocketMine-MP.phar"
-
-        return@withContext downloadFileWithProgress(
-            url = downloadUrl,
-            targetFile = targetFile,
-            componentName = "PocketMine-MP Core",
-            onProgress = onProgress
+        downloadFileWithProgress(
+            url = asset.url,
+            targetFile = File(targetDir, "PocketMine-MP.phar"),
+            componentName = "PocketMine-MP ${release.tagName}",
+            onProgress = onProgress,
+            expectedSha256 = sha256FromDigest(asset.digest),
+            version = release.tagName
         )
     }
 
     /**
-     * Downloads and installs the official Playit CLI Linux ARM64 agent.
+     * Downloads the official Playit agent for this device's CPU, resolving the real asset name from the
+     * release metadata (never a guessed URL), then proves the file can actually be executed here.
      */
     suspend fun downloadPlayitAgent(
         onProgress: (Float, String) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
-        val targetDir = File(baseTunnelsDir, "playit").apply { mkdirs() }
-        val targetFile = File(targetDir, "playit-cli")
+        onProgress(0.02f, "Looking up the latest Playit agent release...")
+        val release = latestGithubRelease("playit-cloud/playit-agent").getOrElse {
+            return@withContext Result.failure(IOException("Could not query Playit agent releases: ${it.message}", it))
+        }
 
-        val arch = if (Build.SUPPORTED_ABIS.any { it.contains("x86_64") }) "x86_64" else "aarch64"
-        val downloadUrl = "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-cli-linux-$arch"
-
-        val result = downloadFileWithProgress(
-            url = downloadUrl,
-            targetFile = targetFile,
-            componentName = "Playit.gg Tunnel Agent ($arch)",
-            onProgress = onProgress
+        val isArm = Build.SUPPORTED_ABIS.any { it.contains("arm64") || it.contains("aarch64") }
+        val archTokens = if (isArm) listOf("aarch64", "arm64") else listOf("amd64", "x86_64")
+        val skipSuffixes = listOf(".deb", ".rpm", ".sig", ".asc", ".sha256", ".zip", ".tar", ".gz", ".msi", ".exe", ".pkg")
+        val asset = release.assets.firstOrNull { a ->
+            val n = a.name.lowercase()
+            n.startsWith("playit") && n.contains("linux") &&
+                archTokens.any { n.contains(it) } && skipSuffixes.none { n.endsWith(it) }
+        } ?: return@withContext Result.failure(
+            IOException(
+                "Playit release ${release.tagName} has no Linux ${archTokens.first()} binary. " +
+                    "Available assets: ${release.assets.joinToString { it.name }.ifBlank { "none" }}"
+            )
         )
 
-        result.onSuccess { file ->
-            file.setExecutable(true, false)
+        val targetDir = File(baseTunnelsDir, "playit").apply { mkdirs() }
+        val targetFile = File(targetDir, "playit-cli")
+        val downloaded = downloadFileWithProgress(
+            url = asset.url,
+            targetFile = targetFile,
+            componentName = "Playit agent ${release.tagName} (${asset.name})",
+            onProgress = onProgress,
+            expectedSha256 = sha256FromDigest(asset.digest),
+            version = release.tagName
+        )
+        val file = downloaded.getOrElse { return@withContext Result.failure(it) }
+
+        file.setExecutable(true, false)
+        onProgress(0.99f, "Checking that the agent can run on this device...")
+        val check = verifyExecutable(file, "--version")
+        if (check.isFailure) {
+            // Do not leave a non-runnable file behind that Diagnostics would report as "installed".
+            file.delete()
+            return@withContext Result.failure(check.exceptionOrNull() ?: IOException("Agent cannot be executed"))
         }
-        return@withContext result
+        onProgress(1.0f, "Playit agent verified to run on this device")
+        Result.success(file)
     }
 
     /**
-     * Downloads PaperMC server JAR for specified Minecraft version.
+     * Downloads the latest STABLE Paper build for [minecraftVersion] from the PaperMC downloads service
+     * (fill.papermc.io, v3) and checks it against the published SHA-256 when the service provides one.
      */
     suspend fun downloadPaperJar(
         minecraftVersion: String = "1.20.4",
         onProgress: (Float, String) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
-        val targetDir = File(baseEnginesDir, "java").apply { mkdirs() }
-        val targetFile = File(targetDir, "paper.jar")
-
-        onProgress(0.05f, "Fetching latest Paper build metadata for $minecraftVersion...")
+        onProgress(0.02f, "Fetching Paper build metadata for $minecraftVersion...")
+        val body = fetchText("https://fill.papermc.io/v3/projects/paper/versions/$minecraftVersion/builds").getOrElse {
+            return@withContext Result.failure(IOException("Could not query the PaperMC downloads service: ${it.message}", it))
+        }
 
         return@withContext try {
-            // PaperMC v2 API
-            val apiUrl = "https://api.papermc.io/v2/projects/paper/versions/$minecraftVersion/builds"
-            val request = Request.Builder().url(apiUrl).build()
-            val response = httpClient.newCall(request).execute()
+            val builds = json.parseToJsonElement(body).jsonArray.map { it.jsonObject }
+            val latestStable = builds
+                .filter { it["channel"]?.jsonPrimitive?.contentOrNull.equals("STABLE", ignoreCase = true) }
+                .maxByOrNull { it["id"]?.jsonPrimitive?.intOrNull ?: -1 }
+                ?: return@withContext Result.failure(
+                    IOException("PaperMC has no STABLE build for Minecraft $minecraftVersion.")
+                )
+            val buildId = latestStable["id"]?.jsonPrimitive?.intOrNull ?: 0
+            val download = latestStable["downloads"]?.jsonObject?.get("server:default")?.jsonObject
+                ?: return@withContext Result.failure(IOException("Paper build #$buildId has no server download."))
+            val url = download["url"]?.jsonPrimitive?.contentOrNull
+                ?: return@withContext Result.failure(IOException("Paper build #$buildId has no download URL."))
+            val sha256 = download["checksums"]?.jsonObject?.get("sha256")?.jsonPrimitive?.contentOrNull?.lowercase()
 
-            if (!response.isSuccessful) {
-                return@withContext Result.failure(IOException("Failed to query PaperMC API: HTTP ${response.code}"))
-            }
-
-            val body = response.body?.string() ?: ""
-            // Parse latest build number
-            val buildRegex = Regex("\"build\":(\\d+)")
-            val builds = buildRegex.findAll(body).map { it.groupValues[1].toInt() }.toList()
-            val latestBuild = builds.maxOrNull() ?: 499
-
-            val downloadUrl = "https://api.papermc.io/v2/projects/paper/versions/$minecraftVersion/builds/$latestBuild/downloads/paper-$minecraftVersion-$latestBuild.jar"
-
+            val targetDir = File(baseEnginesDir, "java").apply { mkdirs() }
             downloadFileWithProgress(
-                url = downloadUrl,
-                targetFile = targetFile,
-                componentName = "PaperMC $minecraftVersion (Build #$latestBuild)",
-                onProgress = onProgress
+                url = url,
+                targetFile = File(targetDir, "paper.jar"),
+                componentName = "PaperMC $minecraftVersion (build #$buildId)",
+                onProgress = onProgress,
+                expectedSha256 = sha256,
+                version = "$minecraftVersion-$buildId"
             )
         } catch (e: Exception) {
-            AppLogger.e("RuntimeManager", "Paper download failed: ${e.message}", e)
+            AppLogger.e("RuntimeManager", "Paper metadata parsing failed: ${e.message}", e)
+            Result.failure(IOException("Unexpected response from the PaperMC downloads service: ${e.message}", e))
+        }
+    }
+
+    // ------------------------------------------------------------------ executability
+
+    /**
+     * Proves a binary can really be launched on this device by running it once. Any exit code counts as
+     * "launched"; failures to launch are translated into an actionable explanation.
+     */
+    fun verifyExecutable(binary: File, vararg args: String, timeoutSeconds: Long = 10): Result<String> {
+        return try {
+            val process = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
+                .redirectErrorStream(true)
+                .start()
+            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                Result.failure(IOException("${binary.name} started but did not exit within ${timeoutSeconds}s."))
+            } else {
+                Result.success(process.inputStream.bufferedReader().readText().take(300))
+            }
+        } catch (e: IOException) {
+            val msg = e.message.orEmpty()
+            val explanation = when {
+                "error=13" in msg || "Permission denied" in msg ->
+                    "Android refused to execute ${binary.name} from app storage (Android 10+ blocks running downloaded executables). " +
+                        "It must be packaged inside the app's native library folder instead."
+                "error=8" in msg || "Exec format" in msg ->
+                    "${binary.name} was built for a different CPU architecture than this device."
+                "error=2" in msg || "No such file" in msg ->
+                    "${binary.name} cannot start: it or its dynamic loader is missing. It is probably a desktop Linux (glibc) build, which cannot run on Android."
+                else -> "${binary.name} could not be launched: $msg"
+            }
+            Result.failure(IOException(explanation, e))
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
+    // ------------------------------------------------------------------ download core
+
     /**
-     * Robust streaming file download with progress reporting and atomic rename.
+     * Streaming download with true progress, completeness check, optional SHA-256 verification and
+     * an atomic move into place. A failed or unverifiable download never replaces a working install.
      */
     private fun downloadFileWithProgress(
         url: String,
         targetFile: File,
         componentName: String,
-        onProgress: (Float, String) -> Unit
+        onProgress: (Float, String) -> Unit,
+        expectedSha256: String? = null,
+        version: String = "unknown"
     ): Result<File> {
         val tempFile = File(targetFile.parentFile, "${targetFile.name}.download_${System.currentTimeMillis()}.tmp")
 
         return try {
             onProgress(0.01f, "Connecting to $componentName...")
             val request = Request.Builder().url(url).build()
-            val response = httpClient.newCall(request).execute()
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return Result.failure(IOException("Server returned HTTP ${response.code} for $url"))
+                }
+                val responseBody = response.body ?: return Result.failure(IOException("Empty response body"))
+                val totalBytes = responseBody.contentLength()
 
-            if (!response.isSuccessful) {
-                return Result.failure(IOException("Server returned HTTP ${response.code} for $url"))
-            }
+                val digest = MessageDigest.getInstance("SHA-256")
+                var bytesReadTotal = 0L
 
-            val responseBody = response.body ?: return Result.failure(IOException("Empty response body"))
-            val totalBytes = responseBody.contentLength()
+                responseBody.byteStream().use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        val buffer = ByteArray(16384)
+                        var bytes: Int
+                        while (input.read(buffer).also { bytes = it } != -1) {
+                            output.write(buffer, 0, bytes)
+                            digest.update(buffer, 0, bytes)
+                            bytesReadTotal += bytes
 
-            val digest = MessageDigest.getInstance("SHA-256")
-            var bytesReadTotal = 0L
-
-            responseBody.byteStream().use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    val buffer = ByteArray(16384)
-                    var bytes: Int
-                    while (input.read(buffer).also { bytes = it } != -1) {
-                        output.write(buffer, 0, bytes)
-                        digest.update(buffer, 0, bytes)
-                        bytesReadTotal += bytes
-
-                        if (totalBytes > 0) {
-                            val progress = (bytesReadTotal.toFloat() / totalBytes).coerceIn(0f, 1f)
                             val mbDownloaded = bytesReadTotal / (1024 * 1024)
-                            val mbTotal = totalBytes / (1024 * 1024)
-                            onProgress(progress, "Downloading $componentName ($mbDownloaded / $mbTotal MB)")
-                        } else {
-                            val mbDownloaded = bytesReadTotal / (1024 * 1024)
-                            onProgress(0.5f, "Downloading $componentName ($mbDownloaded MB)")
+                            if (totalBytes > 0) {
+                                val progress = (bytesReadTotal.toFloat() / totalBytes).coerceIn(0f, 0.98f)
+                                onProgress(progress, "Downloading $componentName ($mbDownloaded / ${totalBytes / (1024 * 1024)} MB)")
+                            } else {
+                                // Total size unknown: report the real byte count, not an invented percentage.
+                                onProgress(0f, "Downloading $componentName ($mbDownloaded MB)")
+                            }
                         }
                     }
                 }
-            }
 
-            if (tempFile.length() == 0L) {
-                tempFile.delete()
-                return Result.failure(IOException("Downloaded file was empty"))
-            }
+                if (tempFile.length() == 0L) {
+                    tempFile.delete()
+                    return Result.failure(IOException("Downloaded file was empty"))
+                }
+                if (totalBytes > 0 && bytesReadTotal != totalBytes) {
+                    tempFile.delete()
+                    return Result.failure(IOException("Incomplete download of $componentName: received $bytesReadTotal of $totalBytes bytes."))
+                }
 
-            // Atomic replacement
-            if (targetFile.exists()) targetFile.delete()
-            if (!tempFile.renameTo(targetFile)) {
-                tempFile.copyTo(targetFile, overwrite = true)
-                tempFile.delete()
-            }
+                val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
+                if (expectedSha256 != null && !sha256.equals(expectedSha256, ignoreCase = true)) {
+                    tempFile.delete()
+                    return Result.failure(
+                        IOException("Checksum mismatch for $componentName: expected $expectedSha256 but got $sha256. The file was discarded.")
+                    )
+                }
+                if (expectedSha256 == null) {
+                    AppLogger.w("RuntimeManager", "$componentName: the source published no checksum; integrity relies on HTTPS only.")
+                }
 
-            val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
-            recordInstalledComponent(
-                InstalledComponent(
-                    id = targetFile.name,
-                    name = componentName,
-                    version = "latest",
-                    installedPath = targetFile.absolutePath,
-                    sizeBytes = targetFile.length(),
-                    sha256Checksum = sha256
+                // Atomic replacement: the previous working install stays until the new file is complete.
+                try {
+                    Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+                } catch (e: Exception) {
+                    Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+
+                recordInstalledComponent(
+                    InstalledComponent(
+                        id = targetFile.name,
+                        name = componentName,
+                        version = version,
+                        installedPath = targetFile.absolutePath,
+                        sizeBytes = targetFile.length(),
+                        sha256Checksum = sha256,
+                        verified = expectedSha256 != null
+                    )
                 )
-            )
 
-            onProgress(1.0f, "$componentName installed successfully")
-            AppLogger.i("RuntimeManager", "$componentName verified & installed to ${targetFile.absolutePath}")
-            Result.success(targetFile)
+                onProgress(1.0f, "$componentName installed" + if (expectedSha256 != null) " (checksum verified)" else " (no published checksum to verify)")
+                AppLogger.i("RuntimeManager", "$componentName installed to ${targetFile.absolutePath} (verified=${expectedSha256 != null})")
+                Result.success(targetFile)
+            }
         } catch (e: Exception) {
             tempFile.delete()
             AppLogger.e("RuntimeManager", "Download failed for $componentName: ${e.message}", e)
