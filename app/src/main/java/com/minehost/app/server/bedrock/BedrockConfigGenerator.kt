@@ -59,7 +59,7 @@ object BedrockConfigGenerator {
             difficulty=$difficultyNum
             max-players=${config.maxPlayers}
             white-list=off
-            enable-query=on
+            # NetherNet uses TCP signaling and UDP WebRTC on server-port; avoid a UDP query socket collision.\n            enable-query=off
             enable-rcon=off
             view-distance=${config.viewDistance}
             pvp=${if (config.pvpEnabled) "on" else "off"}
