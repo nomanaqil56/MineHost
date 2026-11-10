@@ -143,8 +143,10 @@ fun DiagnosticsScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     ComponentStatusRow(
-                        title = "Bedrock Engine (PocketMine-MP)",
-                        installed = state.isPocketMineInstalled,
+                        title = "PocketMine-MP server archive (.phar)",
+                        installed = state.isPocketMinePharAvailable,
+                        installedLabel = "Downloaded",
+                        missingLabel = "Not downloaded",
                         onDownload = { viewModel.downloadPocketMine() },
                         enabled = !state.isDownloading
                     )
@@ -161,13 +163,20 @@ fun DiagnosticsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     ComponentStatusRow(
-                        title = "Java Engine (PaperMC 1.20.4)",
-                        installed = state.isPaperInstalled,
+                        title = "PaperMC server JAR (1.20.4)",
+                        installed = state.isPaperJarAvailable,
+                        installedLabel = "Downloaded",
+                        missingLabel = "Not downloaded",
                         onDownload = { viewModel.downloadPaper() },
                         enabled = !state.isDownloading
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "A downloaded server archive is not a runnable server by itself. The matching Android ARM64 runtime must also be present and executable.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
                     DiagRow(
                         label = "PHP runtime (required for Bedrock)",
                         value = if (state.isPhpRuntimeAvailable) "Found" else "Missing: Bedrock cannot start",
@@ -291,7 +300,9 @@ fun ComponentStatusRow(
     title: String,
     installed: Boolean,
     onDownload: () -> Unit,
-    enabled: Boolean
+    enabled: Boolean,
+    installedLabel: String = "Installed",
+    missingLabel: String = "Not Installed"
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -309,7 +320,7 @@ fun ComponentStatusRow(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = if (installed) "Installed" else "Not Installed",
+                    text = if (installed) installedLabel else missingLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = if (installed) StatusGreen else StatusYellow
                 )
