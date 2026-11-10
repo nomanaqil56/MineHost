@@ -44,7 +44,8 @@ class BedrockConfigGeneratorTest {
         assertTrue(properties.contains("server-ipv6=::"))
         assertTrue(properties.contains("server-portv6=19133"))
         assertTrue(properties.contains("xbox-auth=on"))
-        assertFalse(properties.contains("online-mode="))\n        assertTrue(properties.contains("enable-query=off"))
+        assertFalse(properties.contains("online-mode="))
+        assertTrue(properties.contains("enable-query=off"))
     }
 
     @Test
