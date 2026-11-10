@@ -78,6 +78,23 @@ class BedrockEngine @Inject constructor(
             return Result.failure(FileNotFoundException(errorMsg))
         }
 
+        // File presence is not proof that Android can execute the packaged ELF. Probe it
+        // before creating the server process so incompatible packaging/ABI fails clearly.
+        val runtimeProbe = runtimeManager.verifyExecutable(phpBinary, "-v")
+        val runtimeOutput = runtimeProbe.getOrElse { error ->
+            val errorMsg = "The packaged Android PHP runtime could not be executed: ${error.message}"
+            AppLogger.e("BedrockEngine", errorMsg, error)
+            listener.onError(errorMsg)
+            return Result.failure(error)
+        }
+        if (!runtimeOutput.contains("PHP")) {
+            val errorMsg = "The packaged PHP runtime launched but did not return a valid PHP version response."
+            AppLogger.e("BedrockEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(IllegalStateException(errorMsg))
+        }
+        AppLogger.i("BedrockEngine", "Validated PHP runtime: ${runtimeOutput.lineSequence().firstOrNull().orEmpty()}")
+
         val command = listOf(
             phpBinary.absolutePath,
             phar.absolutePath,
