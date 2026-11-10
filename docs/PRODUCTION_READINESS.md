@@ -19,7 +19,7 @@ The repository contains a meaningful Android application foundation and several 
 | P0 | Playit executable path incompatible/unverified | RuntimeManager downloads the agent into app-private files and attempts setExecutable/ProcessBuilder. Android 10+ executable-memory/W^X restrictions make this path unsuitable without a validated loader or packaged native executable. | Prove a permitted Android execution model on API 29+ devices, or remove the provider from production. |
 | P1 | Java/Bedrock cross-play unavailable | Geyser configuration groundwork exists, but Java runtime execution and bridge execution are not available. | Real Paper + Geyser + Bedrock-client interoperability tests for a declared version matrix. |
 | P1 | Bedrock transport/version compatibility uncertain | Existing readiness and networking notes contain legacy RakNet assumptions. Current Bedrock server/client transport support must be revalidated before selecting the engine. | Versioned protocol matrix and real client tests for each supported transport. |
-| P1 | Google Play target SDK obsolete | app/build.gradle.kts currently sets compileSdk/targetSdk 34. As of 2026-08-31, new Google Play apps and updates must target Android 16 / API 36 or higher. | Upgrade toolchain and app to API 36, complete behavior/policy migration, and build/test on current SDK. |
+| P1 | Google Play target SDK migration pending verification | Main currently uses compileSdk/targetSdk 34. This PR migrates the development branch to API 36 with AGP 8.13, Gradle 8.13, Kotlin 2.3 and matching Compose/KSP plugins. The migration has not yet passed CI. | Get the API 36 toolchain build green, run tests, then complete Android 16 behavior/policy migration and Play Console review. |
 | P1 | Foreground service policy review pending | The server service uses specialUse on Android 14+, with a subtype description. This use case and declaration require Play Console review and a user-visible notification. | Test on Android 14+ and submit accurate special-use declaration and video evidence in Play Console. |
 | P1 | Release distribution not verified | Release signing is intentionally unsigned unless credentials are configured. No signed release artifact or Play App Bundle validation is recorded. | Secure production signing, AAB build, Play pre-launch report, and store policy review. |
 
@@ -76,7 +76,7 @@ The new Android CI workflow is intended to provide reproducible build and unit-t
 5. Build the first MineHost-operated relay proof of concept, separately for Java TCP and the supported Bedrock transport.
 6. Prove a remote client can join through CGNAT using MineHost infrastructure.
 7. Measure latency, jitter, packet loss, throughput, TPS/MSPT, battery and temperature under a documented test load.
-8. Upgrade to API 36 and complete current Android/Google Play migration and policy work.
+8. Verify the in-progress API 36 toolchain migration in CI, then complete Android 16 behavior/Google Play policy work.
 9. Complete licensing/SBOM, privacy, security, release signing, AAB and Play Console review.
 10. Expand to additional engines and relay regions only after the core hosting proof succeeds.
 
