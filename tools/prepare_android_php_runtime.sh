@@ -29,7 +29,7 @@ command -v sha256sum >/dev/null 2>&1 || { echo "sha256sum is required" >&2; exit
 command -v tar >/dev/null 2>&1 || { echo "tar is required" >&2; exit 1; }
 command -v readelf >/dev/null 2>&1 || { echo "readelf is required (binutils)" >&2; exit 1; }
 
-echo "Downloading pinned PocketMine PHP runtime asset..."
+echo "Downloading pinned Axolotl-PM PHP runtime asset..."
 curl --fail --location --retry 3 --retry-delay 2 --output "$ARCHIVE" "$PHP_URL"
 
 echo "Verifying published SHA-256..."
