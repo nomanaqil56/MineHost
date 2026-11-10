@@ -39,6 +39,17 @@ jobs:
         run: ./gradlew --no-daemon --stacktrace lintDebug
       - name: Assemble debug APK
         run: ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Verify bundled PHP runtime is inside the APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          unzip -Z1 "$apk" | grep -Fx "lib/arm64-v8a/libphp.so"
+          unzip -Z1 "$apk" | grep -Fx "assets/php/php.ini"
+          php_size="$(unzip -l "$apk" "lib/arm64-v8a/libphp.so" | awk 'NR==4 {print $1}')"
+          test -n "$php_size"
+          test "$php_size" -ge 5242880
+          echo "Verified packaged ARM64 PHP CLI (${php_size} bytes) and php.ini."
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -57,7 +68,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes qemu-user
-
       - name: Inspect and smoke-test pinned PHP 8.4 Android ARM64 archive
         run: bash scripts/inspect-android-php-runtime.sh "$RUNNER_TEMP/php-runtime"
       - name: Upload runtime inspection report
