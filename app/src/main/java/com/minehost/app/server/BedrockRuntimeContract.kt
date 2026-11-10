@@ -17,7 +17,8 @@ object BedrockRuntimeContract {
      * php.ini attempts to load external modules not shipped with the static binary.
      * Use -n consistently for validation and server startup.
      */
-    const val PHP_VERSION = "8.4.27"\n    const val PHP_NO_INI_FLAG = "-n"
+    const val PHP_VERSION = "8.4.27"
+    const val PHP_NO_INI_FLAG = "-n"
 
     fun serverArguments(pharPath: String, serverDir: String): List<String> = listOf(
         PHP_NO_INI_FLAG,
@@ -41,7 +42,10 @@ object BedrockRuntimeContract {
         return null
     }
 
-    /** Returns an error unless the bundled runtime is the pinned PHP 8.4 ZTS CLI. */\n    fun validatePhpVersion(versionOutput: String): String? =\n        if (versionOutput.contains("PHP $PHP_VERSION") && versionOutput.contains("ZTS")) null\n        else "Expected PHP $PHP_VERSION ZTS, received: ${versionOutput.lineSequence().firstOrNull().orEmpty()}"\n\n    /** Parses php -m output, ignoring section headings and blank lines. */
+    /** Returns an error unless the bundled runtime is the pinned PHP 8.4 ZTS CLI. */
+    fun validatePhpVersion(versionOutput: String): String? =
+        if (versionOutput.contains("PHP $PHP_VERSION") && versionOutput.contains("ZTS")) null
+        else "Expected PHP $PHP_VERSION ZTS, received: ${versionOutput.lineSequence().firstOrNull().orEmpty()}"
     fun missingRequiredModules(moduleOutput: String): Set<String> {
         val installed = moduleOutput.lineSequence()
             .map { it.trim().lowercase() }
