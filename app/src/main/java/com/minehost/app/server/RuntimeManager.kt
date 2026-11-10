@@ -166,26 +166,18 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Verifies that Playit agent executable exists and is executable.
+     * Verifies that the downloaded Playit CLI is a real executable file.
+     * A JNI shared object (libplayit.so) is not a standalone CLI process.
      */
     fun isPlayitAgentInstalled(): Boolean {
-        val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return true
-
-        val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        return inTunnels.exists() && inTunnels.length() > 100_000
+        val executable = getPlayitExecutable()
+        return executable != null && executable.isFile &&
+            executable.length() > 100_000 && executable.canExecute()
     }
 
     fun getPlayitExecutable(): File? {
-        val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return inNativeLib
-
-        val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        if (inTunnels.exists()) {
-            inTunnels.setExecutable(true)
-            return inTunnels
-        }
-        return null
+        val executable = File(baseTunnelsDir, "playit/playit-cli")
+        return executable.takeIf { it.isFile && it.length() > 100_000 && it.canExecute() }
     }
 
     // ------------------------------------------------------------------ source resolution
