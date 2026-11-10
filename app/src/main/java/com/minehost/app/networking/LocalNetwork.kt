@@ -53,7 +53,7 @@ object LocalNetwork {
         val activeNetworkAddresses = runCatching {
             val connectivity = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             val activeNetwork = connectivity?.activeNetwork
-            val properties: LinkProperties? = activeNetwork?.let(connectivity::getLinkProperties)
+            val properties: LinkProperties? = activeNetwork?.let { network -> connectivity?.getLinkProperties(network) }
             val interfaceName = properties?.interfaceName.orEmpty()
             properties?.linkAddresses.orEmpty()
                 .mapNotNull { it.address as? Inet4Address }
