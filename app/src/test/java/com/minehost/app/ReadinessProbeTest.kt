@@ -61,6 +61,11 @@ class ReadinessProbeTest {
         assertFalse(ReadinessProbe.isRakNetPong(badMagic, badMagic.size))
         // Truncated
         assertFalse(ReadinessProbe.isRakNetPong(pong, 10))
+        // Declared MOTD length must match the actual datagram payload.
+        val badLength = pong.copyOf().also { it[34] = (it[34] + 1).toByte() }
+        assertFalse(ReadinessProbe.isRakNetPong(badLength, badLength.size))
+        // Caller-supplied datagram length cannot exceed the backing array.
+        assertFalse(ReadinessProbe.isRakNetPong(pong, pong.size + 1))
         // Garbage
         assertFalse(ReadinessProbe.isRakNetPong(ByteArray(64), 64))
     }
@@ -104,6 +109,20 @@ class ReadinessProbeTest {
         // Empty / truncated stream
         assertFalse(ReadinessProbe.parseJavaStatusResponse(ByteArrayInputStream(ByteArray(0))))
         assertFalse(ReadinessProbe.parseJavaStatusResponse(ByteArrayInputStream(byteArrayOf(0x10, 0x00))))
+        // Outer frame is shorter than the declared JSON body.
+        val truncatedFrame = statusResponse("""{"version":{}}""").dropLast(1).toByteArray()
+        assertFalse(ReadinessProbe.parseJavaStatusResponse(ByteArrayInputStream(truncatedFrame)))
+        // Outer frame includes trailing data not accounted for by the JSON length.
+        val framedWithTrailingGarbage = statusResponse("""{"version":{}}""") + byteArrayOf(0x55)
+        assertFalse(ReadinessProbe.parseJavaStatusResponse(ByteArrayInputStream(framedWithTrailingGarbage)))
+        // A five-byte VarInt may use only the low four bits of its final byte.
+        assertFalse(
+            runCatching {
+                ReadinessProbe.readVarInt(DataInputStream(ByteArrayInputStream(byteArrayOf(
+                    0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0x7F
+                ))))
+            }.isSuccess
+        )
     }
 
     @Test

@@ -44,12 +44,18 @@ object ReadinessProbe {
 
     /** Pong layout: id(1) time(8) serverGuid(8) magic(16) stringLen(2) string(n). */
     fun isRakNetPong(data: ByteArray, length: Int): Boolean {
-        if (length < 1 + 8 + 8 + 16 + 2) return false
+        val headerSize = 1 + 8 + 8 + RAKNET_MAGIC.size + 2
+        if (length < headerSize || length > data.size) return false
         if ((data[0].toInt() and 0xFF) != ID_UNCONNECTED_PONG) return false
         for (i in RAKNET_MAGIC.indices) {
             if (data[17 + i] != RAKNET_MAGIC[i]) return false
         }
-        return true
+        val declaredStringLength = ((data[33].toInt() and 0xFF) shl 8) or
+            (data[34].toInt() and 0xFF)
+        // A RakNet pong's trailing server identifier is a length-prefixed string.
+        // Reject truncated, overlong, and empty payloads instead of accepting the
+        // magic sequence alone as proof that a Minecraft server answered.
+        return declaredStringLength > 0 && declaredStringLength == length - headerSize
     }
 
     /** Returns true only if a RakNet server answers an unconnected ping on [host]:[port]. */
@@ -95,14 +101,19 @@ object ReadinessProbe {
             val din = DataInputStream(input)
             val packetLength = readVarInt(din)
             if (packetLength <= 0 || packetLength > 1_000_000) return false
-            val packetId = readVarInt(din)
+            // Read exactly one framed packet. Parsing directly from the socket stream
+            // used to allow a bogus JSON length to consume bytes outside this packet.
+            val packetBytes = ByteArray(packetLength)
+            din.readFully(packetBytes)
+            val packet = DataInputStream(packetBytes.inputStream())
+            val packetId = readVarInt(packet)
             if (packetId != 0x00) return false
-            val jsonLength = readVarInt(din)
-            if (jsonLength <= 0 || jsonLength > 1_000_000) return false
+            val jsonLength = readVarInt(packet)
+            if (jsonLength <= 0 || jsonLength != packet.available()) return false
             val json = ByteArray(jsonLength)
-            din.readFully(json)
-            val text = String(json, Charsets.UTF_8)
-            text.trimStart().startsWith("{") && text.contains("\"version\"")
+            packet.readFully(json)
+            val text = String(json, Charsets.UTF_8).trim()
+            text.startsWith("{") && text.endsWith("}") && text.contains("\"version\"")
         } catch (e: Exception) {
             false
         }
@@ -160,6 +171,9 @@ object ReadinessProbe {
         while (true) {
             val b = input.read()
             if (b == -1) throw EOFException("Unexpected end of stream while reading VarInt")
+            if (shift == 28 && (b and 0xF0) != 0) {
+                throw IllegalArgumentException("VarInt exceeds the 32-bit encoding limit")
+            }
             result = result or ((b and 0x7F) shl shift)
             if ((b and 0x80) == 0) return result
             shift += 7

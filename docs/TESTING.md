@@ -1,6 +1,6 @@
 # MineHost: Testing Status
 
-**Main-branch update (2026-11-10):** A GitHub Actions workflow now runs Gradle unit tests, Android lint, and debug APK assembly on pushes and pull requests targeting `main`. Its first successful run has not yet been confirmed in this audit session.
+**Main-branch update (2026-11-10):** GitHub Actions run [42763475505](https://github.com/nomanaqil56/MineHost/actions/runs/42763475505) completed successfully on `eeef4a9`. Gradle unit tests, Android lint, debug APK assembly, APK payload assertions (`lib/arm64-v8a/libphp.so` and `assets/php/php.ini`), and the pinned PHP archive/QEMU smoke test all passed.
 
 This file separates what was **run**, what was **only written**, and what is **not tested**. Earlier versions of this
 file listed many items as PASS without a reproducible run; those claims were removed.
@@ -9,8 +9,8 @@ file listed many items as PASS without a reproducible run; those claims were rem
 
 | Level | What | Status |
 |---|---|---|
-| 1. Build | Gradle `assembleDebug`, lint, resources | **NOT TESTED** in the latest audit (no Android SDK or Gradle network in the audit environment). Every Android-dependent edit is **uncompiled**. |
-| 2. Unit tests, pure Kotlin | Protocol framing, parsers, backup swap, checksum, tunnel policy | **RUN, 40 of 40 pass** (see below). Run with `kotlinc` + JUnit **outside Gradle**. |
+| 1. Build | Gradle `assembleDebug`, lint, resources | **PASS in GitHub Actions run 42763475505** on commit `eeef4a9`. This is a CI build, not a physical-device test. |
+| 2. Unit tests | Gradle `testDebugUnitTest` | **PASS in GitHub Actions run 42763475505**. The workflow ran the repository's Gradle test task; the older manually compiled 40-test tally below is historical. |
 | 3. Instrumented / device | Room migration, service, Compose UI | **NOT TESTED** |
 | 4. Real server | PocketMine / Paper starting and answering | **NOT TESTED** (and blocked: no PHP/Java runtime is bundled) |
 | 5. Real client | Minecraft client joining on LAN / via tunnel | **NOT TESTED** |
@@ -30,11 +30,11 @@ Compiled and executed with the Gradle-bundled `kotlinc` and JUnit 4.13.2 (outsid
 | `PlayerTrackerTest` | 6 | Join/leave parsing | Line formats are **assumed**, not captured from a real server |
 | `LocalNetworkTest` | 4 | LAN address selection | `detect()` itself returned no address in the audit container |
 
-Source: `app/src/test/java/com/minehost/app/`. The older Gradle-based tests in the repo were not re-run.
+Source: `app/src/test/java/com/minehost/app/`. The Gradle-based test suite is now run by the workflow on every push to `main` and pull request targeting `main`.
 
 ## Not tested (every one needs hardware or an account)
 
-- PocketMine-MP start on a device, Bedrock client join on the same Wi-Fi, persistence after restart
+- PocketMine-MP start on a physical device, Bedrock client join on the same Wi-Fi, persistence after restart
 - Paper / Java hosting; Geyser cross-play (cross-play is disabled in the app)
 - Playit claim flow, public endpoint, external join, reconnect after network loss
 - Foreground service survival with the screen locked; Android 14 service types; thermal behaviour

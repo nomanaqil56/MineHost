@@ -163,17 +163,20 @@ class ManagedServerProcess(
         stopRequested = true
         sendCommand("stop")
 
-        val exited = runCatching {
+        var exited = runCatching {
             p.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
         }.getOrDefault(false)
 
         if (!exited) {
             AppLogger.w("ManagedServerProcess", "Graceful shutdown timed out after ${timeoutMs}ms. Forcing termination.")
             destroyForcibly()
+            // Do not report a successful stop merely because destroyForcibly() was
+            // requested. Wait briefly for the OS process to actually terminate.
+            exited = runCatching { p.waitFor(2_000L, TimeUnit.MILLISECONDS) }.getOrDefault(false)
         }
 
         cleanupStreams()
-        return@withContext true
+        return@withContext exited
     }
 
     override fun destroy() {
