@@ -7,6 +7,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -47,8 +48,10 @@ object ZipUtils {
         var bytesProcessed = 0L
 
         val digest = MessageDigest.getInstance("SHA-256")
+        val tempZipFile = File(targetZipFile.parentFile, ".${targetZipFile.name}.${UUID.randomUUID()}.tmp")
 
-        ZipOutputStream(BufferedOutputStream(FileOutputStream(targetZipFile))).use { zos ->
+        try {
+            ZipOutputStream(BufferedOutputStream(FileOutputStream(tempZipFile))).use { zos ->
             val buffer = ByteArray(8192)
 
             for (file in allFiles) {
@@ -87,6 +90,17 @@ object ZipUtils {
                 }
                 zos.closeEntry()
             }
+            }
+
+            if (targetZipFile.exists()) {
+                throw IOException("Refusing to overwrite an existing ZIP archive: ${targetZipFile.absolutePath}")
+            }
+            if (!tempZipFile.renameTo(targetZipFile)) {
+                throw IOException("Could not atomically publish ZIP archive: ${targetZipFile.absolutePath}")
+            }
+        } catch (e: Exception) {
+            tempZipFile.delete()
+            throw e
         }
 
         return digest.digest().joinToString("") { "%02x".format(it) }
