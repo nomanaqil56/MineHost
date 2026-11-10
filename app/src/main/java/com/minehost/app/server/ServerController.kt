@@ -173,16 +173,11 @@ class ServerController @Inject constructor(
                         serverRepository.updateStatus(serverId, ServerStatus.ONLINE)
                         log(serverId, "[MineHost] Server process confirmed ONLINE on port ${server.localPort}!")
 
-                        // 7. Connect tunnel if enabled
+                        // Public connectivity is intentionally disabled until MineHost's own
+                        // control plane and relay are implemented. Never silently fall back to a
+                        // third-party tunnel provider for an existing server profile.
                         if (server.autoStartTunnel) {
-                            log(serverId, "[MineHost] Initiating worldwide reverse tunnel...")
-                            val tunnelResult = tunnelManager.startTunnel(server.localPort, server.edition.defaultProtocol)
-                            tunnelResult.onSuccess { endpoint ->
-                                serverRepository.updatePublicEndpoint(serverId, endpoint)
-                                log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
-                            }.onFailure { err ->
-                                log(serverId, "[MineHost] Tunnel notice: ${err.message}. Server is running in LOCAL mode.")
-                            }
+                            log(serverId, "[MineHost] Public connectivity is not available in this build. Server is running on the local network only.")
                         }
                     }
                 }
