@@ -1,89 +1,67 @@
-# MineHost — Build & Installation Guide
+# MineHost — Build and Installation Guide
 
-## 1. Prerequisites
+> This guide covers building the Android application. It does not claim that a Minecraft server can currently run. See the [Production Readiness Audit](PRODUCTION_READINESS.md) before testing server features.
 
-To build MineHost from source, ensure you have:
-- **Operating System:** Windows 10/11, macOS, or Linux.
-- **JDK:** OpenJDK 17 or 21 (Temurin, Zulu, or Microsoft OpenJDK).
-- **Android SDK:**
-  - Android SDK Platform 34 (Android 14).
-  - Android SDK Build-Tools 34.0.0.
-  - CMake 3.22+ and NDK 26.x (optional for custom C++ modules).
-- **Git:** Git 2.30+ installed and configured.
+## Prerequisites
 
----
+- Windows 10/11, macOS, or Linux.
+- JDK 17.
+- Android SDK Platform 36 and Build Tools 36.0.0.
+- Git.
+- Android Studio version compatible with the project's AGP 8.13 / Gradle 8.13 toolchain.
 
-## 2. Building the Debug APK
+## Build and test
 
-### Option A: Local Build with Gradle Wrapper
+Linux/macOS:
 ```bash
-# Clone the repository
 git clone https://github.com/nomanaqil56/MineHost.git
 cd MineHost
-
-# On Linux / macOS
 chmod +x gradlew
-./gradlew assembleDebug
-
-# On Windows PowerShell
-.\gradlew.bat assembleDebug
+./gradlew --no-daemon testDebugUnitTest assembleDebug
 ```
-The output APK is generated at:
-`app/build/outputs/apk/debug/app-debug.apk`
 
-### Option B: Automated Build via GitHub Actions CI
-Every commit pushed to `nomanaqil56/MineHost` triggers `.github/workflows/build-apk.yml`.
-1. Open [https://github.com/nomanaqil56/MineHost/actions](https://github.com/nomanaqil56/MineHost/actions).
-2. Select the latest build run.
-3. Download the `minehost-debug-apk` artifact.
+Windows PowerShell:
+```powershell
+git clone https://github.com/nomanaqil56/MineHost.git
+cd MineHost
+.\gradlew.bat testDebugUnitTest assembleDebug
+```
 
----
+Debug APK output:
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
 
-## 3. Physical-Device Installation & Testing Guide
+The repository CI workflow is [.github/workflows/android-ci.yml](../.github/workflows/android-ci.yml). CI is the reproducible build check; inspect the latest run rather than assuming it passed.
 
-### Step 1: Install APK onto Android Device
+## Install a debug build on a device
+
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
-*Alternatively, transfer the APK file to your device via USB or download it directly from GitHub, then tap to install (enable "Install unknown apps" if prompted).*
 
-### Step 2: Grant Required Permissions
-1. Open **MineHost**.
-2. Grant **Notification Permission** (required on Android 13+ to display the ongoing server status and stop controls).
-3. In **Diagnostics & Setup** screen, tap **Disable Battery Optimization** to ensure Android does not kill the server when the screen locks.
+Use an ARM64 Android device for server-runtime experiments. The current app supports Android API 28+ at the manifest level, but this does not mean every Android version/device is suitable for hosting.
 
-### Step 3: Install Server Engine Components
-1. In MineHost, navigate to **Diagnostics & Setup** (top-right gear icon).
-2. Under **Server Engines & Runtimes**, tap **Download** next to **Bedrock Engine (PocketMine-MP)**.
-3. The app will download and verify `PocketMine-MP.phar` directly into your private app files.
+## Current runtime limitation
 
-### Step 4: Create and Start Your Bedrock Server
-1. Return to the **Dashboard** and tap the **+** (Create Server) button.
-2. Enter a server name (e.g. *Survival World*).
-3. Select **Bedrock Edition** (Default Port: `19132`).
-4. Keep **Worldwide Public Tunnel** checked (or uncheck for local Wi-Fi only).
-5. Tap **Create Server**.
-6. On the Server Details screen, tap **START SERVER**.
-7. The notification will show the server status.
+The current source does not include a verified Android PHP runtime or Android JVM. Therefore:
+- PocketMine install must fail clearly until a verified PHP runtime is bundled.
+- Paper install must fail clearly until a verified Java runtime is bundled.
+- Cross-play must remain unavailable until Java + Geyser are actually executable.
+- Playit is an experimental third-party adapter, not the production connectivity plan.
+- No worldwide public join is currently verified.
 
-### Step 5: Connect Second Minecraft Device (Local Wi-Fi)
-1. Connect a second device (phone, tablet, or PC) to the same Wi-Fi network.
-2. Open **Minecraft: Bedrock Edition**.
-3. Go to **Play -> Servers -> Add Server**.
-4. Server Name: `MineHost Local`
-5. Server Address: Enter the local IP address of your Android phone (e.g. `192.168.1.50`).
-6. Port: `19132`.
-7. Tap **Save** and **Join Server**.
-8. Build something, break blocks, and chat!
+Do not follow older instructions that claim downloading only a PocketMine PHAR or Paper JAR makes the engine runnable.
 
-### Step 6: Worldwide Multiplayer (Playit.gg)
-1. If Worldwide Tunnel is enabled, MineHost will initialize the Playit agent.
-2. If first time, tap **Claim Agent on Playit.gg** to link your free agent.
-3. Once assigned, your public address (e.g. `xyz.gl.joinmc.link:38491`) appears on screen.
-4. Friends can join from another Wi-Fi or cellular network from anywhere in the world!
+## Physical-device validation
 
-### Step 7: Stop & Persistence Verification
-1. Tap **STOP SERVER** in MineHost.
-2. Wait for graceful shutdown.
-3. Tap **START SERVER** again.
-4. Rejoin from Minecraft to confirm world blocks and inventory are preserved!
+1. Install the debug APK.
+2. Open Diagnostics and confirm runtime availability is reported accurately.
+3. Attempting to install Bedrock or Java while the runtime is missing must produce an actionable error and must not mark the engine as installed.
+4. Verify app navigation, server metadata, local storage, and backup UI.
+5. Do not claim server hosting works until a selected engine starts on-device and a real Minecraft client joins.
+6. Follow [Device Testing](DEVICE_TESTING.md) after an engine/runtime proof exists.
+
+## Release builds
+
+A release signing key must be supplied through uncommitted local properties or CI secrets. Release builds intentionally do not fall back to the debug key. Before publishing, complete the API 36 migration, Play policy review, licence/SBOM review, privacy/security review, signed AAB build, and physical-device acceptance tests.
