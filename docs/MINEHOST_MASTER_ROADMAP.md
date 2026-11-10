@@ -69,7 +69,7 @@ The latest documented source audit identifies major unresolved execution and ver
 Keep each engine behind a clear interface: capability discovery, install/verify, configure, start, readiness probe, command, stop, logs, and version support.
 
 Candidate engines (not yet a promise of compatibility):
-- Bedrock: evaluate maintained implementations such as PocketMine-MP and PowerNukkitX. Validate gameplay parity, Android ARM64 runtime feasibility, maintenance health, licence, and support for the current Bedrock transport before selecting.
+- Bedrock: Axolotl-PM is the primary candidate because original PMMP was archived in July 2026 and Axolotl-PM continues maintenance with NetherNet support. Validate its Android ARM64 PHP 8.4 + ext-webrtc runtime, current client compatibility, gameplay-parity limitations, and licences. Keep PowerNukkitX as an alternative only if it can meet current transport requirements.
 - Java: Paper is the initial performance-oriented candidate, subject to a validated Android-compatible JVM and its actual runtime requirements.
 - Cross-play: Geyser and Floodgate only after a supported Java engine is running. Cross-play is a composition of Paper + Geyser (+ Floodgate where appropriate), not a separate standalone game server.
 - Official Mojang Bedrock Dedicated Server is not assumed viable on ARM64 Android; do not rely on x86 emulation as the primary performance path.
@@ -95,9 +95,9 @@ MineHost operates its own regional relays. The relay forwards traffic; it does n
 
 - Direct LAN first.
 - Direct public IPv6 when reachable and safe.
-- Protocol-appropriate NAT traversal when supported.
+- WebRTC ICE direct candidate selection for Bedrock NetherNet; protocol-appropriate direct TCP/IPv6 for Java.
 - Self-hosted TCP forwarding for Java.
-- Self-hosted UDP forwarding for the selected Bedrock transport.
+- Self-hosted TURN for Bedrock WebRTC UDP gameplay and TCP edge/reverse tunnel for HTTPS signalling and Java gameplay.
 - Relay fallback when direct connectivity fails.
 - Region/path selection based on measured end-to-end path quality and capacity, not geography alone.
 - Encryption and authenticated host-to-relay sessions.
@@ -207,7 +207,7 @@ Do not combine Wi-Fi and cellular bandwidth by default. Multipath bonding adds c
 **Exit:** build/test status is independently reproducible and every subsystem has an evidence-based status.
 
 ### Phase 1 — One real Bedrock server on Android
-- [ ] Select a maintained Bedrock engine after current protocol/maintenance review.
+- [ ] Pin Axolotl-PM release and PHP 8.4 Android ARM64 runtime with ext-webrtc; validate NetherNet 1.26.60+.
 - [ ] Validate the checksum-pinned Android ARM64 PHP runtime bootstrap in CI and inspect the packaged APK.
 - [ ] Complete PHP/runtime dependency and licence review before release.
 - [ ] Prove the packaged PHP executable launches on physical Android ARM64 devices.
@@ -227,10 +227,11 @@ Do not combine Wi-Fi and cellular bandwidth by default. Multipath bonding adds c
 
 ### Phase 3 — First MineHost-owned public relay
 - [ ] Specify protocol-aware tunnel framing and threat model.
-- [ ] Deploy one self-managed relay and coordinator in a controlled environment.
-- [ ] Implement authenticated encrypted host tunnel.
+- [ ] Deploy one self-managed TCP edge/reverse tunnel, coordinator and TURN service in a controlled environment.
+- [ ] Implement authenticated encrypted TCP host tunnel for Java and Bedrock HTTP(S) signalling.
+- Implement self-hosted TURN with short-lived credentials for Bedrock WebRTC gameplay.
 - [ ] Implement public endpoint allocation and expiry.
-- [ ] Test Java TCP and selected Bedrock transport independently.
+- [ ] Test Java TCP, NetherNet HTTPS signalling, and UDP TURN/WebRTC independently.
 - [ ] Test CGNAT host and external client on a different ISP.
 - [ ] Measure RTT, jitter, loss, bandwidth, and relay resource cost.
 **Exit:** real external client joins reliably without Playit or another managed tunnel.
