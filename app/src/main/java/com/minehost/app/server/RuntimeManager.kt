@@ -393,10 +393,14 @@ class RuntimeManager @Inject constructor(
         val outputFile = File(context.cacheDir, "runtime-check-${System.nanoTime()}.log")
         var process: Process? = null
         return try {
-            process = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
+            val pb = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
                 .redirectErrorStream(true)
                 .redirectOutput(outputFile)
-                .start()
+            pb.environment().apply {
+                put("TMPDIR", context.cacheDir.absolutePath)
+                put("LD_LIBRARY_PATH", context.applicationInfo.nativeLibraryDir)
+            }
+            process = pb.start()
             if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
                 process.destroyForcibly()
                 if (!process.waitFor(2, TimeUnit.SECONDS)) {
@@ -404,7 +408,7 @@ class RuntimeManager @Inject constructor(
                 }
                 Result.failure(IOException("${binary.name} started but did not exit within ${timeoutSeconds}s."))
             } else {
-                val output = outputFile.takeIf { it.isFile }?.readText()?.take(300).orEmpty()
+                val output = outputFile.takeIf { it.isFile }?.readText()?.take(64 * 1024).orEmpty()
                 val exitCode = process.exitValue()
                 if (exitCode == 0) Result.success(output)
                 else Result.failure(IOException("${binary.name} exited with code $exitCode: $output"))

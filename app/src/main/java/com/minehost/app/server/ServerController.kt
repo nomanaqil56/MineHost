@@ -149,10 +149,7 @@ class ServerController @Inject constructor(
                 return Resource.Error(msg)
             }
 
-            // 5. Start foreground service
-            startForegroundService(server.name, server.localPort)
-
-            // 6. Launch real engine process
+            // 5. Launch real engine process
             val processListener = object : ProcessListener {
                 override fun onLog(line: String) {
                     if (playerTracker.onLine(line)) {
@@ -210,6 +207,8 @@ class ServerController @Inject constructor(
             }
 
             activeProcessHandle = launchResult.getOrNull()
+            // 6. Start foreground service now that process handle is active
+            startForegroundService(server.name, server.localPort)
             Resource.Success(Unit)
         } catch (e: Exception) {
             AppLogger.e("ServerController", "Exception starting server: ${e.message}", e)

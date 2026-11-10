@@ -1,5 +1,6 @@
 package com.minehost.app.services
 
+import android.app.Notification
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -32,6 +33,13 @@ class ServerForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onCreate() {
+        super.onCreate()
+        AppLogger.i("ServerForegroundService", "Server Foreground Service created, establishing foreground immediately")
+        val initialNotification = notificationManager.buildForegroundNotification("Minecraft Server", 19132, null)
+        promoteToForeground(initialNotification)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ServerNotificationManager.ACTION_STOP_SERVER) {
             AppLogger.i("ServerForegroundService", "Stop action triggered from notification")
@@ -49,23 +57,38 @@ class ServerForegroundService : Service() {
         val publicEndpoint = intent?.getStringExtra(EXTRA_PUBLIC_ENDPOINT)
 
         val notification = notificationManager.buildForegroundNotification(serverName, port, publicEndpoint)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Hosting a game server is not "data sync" (which Android 15 time-limits), so on
-            // Android 14+ declare only specialUse. Older versions have no specialUse type.
-            val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            } else {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            }
-            startForeground(ServerNotificationManager.NOTIFICATION_ID, notification, serviceType)
-        } else {
-            startForeground(ServerNotificationManager.NOTIFICATION_ID, notification)
-        }
+        promoteToForeground(notification)
 
         // NOT sticky: if Android kills the app the server process dies with it, and a restarted
         // service would show a "server running" notification for a server that no longer exists.
         return START_NOT_STICKY
+    }
+
+    private fun promoteToForeground(notification: Notification) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    ServerNotificationManager.NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    ServerNotificationManager.NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                startForeground(ServerNotificationManager.NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            AppLogger.e("ServerForegroundService", "Failed to start foreground with declared type: ${e.message}", e)
+            try {
+                startForeground(ServerNotificationManager.NOTIFICATION_ID, notification)
+            } catch (fallbackEx: Exception) {
+                AppLogger.e("ServerForegroundService", "Fallback startForeground failed: ${fallbackEx.message}", fallbackEx)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -73,4 +96,3 @@ class ServerForegroundService : Service() {
         AppLogger.i("ServerForegroundService", "Server Foreground Service destroyed")
     }
 }
-
