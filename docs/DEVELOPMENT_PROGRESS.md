@@ -23,13 +23,13 @@ Never promote a feature to a higher status without recording the command, commit
 | Kotlin / Compose app shell | SOURCE PRESENT | UI, navigation and feature screens exist; latest build not reproduced in this review. |
 | Room / Hilt / repositories | SOURCE PRESENT | Data and DI layers exist; instrumented migration tests not recorded here. |
 | Server engine abstraction | SOURCE PRESENT | Interface, registry and lifecycle classes exist. |
-| PocketMine adapter | SOURCE PRESENT / BLOCKED | Build-time script now downloads a pinned PMMP Android ARM64 static PHP asset into generated `jniLibs`; packaging and physical-device launch are not yet verified. Runtime dependency/licence review pending. |
+| Axolotl-PM Bedrock adapter | SOURCE PRESENT / BLOCKED | Engine now targets Axolotl-PM 5.51.1 / Bedrock 1.26.60, generates NetherNet config, and checks for PHP ext-webrtc. Build-time script pins Axolotl-PM PHP 8.4 Android ARM64 asset; CI packaging and physical-device launch are not yet verified. |
 | Paper adapter | SOURCE PRESENT / BLOCKED | Requires a compatible JVM; adapter expects `libjava.so`, but no validated runtime is present. |
 | Geyser config | SOURCE PRESENT / BLOCKED | Configuration generation exists; Java/Paper and bridge execution are not proven. |
 | Runtime downloads | SOURCE PRESENT | PHAR/JAR/Playit download logic exists; runtime execution, pinning and trust model need further work. |
 | Playit provider | SOURCE PRESENT / EXPERIMENTAL | Third-party provider implementation exists; not MineHost's intended final connectivity architecture and not device-verified. |
 | MineHost-owned coordinator | NOT STARTED | Required for independent public connectivity. |
-| MineHost-owned relay | NOT STARTED | Required for CGNAT/restricted networks without managed tunnel providers. |
+| MineHost-owned TCP edge / reverse tunnel | NOT STARTED | Required for Java TCP and Bedrock HTTPS signalling behind CGNAT. |\n| MineHost-owned TURN | NOT STARTED | Required as Bedrock WebRTC UDP fallback behind CGNAT/restrictive NAT. |
 | Direct-first public routing | NOT STARTED | LAN helpers exist; public direct/NAT traversal not proven. |
 | Wi-Fi/cellular recovery | PARTIAL SOURCE | Network observation exists; full tunnel recovery and player reconnection are not proven. |
 | Local server readiness | SOURCE PRESENT | Protocol probe code exists; real engine responses are not verified. |
@@ -52,7 +52,7 @@ The earlier report of 40 pure-Kotlin tests is historical information from the pr
 1. [ ] Add CI for `assembleDebug` and `testDebugUnitTest`.
 2. [ ] Make the synthetic Python harness label its results as simulations, not functional integration.
 3. [ ] Run CI packaging and prove the bundled PHP executable and required extensions on physical ARM64 Android.
-4. [ ] Prove a supported Java VM on ARM64 Android (separate milestone).
+4. [ ] Prove a supported Java VM on ARM64 Android (separate milestone).\n5. [ ] Implement MineHost-owned TCP reverse tunnel and TURN infrastructure; do not use managed providers as the production path.
 5. [ ] Complete physical-device local Bedrock acceptance test.
 6. [ ] Implement and test one MineHost-owned public relay.
 7. [ ] Test host on Wi-Fi and cellular behind CGNAT.
