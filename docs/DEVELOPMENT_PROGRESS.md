@@ -1,5 +1,7 @@
 # MineHost — Development Progress Tracker
 
+> **Main-branch status update (2026-11-10):** The README and runtime guards have been corrected. Bedrock is blocked until a real Android ARM64 PHP CLI runtime is available; Java is blocked until a complete Android-compatible JVM and executable launcher are available. Shared libraries named `libphp.so`, `libjava.so`, or `libplayit.so` are not treated as CLI executables. A GitHub Actions workflow has been added, but its first run and all recent Android-dependent changes still require verification. No physical-device or real-client test has been recorded.
+
 ## Status Classification Legend
 - **IMPLEMENTED:** Source code and architecture completely implemented.
 - **AUTOMATED TESTED:** Unit / Protocol / Logic verification suite passed.
@@ -51,11 +53,20 @@
 
 ---
 
-## Build & Test Verification Milestones Completed
-1. **Gradle Build Complete:** `gradle assembleDebug` succeeds cleanly, producing `app-debug.apk` (59 MB) with AAPT2 resources, Room schema generation, and Hilt dependency injection.
-2. **Unit Test Suite Verified:** `gradle testDebugUnitTest` runs with 100% pass rate (8/8 tests passing).
-3. **Protocol & State Verification Suite:** `python tests/verify_minehost.py` runs with 100% pass rate (9/9 tests passing RakNet, VarInt, persistence, and recovery checks).
-4. **Live Latency & Tunnel Monitoring:** Added `ConnectionMonitor` providing real round-trip socket ping checks for active endpoints.
+## Build & Test Verification Status
+
+Earlier repository notes claimed that `assembleDebug`, `testDebugUnitTest`, and a Python verification script had passed. Those results were not reproduced in the latest audit and must not be treated as the current main-branch baseline.
+
+The latest documented standalone verification reports **40/40 pure-Kotlin tests passing with kotlinc and JUnit outside Gradle**. This does not compile Android-dependent source or verify Android integration.
+
+A GitHub Actions workflow now runs:
+1. `testDebugUnitTest`
+2. `lintDebug`
+3. `assembleDebug`
+
+**Status of the new workflow:** pending its first confirmed successful run. Until then, Gradle build and Android lint are **NOT VERIFIED** for the latest main commit.
+
+No emulator, physical Android device, native runtime launch, Minecraft client join, or external-network session has been verified.
 
 ---
 
