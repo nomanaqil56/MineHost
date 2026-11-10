@@ -19,33 +19,15 @@ The long-term goal is low-latency multiplayer over Wi-Fi and cellular, Java/Bedr
 
 ## Current implementation
 
-The repository contains a native Android application foundation built with Kotlin, Jetpack Compose, Room, and Hilt. Source currently includes:
+The repository contains a native Android application built with Kotlin, Jetpack Compose, Room, and Hilt. The Bedrock path currently includes:
 
+- Axolotl-PM 5.51.1, pinned by release tag, asset URL and SHA-256.
+- PHP 8.4.27 ZTS Android ARM64 CLI, bundled in the APK and checked using `php -n`.
+- Runtime verification for all 17 required compiled-in PHP extensions.
+- Generated server configuration for modern Bedrock NetherNet: TCP signaling and multiplexed UDP WebRTC traffic on port 19132.
+- Process supervision and a protocol readiness probe for NetherNet HTTP signaling, with legacy RakNet fallback.
 - Server dashboard, creation/detail, console, player, diagnostics, and backup screens.
-- Server-engine abstractions and Bedrock/Paper adapter scaffolding.
-- Runtime and server-artifact download management.
-- Process supervision and protocol-readiness probes.
-- Local-network discovery and a tunnel-provider abstraction.
-- A Playit tunnel adapter for optional experiments; it is not MineHost's final networking architecture.
-- World backup/restore validation and safety mechanisms.
-- Foreground hosting service, wake-lock, and thermal-monitoring code.
-
-## Current limitations
-
-**MineHost is not production-ready.** Source code existing in the repository is not proof that it runs successfully on a device.
-
-- No physical Android device has been verified in the latest repository audit.
-- No real Minecraft client has been shown joining a server launched by MineHost.
-- Earlier development notes report 40 pure-Kotlin tests passing outside Gradle. This does not prove Android integration or gameplay.
-- The latest main-branch audit did not reproduce a Gradle Android build; Android-dependent changes must be compiled and tested.
-- A compatible Android ARM64 PHP runtime and a proven launch path are missing. Bedrock hosting is therefore blocked.
-- A complete Android-compatible ARM64 Java runtime and launch path are missing. Paper hosting is therefore blocked.
-- Geyser/Floodgate cross-play is not operational and must remain unavailable until the Java runtime works.
-- The Playit integration has not been validated with a real Android agent session and external Minecraft client.
-- MineHost-owned relay/control-plane infrastructure and direct NAT traversal are not implemented.
-- Bedrock protocol compatibility must be validated against the exact server and client versions selected.
-
-See [Production Readiness](docs/PRODUCTION_READINESS.md), [Known Issues](docs/KNOWN_ISSUES.md), and [Development Progress](docs/DEVELOPMENT_PROGRESS.md).
+- World backup/restore validation, foreground hosting service, wake-lock, and thermal-monitoring code.
 
 ## Architecture and documentation
 
@@ -80,12 +62,12 @@ A successful build is only a build check. It does not prove a server engine, nat
 
 ## Immediate development priorities
 
-1. Reproduce a clean Android build and Gradle unit-test baseline on `main`.
-2. Select and validate one maintained Bedrock engine and a compatible Android ARM64 PHP runtime/launcher.
-3. Start that real server on a physical device and prove same-LAN gameplay and world persistence.
-4. Design and implement MineHost-owned public connectivity, with LAN working independently of the backend.
-5. Add Java hosting and cross-play only after a complete Android-compatible JVM and server process are proven.
-6. Complete security, legal, performance, device, and release audits.
+1. Run the current Android CI after the NetherNet/configuration changes and fix any build or test failures.
+2. Re-run server startup through the MineHost UI on the Vivo Android 16 device.
+3. Join from a second Bedrock 1.26.60+ client on the same LAN; verify gameplay, reconnect and world persistence.
+4. Validate TCP/UDP port behavior and Android WebRTC networking.
+5. Implement MineHost-owned public connectivity after LAN play is proven.
+6. Add Java hosting and cross-play only after a complete Android-compatible JVM and process launch are proven.
 
 ## Licensing and Minecraft notice
 
