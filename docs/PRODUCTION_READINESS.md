@@ -53,17 +53,17 @@ The original audit below identified several false-positive runtime checks. Follo
 | App shell, navigation, Compose UI, Room, Hilt | IMPLEMENTED BUT UNVERIFIED | Not built in this audit. |
 | Bedrock engine (PocketMine-MP) | **BLOCKED** | Real code, but no PHP runtime (blocker 1). Fake shell loops and `\|\| true` checks from older versions are already gone. |
 | Java engine (Paper) | **BLOCKED** | No JRE (blocker 2). |
-| EULA consent | **NOT IMPLEMENTED** | `eula.txt` is written as `eula=false` (the server will refuse to start rather than silently accepting). There is no consent screen or stored consent. |
+| EULA consent | IMPLEMENTED BUT UNVERIFIED | Consent UI and persisted consent were added; verify migration and user flow on device. |
 | Cross-play (Paper + Geyser) | **NOT IMPLEMENTED** | Only a Geyser config generator exists. Now correctly reported as unsupported. |
-| Playit tunnel | PARTIALLY IMPLEMENTED, **BROKEN download** | Real process launch and output parsing, but blockers 3 and 4. It reports CONNECTED when its output regex matches a hostname, not after an end-to-end check. |
-| Connection monitoring | PARTIALLY IMPLEMENTED | Uses a TCP connect, which is **wrong for Bedrock (UDP)**. Not protocol-aware. |
+| Playit tunnel | PARTIALLY IMPLEMENTED, UNVERIFIED | Release metadata lookup and an executable check exist, but Android/Bionic execution and external join are unverified. Endpoint parsing is not proof of end-to-end reachability. |
+| Connection monitoring | PARTIALLY IMPLEMENTED | Protocol-aware reachability work exists, but must be validated with real Java TCP and Bedrock UDP endpoints. |
 | Tunnel state model | PARTIALLY IMPLEMENTED | One status enum; agent/auth/tunnel/local/remote health are not separated. |
-| Backups: create | IMPLEMENTED BUT UNVERIFIED | Backing up while the server runs can capture an inconsistent world (no `save-off`/`save-all`). |
+| Backups: create | IMPLEMENTED BUT UNVERIFIED | The code requests save pause/flush before snapshotting; engine acknowledgement and consistency on real worlds remain unverified. |
 | Backups: restore | IMPROVED, UNVERIFIED | See changes above. |
 | Players screen | IMPLEMENTED BUT UNVERIFIED | Sends console commands and updates the local DB regardless of whether the server accepted them. Whether the list reflects real joins was not traced. |
-| Diagnostics | PARTIALLY IMPLEMENTED | Install flags and device info are real; download failures are swallowed (results ignored) so the user sees nothing on error. |
+| Diagnostics | PARTIALLY IMPLEMENTED | Runtime/download diagnostics are present and error surfacing has been improved; verify every failure path on device. |
 | Foreground service / wake lock / thermal | IMPLEMENTED BUT UNVERIFIED | `specialUse\|dataSync` types declared; Android 14+ behaviour untested. |
-| Release signing | **BROKEN for production** | Release build uses the **debug** signing config (`app/build.gradle.kts`). |
+| Release signing | CONFIGURED BUT UNVERIFIED | Release signing reads owner-controlled environment variables or `local.properties`; without them the release is unsigned. A production signing key is not committed. |
 | Credential storage | NOT IMPLEMENTED | `security-crypto` is a dependency but nothing stores Playit credentials securely. |
 
 ## What was and was not verified
