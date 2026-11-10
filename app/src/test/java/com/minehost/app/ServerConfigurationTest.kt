@@ -38,7 +38,8 @@ class ServerConfigurationTest {
         assertTrue(properties.contains("gamemode=0")) // Survival is 0
         assertTrue(properties.contains("difficulty=3")) // Hard is 3
         assertTrue(properties.contains("pvp=on"))
-        assertTrue(properties.contains("online-mode=on"))
+        assertTrue(properties.contains("xbox-auth=on"))
+        assertTrue(!properties.contains("online-mode="))
     }
 
     @Test
