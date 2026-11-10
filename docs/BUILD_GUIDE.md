@@ -18,7 +18,7 @@ cd MineHost
 
 ## 3. Prepare the Android ARM64 PHP runtime
 
-The Bedrock adapter expects `libphp.so` in Android's extracted native-library directory. The build-time bootstrap downloads a pinned PMMP PHP-Binaries Android ARM64 static build, verifies the published archive SHA-256, ELF architecture and static linkage, then places it in the ignored `app/src/main/jniLibs/arm64-v8a` directory.
+The Bedrock adapter expects `libphp.so` in Android's extracted native-library directory. The build-time bootstrap downloads a pinned Axolotl-PM PHP-Binaries Android ARM64 PHP 8.4 static build (including ext-webrtc), verifies the published archive SHA-256, ELF architecture and static linkage, then places it in the ignored `app/src/main/jniLibs/arm64-v8a` directory.
 
 Run on Linux/macOS or Git Bash/WSL:
 
@@ -26,7 +26,7 @@ Run on Linux/macOS or Git Bash/WSL:
 bash tools/prepare_android_php_runtime.sh
 ```
 
-The binary is generated locally and is not committed to Git. This script validates the archive and ELF metadata only; it does **not** prove that the executable works on a physical Android device. The PHP-Binaries upstream project and all bundled dependency licences must be reviewed before any public release.
+The binary is generated locally and is not committed to Git. This script validates the archive and ELF metadata only; it does **not** prove that the executable works on a physical Android device. The Axolotl-PM PHP-Binaries upstream project and all bundled dependency licences must be reviewed before any public release.
 
 ## 4. Build the debug APK
 
@@ -49,7 +49,7 @@ Debug APK output:
 
 `app/build/outputs/apk/debug/app-debug.apk`
 
-A successful build only proves that the Android project compiles. It does **not** prove that the PHP executable runs on-device, PocketMine starts, or Minecraft clients can connect.
+A successful build only proves that the Android project compiles. It does **not** prove that the PHP executable runs on-device, Axolotl-PM starts, or Minecraft clients can connect.
 
 ## 5. GitHub Actions
 
@@ -72,7 +72,7 @@ Grant only permissions required by the app. Android 13+ notification permission 
 ## 7. Current runtime limitations
 
 The PHP runtime packaging path is a candidate and still requires physical-device validation. No validated Java VM is present. Therefore:
-- downloading the PocketMine PHAR alone does not make Bedrock hosting runnable;
+- downloading the Axolotl-PM PHAR alone does not make Bedrock hosting runnable;
 - downloading the Paper JAR alone does not make Java hosting runnable;
 - do not advertise either engine as working until the runtime launches and real Minecraft clients pass the acceptance tests.
 
