@@ -39,6 +39,9 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Prepare checksum-pinned Android PHP runtime
+        run: bash tools/prepare_android_php_runtime.sh
+
       - name: Build debug APK
         run: ./gradlew --no-daemon --stacktrace assembleDebug
 
