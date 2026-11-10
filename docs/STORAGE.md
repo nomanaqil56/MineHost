@@ -31,7 +31,7 @@ MineHost strictly adheres to the principle of **local data ownership**:
 │
 ├── engines/
 │   ├── bedrock/
-│   │   └── pmmp/PocketMine-MP.phar
+│   │   └── axolotl-pm/Axolotl-PM/PocketMine-MP.phar
 │   └── java/
 │       └── paper/paper-1.20.4.jar
 │
