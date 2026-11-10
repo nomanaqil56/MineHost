@@ -22,7 +22,7 @@ An engine being listed in this document does not mean its runtime is available i
 - Language/runtime: PHP CLI plus PocketMine-MP PHAR and native extensions.
 - Why evaluate it: relatively lightweight, extensible, established plugin ecosystem.
 - Important limitations: it is not a drop-in vanilla Bedrock Dedicated Server replacement; gameplay parity, entity AI, redstone, dimensions, and plugin requirements must be described honestly.
-- Android blocker: MineHost currently has no validated PHP runtime. A desktop Linux PHP build is not assumed to run on Android/Bionic. The project must prove a compatible ARM64 runtime, extension set, process-launch strategy, and licence/redistribution path.
+- Android runtime candidate: a build-time script now prepares the official PMMP PHP-Binaries Android ARM64 static PHP 8.4 asset and packages it as `jniLibs/arm64-v8a/libphp.so`. It is not yet device-validated. Verify required extensions, process launch, Android packaging, upstream archive maintenance, and all bundled dependency licences before release.
 - Protocol blocker: validate the selected PocketMine release against the current Bedrock client transport. Do not assume legacy RakNet support is sufficient for all current clients.
 
 ### PowerNukkitX
