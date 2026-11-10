@@ -71,6 +71,6 @@ A successful APK build does **not** prove that a Minecraft engine can execute on
 
 ## License and Minecraft notice
 
-The MineHost application source is licensed under Apache License 2.0 (see [LICENSE](LICENSE) when present). Each bundled or downloaded engine, runtime, library, and binary remains subject to its own licence and redistribution terms; review those terms before distribution.
+**Repository licence is currently unspecified:** no root `LICENSE` file was present in the reviewed repository tree. Do not assume the source is Apache-2.0 or otherwise licensed for reuse until the project owner chooses and adds a licence. Each bundled or downloaded engine, runtime, library, and binary also remains subject to its own licence and redistribution terms; review those terms before distribution.
 
 Minecraft is a trademark of Mojang AB and Microsoft. MineHost is an independent third-party project and is not affiliated with, endorsed by, or associated with Mojang or Microsoft. MineHost does not distribute Minecraft game assets.
