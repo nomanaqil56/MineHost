@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-MineHost Master Verification & Functional Test Harness
-Verifies:
-1. Bedrock & Java server configuration generation and property parsing.
-2. RakNet UDP binary packet serialization & Unconnected Pong deserialization.
-3. Java Edition VarInt packet framing & Handshake protocol verification.
-4. World storage persistence across restarts (LevelDB & NBT).
-5. World backup archiving, SHA256 cryptographic checksums & safe restoration.
-6. Reverse tunnel isolation (Server remains Online when tunnel drops) & Reconnection.
-7. Unexpected process crash detection (SIGKILL -> CRASHED state transition).
-8. Cross-Play (Geyser) bridge configuration mapping.
+MineHost synthetic fixture and model-check harness (NOT an integration test)
+Checks synthetic Python fixtures only:
+1. Example server property text.
+2. Hand-constructed RakNet packet framing.
+3. Hand-constructed Java VarInt framing.
+4. Dummy-file persistence simulation (not a Minecraft world).
+5. ZIP/checksum fixture extraction (not the Android backup implementation).
+6. Simulated tunnel state transitions (no network tunnel).
+7. Simulated process exit classification (no Android process).
+8. Example Geyser configuration text (no Geyser process).
+
+Passing this script does NOT verify Android code, a real Minecraft server, a real client, a tunnel, or network connectivity.
 """
 
 import os
@@ -298,7 +300,7 @@ remote:
 # MAIN EXECUTION
 # ==============================================================================
 if __name__ == "__main__":
-    print(f"{YELLOW}Running MineHost Complete Verification Test Suite...{RESET}", flush=True)
+    print(f"{YELLOW}Running MineHost synthetic fixture checks (NOT end-to-end verification)...{RESET}", flush=True)
     start_time = time.time()
 
     test_configuration_generation()
@@ -319,5 +321,5 @@ if __name__ == "__main__":
     if report.failed > 0:
         sys.exit(1)
     else:
-        print(f"{GREEN}ALL FUNCTIONAL TESTS VERIFIED SUCCESSFULLY!{RESET}", flush=True)
+        print(f"{GREEN}ALL SYNTHETIC MODEL CHECKS PASSED — NO ANDROID OR MINECRAFT INTEGRATION WAS TESTED.{RESET}", flush=True)
         sys.exit(0)
