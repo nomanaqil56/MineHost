@@ -133,10 +133,10 @@ A useful reference implementation is [DroidNative's documented execution model](
 
 ## 5. Java runtime candidates
 
-### PojavLauncher mobile OpenJDK
-PojavLauncher documents mobile OpenJDK ports for ARM64, including Java 17 and Java 21. This is a promising candidate source for experimentation, not proof that its runtime can run headless server processes without modification.
+### Amethyst-Android mobile OpenJDK
+The original PojavLauncher is discontinued; its successor is Amethyst-Android. Amethyst documents mobile OpenJDK 17 and 21 runtimes for ARM64 and provides prebuilt JRE artifacts through its CI. This is a promising runtime source for a prototype, not proof that the JRE can run headless Paper/Allay server processes without modification. Validate the exact artifact, its launcher/library layout, redistribution licence and headless behaviour.
 
-Source: [PojavLauncher OpenJDK branch](https://github.com/PojavLauncherTeam/PojavLauncher/tree/v3_openjdk).
+Sources: [Amethyst-Android](https://github.com/AngelAuraMC/Amethyst-Android), [Amethyst runtime build repository](https://github.com/AngelAuraMC/android-openjdk-build-multiarch).
 
 ### Required validation
 - Run a simple headless Java program from the packaged runtime.
