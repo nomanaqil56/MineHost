@@ -34,10 +34,10 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           # The legacy "tools" SDK package no longer exists; install only supported packages.
-          packages: |
-            platform-tools
-            platforms;android-34
-            build-tools;34.0.0
+          packages: platform-tools
+
+      - name: Install Android platform and build tools
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
