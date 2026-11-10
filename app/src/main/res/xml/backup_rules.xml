@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
-    <exclude domain="file" path="minehost/servers/" />
-    <exclude domain="file" path="minehost/engines/" />
-    <exclude domain="file" path="minehost/tunnels/" />
-</full-backup-content>
-

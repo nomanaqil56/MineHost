@@ -66,15 +66,19 @@ class BackupsViewModel @Inject constructor(
 
             // If the server is online, world saving is paused while the archive is written so the
             // backup is not taken mid-write (see ServerController.withWorldSavePaused).
-            val result = serverController.withWorldSavePaused(serverId) {
-                worldBackupManager.createBackup(
-                    serverId = serverId,
-                    serverName = server.name,
-                    worldName = "world",
-                    note = note
-                ) { progress ->
-                    _uiState.value = _uiState.value.copy(progress = progress)
+            val result = try {
+                serverController.withWorldSavePaused(serverId) {
+                    worldBackupManager.createBackup(
+                        serverId = serverId,
+                        serverName = server.name,
+                        worldName = "world",
+                        note = note
+                    ) { progress ->
+                        _uiState.value = _uiState.value.copy(progress = progress)
+                    }
                 }
+            } catch (e: Exception) {
+                Resource.Error("Could not safely pause world saving for backup: ${e.message}", e)
             }
 
             when (result) {
