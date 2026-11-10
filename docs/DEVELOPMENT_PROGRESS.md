@@ -38,7 +38,8 @@ Never promote a feature to a higher verification level without a reproducible te
 | Server readiness probes | SOURCE PRESENT | 8 pure-Kotlin tests reported | Current Bedrock probe is RakNet-specific; validate selected current engine/client transport |
 | Player tracking | SOURCE PRESENT | 6 pure-Kotlin tests reported | Log formats require capture from real server output |
 | Server lifecycle serialization | SOURCE UPDATED | Not compiled | Start/stop now serialized with a mutex; process-handle absence/early exit is handled explicitly |
-| Android CI workflow | ADDED | First workflow run pending | Builds, runs unit tests and lint, then uploads debug APK |
+| Android CI workflow | ADDED | First API 36 workflow run pending | Builds, runs unit tests and lint, then uploads debug APK |
+| Android 16 target API | SOURCE UPDATED | CI/device verification pending | compileSdk/targetSdk 36; AGP 8.10.1, Gradle 8.11.1, Kotlin 2.2.21, JDK 17 |
 
 ## Test evidence currently documented
 
@@ -70,7 +71,7 @@ These tests do not prove that an Android app compiles, that native runtimes laun
 ## Immediate next work
 
 ### P0 — Reproducible baseline
-- [ ] Check the first `Android CI` workflow run on branch `work/production-readiness`.
+- [ ] Check the first API 36 `Android CI` workflow run on branch `work/production-readiness`.
 - [ ] Fix build, lint and test failures before further feature work.
 - [ ] Verify the new lifecycle mutex change compiles and add a regression test where practical.
 - [ ] Reconcile documentation and remove stale claims.
