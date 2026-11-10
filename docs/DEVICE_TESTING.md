@@ -6,9 +6,9 @@
 
 1. Use JDK 17 and Android SDK 36.
 2. Run:
-   §bash
+   `bash
    ./gradlew --no-daemon testDebugUnitTest assembleDebug
-   §
+   `
 3. Install the debug APK on an ARM64 Android phone.
 4. Record device model, Android version/API, RAM, free storage, and build commit.
 
