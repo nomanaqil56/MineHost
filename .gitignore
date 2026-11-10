@@ -17,3 +17,6 @@
 *.jks
 *.keystore
 keystore.properties
+
+# Downloaded runtime caches
+*.phar

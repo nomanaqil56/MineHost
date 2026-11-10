@@ -92,3 +92,4 @@ def inspect_apk():
 
 if __name__ == "__main__":
     inspect_apk()
+

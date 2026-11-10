@@ -39,3 +39,4 @@ print(f"PASSED: {total_tests - total_failures - total_errors}")
 print(f"FAILED: {total_failures + total_errors}")
 print(f"TOTAL TIME: {total_time:.3f}s")
 print("=" * 60)
+
