@@ -82,6 +82,17 @@ class PlayitTunnelProvider @Inject constructor(
 
     override suspend fun start(localPort: Int, protocol: NetworkProtocol): Result<PublicEndpoint> =
         withContext(Dispatchers.IO) {
+            // NetherNet requires TCP signaling and UDP WebRTC traffic. This experimental
+            // provider has not been proven to provision both transports for one server.
+            if (protocol == NetworkProtocol.BOTH) {
+                val error = UnsupportedOperationException(
+                    "Playit adapter is not validated for simultaneous TCP/UDP Bedrock NetherNet. " +
+                        "Use LAN hosting until MineHost connectivity is available."
+                )
+                _status.value = TunnelStatus.ERROR
+                log("[Playit] Refusing unverified dual-transport Bedrock tunnel")
+                return@withContext Result.failure(error)
+            }
             activeLocalPort = localPort
             activeProtocol = protocol
             stopRequested = false
