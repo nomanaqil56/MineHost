@@ -75,4 +75,4 @@ The latest testing record in docs/TESTING.md reports 40 pure-Kotlin helper tests
 8. Upgrade target SDK/toolchain to API 36 and complete release compliance.
 9. Complete sustained performance, security, licensing, and Play Store verification.
 
-See [Master Roadmap](MINEHOST_MASTER_ROADMAP.md) and [Production Readiness](PRODUCTION_READINESS.md).
+See [Master Roadmap](MINEHOST_MASTER_ROADMAP.md), [Engine Evaluation](ENGINE_EVALUATION.md), and [Production Readiness](PRODUCTION_READINESS.md).
