@@ -295,20 +295,22 @@ class ServerController @Inject constructor(
         }
     }
 
+    /**
+     * Bedrock on current Axolotl-PM uses NetherNet: TCP for HTTP signaling and
+     * UDP for WebRTC game traffic. Check both transports before startup.
+     */
     private fun isPortInUse(port: Int, isUdp: Boolean): Boolean {
-        return if (isUdp) {
-            try {
-                DatagramSocket(port).use { false }
-            } catch (e: Exception) {
-                true
-            }
-        } else {
-            try {
-                ServerSocket(port).use { false }
-            } catch (e: Exception) {
-                true
-            }
+        fun udpBusy(): Boolean = try {
+            DatagramSocket(port).use { false }
+        } catch (_: Exception) {
+            true
         }
+        fun tcpBusy(): Boolean = try {
+            ServerSocket(port).use { false }
+        } catch (_: Exception) {
+            true
+        }
+        return if (isUdp) udpBusy() || tcpBusy() else tcpBusy()
     }
 
     private suspend fun handleServerStopped(serverId: String, finalStatus: ServerStatus) {
