@@ -41,7 +41,7 @@ This tracker distinguishes source implementation from verified operation. Update
 | Foreground service / wake lock | Present | Not device verified | Validate API 34+ special-use behavior and Play policy. |
 | Thermal monitoring | Present | Source only | Validate on supported devices under sustained load. |
 | Release signing | Configured, no production key in repo | Not release verified | Release intentionally unsigned without secrets. |
-| Google Play target API | Outdated | Not compliant for a new submission | Current targetSdk is 34; new apps/updates require API 36 as of 2026-08-31. |
+| Google Play target API | Migration in progress | Not release verified | Main is API 34. The current PR moves the development branch to API 36 and upgrades AGP/Kotlin/Gradle/KSP; CI must pass before this is marked verified. |
 | International connectivity | Not implemented | Not tested | No MineHost-owned relay or real international join. |
 
 ## Existing safety work in source
