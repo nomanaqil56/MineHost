@@ -1,85 +1,131 @@
-# MineHost — Project Progress Report
+# MineHost — Complete Project Progress Report
 
-**Last audited:** 2026-11-10  
-**Repository:** `nomanaqil56/MineHost` · **Branch:** `main`  
-**Audited baseline:** `4b6f498f24935f91f547875818f56e361357cf31`  
-**Purpose:** Single authoritative project status. Physical-device evidence is recorded in [DEVICE_TEST_RESULTS.md](../device-evidence/DEVICE_TEST_RESULTS.md).
+**Last updated:** 2026-11-10  
+**Repository:** `nomanaqil56/MineHost`  
+**Active workstream:** Phase 1 — Bedrock local-hosting completion and acceptance  
+**Authoritative device record:** [DEVICE_TEST_RESULTS.md](../device-evidence/DEVICE_TEST_RESULTS.md)  
+**Evidence archive:** [device-evidence/evidence/](../device-evidence/evidence/)
 
-## Executive status
+> This report is the single source of truth for implementation status, phase scope, known limitations, and remaining work. Source-code presence, unit tests, CI, and physical-device acceptance are tracked separately; none is used as a substitute for another.
 
-MineHost has an Android Bedrock server implementation built around Axolotl-PM 5.51.1 and a pinned PHP 8.4.27 ZTS ARM64 runtime. The retained physical-device report records successful runtime, engine, UI lifecycle, world persistence, LAN signaling, and background-service checks. A real second-client gameplay test is still blocked, so Phase 1 is **not yet 100% accepted**.
+## 1. Executive status
 
-This change corrects NetherNet's UDP ICE-mux port to follow the selected server port rather than always using 19132. CI and a fresh device run must pass after this change before the updated code can be considered verified on-device.
+MineHost is an Android application that runs a Minecraft Bedrock-compatible server locally on an ARM64 Android device. The current implementation uses Axolotl-PM 5.51.1 and a pinned PHP 8.4.27 ZTS runtime packaged in the APK.
 
-## Phase 1 — Android Bedrock hosting
+The latest recorded `main` commit at the start of this workstream was `14d99eca3f4b569cef86d8a40e2e687d966c588b`. Its Android CI run **42817752559 passed**. Existing physical-device evidence records successful runtime, server startup, host-side signaling, world persistence, foreground operation, and three start/stop cycles on a Vivo iQOO Z7 Pro 5G running Android 16 / API 36.
 
-### Implemented
+**Phase 1 is not accepted as complete.** The retained device evidence is from an earlier source commit, no real second Bedrock client gameplay session is recorded, and backup/restore acceptance is incomplete. The latest configured NetherNet UDP-port change must also be installed and retested on the phone.
+
+The current priority is to finish Phase 1. Do not begin Phase 2 public relay development, Java hosting, or cross-play while these acceptance gates remain open.
+
+## 2. Phase 1 — Bedrock local hosting
+
+### 2.1 Implemented in source
 
 - Axolotl-PM 5.51.1 PHAR pinned to SHA-256 `bcfbd0deff349c2b25b1688299a7d54f1fc8a080d2f95e19884f8e341319021a`.
 - PHP 8.4.27 ZTS Android ARM64 runtime pinned to SHA-256 `45b462ff5e290ee06d34eced589c325d27a2743185acab53acab291b0188e181`.
-- PHP executable packaged as an APK native library and checked for ELF64/AArch64 executable format.
-- Runtime launch validation, PHP version validation, and 17 required extension checks.
-- Bedrock configuration generation, input validation, Xbox authentication property, NetherNet signaling, and ICE UDP multiplexing.
-- Server process supervision, protocol readiness checks, foreground service integration, wake locks, thermal monitoring, console commands, and lifecycle state.
-- LAN IPv4 address discovery.
-- World directory management, ZIP backups, checksums, restore staging, safety snapshot, and rollback implementation.
-- Unit tests for configuration, runtime contract, readiness packet handling, local network selection, world swaps, ZIP validation, command sanitization, and supporting utilities.
+- Runtime packaged as `lib/arm64-v8a/libphp.so`; CI checks the APK payload and QEMU smoke-tests the pinned archive.
+- Runtime executable, version, ZTS, and required PHP extension validation.
+- Bedrock server configuration generation, input validation, Xbox authentication setting, and configurable NetherNet ICE UDP mux port range.
+- Managed process launch, stdout/stderr capture, command input, shutdown, crash handling, and protocol-level readiness probes.
+- Android foreground service, notification controls, wake-lock and thermal-monitoring integrations.
+- LAN IPv4 address discovery and pure unit tests for address selection.
+- World directory management, ZIP backup creation, SHA-256 validation, staged restore, safety snapshot, and rollback-capable world replacement.
+- JVM unit tests for runtime contract, configuration, readiness packet parsing, networking selection, world swap, ZIP validation, and supporting utilities.
 
-### Physical-device evidence on record
+### 2.2 Evidence already on record
 
-The retained evidence identifies a Vivo I2221 / iQOO Z7 Pro 5G, Android 16 / API 36, ARM64. It records PHP runtime and extension checks, Axolotl-PM startup, UI state, world persistence, LAN signaling, foreground operation, and three clean start/stop cycles. See [device test results](../device-evidence/DEVICE_TEST_RESULTS.md).
+The historical device report records:
+- PHP 8.4.27 ZTS runtime and 17 required modules.
+- Axolotl-PM 5.51.1 installation/integrity and process startup.
+- Configuration generation and server ONLINE UI state.
+- World generation and persistence across recorded restarts.
+- Successful HTTP `GET /v1/join` signaling probe.
+- Foreground/background operation and three clean start/stop cycles.
 
-### Acceptance gates
+These results are historical evidence from commit `74fce0c34ebde5fd388e8fd8ecb19c26713d01e3`, not a fresh test of the latest APK. Details and evidence references are in [DEVICE_TEST_RESULTS.md](../device-evidence/DEVICE_TEST_RESULTS.md).
 
-| Gate | State | Closure requirement |
+### 2.3 Phase 1 acceptance gates
+
+| Acceptance gate | Current evidence | Required to close |
 |---|---|---|
-| Android build, lint, JVM unit tests | Previous main CI PASS; this change awaits CI | Latest main CI passes |
-| Pinned PHP runtime and 17 extensions | PASS in retained device report | Re-run after APK/runtime changes |
-| Axolotl-PM process startup and readiness | PASS in retained device report | Re-run on updated APK |
-| In-app start/stop lifecycle | PASS in retained device report | Re-run on updated APK |
-| World generation and persistence | PASS in retained device report | Re-run on updated APK |
-| LAN signaling endpoint | PASS in retained device report | A real client join is still required |
-| NetherNet UDP/WebRTC gameplay | **BLOCKED / NOT VERIFIED** | Real Bedrock client joins and plays |
-| Live backup and restore | Implementation exists; device acceptance evidence incomplete | Backup, restore, rejoin, and verify world |
-| Background / screen-off hosting | PASS in retained device report | Repeat on updated APK |
-| Repeated lifecycle | Three cycles reported PASS | Repeat on updated APK |
+| Latest Android CI | PASS on baseline commit `14d99ec` | CI must pass on the final Phase 1 branch/merge commit |
+| PHP runtime and 17 modules | Historical device PASS | Re-run on APK built from final Phase 1 source |
+| Axolotl-PM launch and readiness | Historical device PASS | Re-run on final APK |
+| Server start/stop lifecycle | Historical device PASS; three cycles recorded | Re-run at least three cycles on final APK |
+| Configurable NetherNet UDP port | Source fix and unit/CI coverage | Inspect generated config on device for default and non-default ports |
+| LAN address selection | Unit tests; implementation hardened to exclude cellular/VPN/unknown interfaces | Confirm correct Wi-Fi/hotspot address on target phone |
+| Real Bedrock client gameplay | **NOT TESTED / BLOCKING** | Second client joins, loads chunks, moves, places/breaks blocks, disconnects, and rejoins |
+| World persistence | Historical device PASS | Re-run after real client gameplay and clean restart |
+| Offline backup and restore | Implementation present; acceptance incomplete | Create backup, restore it, and verify the restored world |
+| Online backup consistency | Fixed-delay implementation only; no server flush acknowledgement | Do not claim guaranteed online snapshot consistency; implement acknowledgement or use safe stopped-server backup |
+| Screen-off/background hosting | Historical device PASS | Repeat on final APK and record device power settings |
 
-**Phase 1 is not complete until second-client gameplay and live backup/restore pass.** A successful HTTP `GET /v1/join`, RakNet ping, UDP socket check, or process check is not a substitute for a real NetherNet client session.
+**Phase 1 exit criteria:** every required gate above must have current, reproducible evidence. The real-client gameplay and backup/restore tests cannot be marked PASS based on source code, synthetic tests, a port probe, or HTTP signaling alone.
 
-### Technical limitations
+### 2.4 Known technical limitations
 
-- Axolotl-PM is PocketMine-derived, not Mojang's vanilla Bedrock Dedicated Server. Vanilla feature parity (mob AI, redstone, and other behaviours) is not guaranteed.
-- NetherNet uses TCP HTTP signaling and separate UDP WebRTC game traffic. LAN discovery uses UDP 7551; that is not the gameplay UDP port.
-- The app's readiness probe verifies signaling capability, not completed ICE/DTLS/SCTP negotiation or gameplay.
-- Online backup pauses saving, sends a flush command, and waits a fixed five seconds. There is no server acknowledgement handshake; do not describe this as a guaranteed consistent snapshot for arbitrary world sizes.
-- Android OEM battery management can affect long-running background processes.
+1. Axolotl-PM is PocketMine-derived, not Mojang's vanilla Bedrock Dedicated Server. Vanilla feature parity (including mob AI, redstone, and other behaviours) is not guaranteed.
+2. `GET /v1/join` verifies the HTTP signaling endpoint only. It does not prove ICE candidate gathering, DTLS/SCTP setup, world entry, chunk streaming, or gameplay.
+3. NetherNet uses TCP HTTP signaling and separate UDP WebRTC game traffic. The signaling port, ICE UDP mux port range, and LAN discovery port are distinct concepts.
+4. Online backup currently sends `save-off` and `save-all`, then waits a fixed five seconds. There is no server acknowledgement handshake. This is not a guaranteed consistent snapshot for arbitrary world sizes.
+5. Android OEM battery management can affect long-running background processes.
+6. Local LAN availability does not imply internet reachability.
 
-## Phase 2 — public connectivity (deferred)
+## 3. Phase 2 — Public connectivity (not started)
 
-Existing code provides a tunnel abstraction, a Playit adapter, basic endpoint monitoring, and LAN address discovery. MineHost-owned control plane, host authentication, STUN/NAT classification, ICE coordination, TURN/relay fleet, secure host-to-relay client, relay failover, and external player acceptance are not implemented.
+The application has a tunnel-provider abstraction, legacy Playit adapter code, and endpoint-monitoring foundations. The final MineHost-owned public networking system is not implemented.
 
-NetherNet's ICE/TURN constraints must be respected: Axolotl-PM documents that ICE UDP multiplexing cannot be combined with TURN. Do not add TURN while `ice-udp-mux: true` remains enabled.
+Required future work includes:
+- MineHost control plane and authenticated host agent.
+- Direct-connect and public-address/CGNAT classification.
+- NetherNet-compatible ICE coordination and NAT traversal design.
+- Relay service and UDP data path, session management, monitoring, and failover.
+- External network and international client acceptance testing.
 
-## Java hosting and cross-play (deferred)
+**Protocol constraint:** Axolotl-PM's current ICE UDP multiplexing configuration has documented TURN limitations. Do not introduce TURN without first resolving compatibility with `ice-udp-mux: true`.
 
-Java hosting is not accepted: a verified Android-compatible JVM and Paper execution path are not complete. Geyser configuration code does not mean Geyser is running. Cross-play remains unavailable.
+## 4. Java hosting and cross-play (deferred)
 
-## CI baseline
+Java hosting is not operational. The repository contains Paper download/configuration and engine scaffolding, but a verified Android ARM64 JVM and a working Paper process-launch path are not available. A `libjvm.so` file alone is not a runnable JVM.
 
-At the audited baseline, GitHub Actions run `42816003231` completed successfully on commit `4b6f498f24935f91f547875818f56e361357cf31`. It ran JVM unit tests, Android lint, debug APK assembly, APK runtime payload verification, and the pinned PHP archive/QEMU smoke test. The next commit must receive its own green CI run.
+Geyser/Floodgate configuration scaffolding does not mean those services are running. Cross-play depends on operational Java hosting and a separately validated bridge.
 
-## Next actions
+## 5. Build and automated verification
 
-1. Run CI for this configured-port correction.
-2. Install that exact APK on the target phone and repeat startup, signaling, stop/restart, and persistence.
-3. Join from a second Bedrock client on the same LAN; verify world entry, chunks, movement, block placement/breaking, disconnect, and rejoin.
-4. Verify backup and restore against the generated world.
-5. Only then mark Phase 1 100% accepted.
-6. Start Phase 2 after Phase 1 acceptance; keep Java/cross-play separate.
+The canonical workflow is `.github/workflows/android-ci.yml`. It runs:
+- `testDebugUnitTest`
+- `lintDebug`
+- `assembleDebug`
+- APK verification for the packaged ARM64 PHP CLI
+- Pinned Android PHP archive inspection and QEMU smoke testing
 
-## Repository hygiene
+Latest verified baseline before the Phase 1 cleanup branch:
+- Commit: `14d99eca3f4b569cef86d8a40e2e687d966c588b`
+- Workflow run: [42817752559](https://github.com/nomanaqil56/MineHost/actions/runs/42817752559)
+- Result: **SUCCESS**
 
-- One project status report: this file.
-- One consolidated device test result: `device-evidence/DEVICE_TEST_RESULTS.md`.
-- Original evidence artifacts are retained under `device-evidence/evidence/`; duplicate summaries and redundant captures are removed.
-- Source, tests, build configuration, and useful technical guides are retained.
+CI validates build and automated checks. It does not replace Android device or real Minecraft client acceptance.
+
+## 6. Repository structure and documentation policy
+
+Keep one canonical file for each reporting purpose:
+- `docs/PROJECT_STATUS.md` — this complete project progress report and phase roadmap.
+- `device-evidence/DEVICE_TEST_RESULTS.md` — one consolidated physical-device test record.
+- `device-evidence/evidence/` — original raw logs, screenshots, UI hierarchy captures, and test evidence.
+
+Keep application source, JVM tests, Gradle wrapper/configuration, the CI workflow, and directly useful build/runtime tooling. Remove stale, duplicate, machine-specific, or misleading reports/harnesses; do not delete production source or required build files merely to reduce the file count.
+
+## 7. Immediate execution order
+
+1. Harden LAN address selection so cellular, VPN, and unrelated private interfaces are not advertised as the local multiplayer address.
+2. Run JVM unit tests, Android lint, and debug APK build on the Phase 1 work branch.
+3. Install that exact APK on the target ARM64 phone.
+4. Recheck PHP version/ZTS/modules, Axolotl-PM startup, default and non-default NetherNet port configuration, lifecycle, world persistence, and screen-off operation.
+5. Join from a second Bedrock client and complete the full gameplay checklist.
+6. Complete offline backup/restore verification; document the online-backup acknowledgement limitation accurately.
+7. Add dated evidence for every final acceptance result and update the device report.
+8. Mark Phase 1 complete only after all blocking physical-device tests pass.
+9. Begin Phase 2 public connectivity only after Phase 1 acceptance.
+
+**Current decision: Continue Phase 1. Do not mark it 100% until the physical-device acceptance gates are actually completed.**
