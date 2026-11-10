@@ -3,19 +3,20 @@ package com.minehost.app.networking
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.LinkProperties
+import android.net.NetworkCapabilities
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
 
 /**
- * Finds the address other devices on the same Wi-Fi/LAN can use to reach the server.
+ * Finds IPv4 addresses other devices on the same Wi-Fi/Ethernet LAN can use.
  *
- * Being reachable on the LAN does NOT mean being reachable from the internet; that needs a tunnel or
- * router port forwarding.
+ * A private/carrier-grade-NAT cellular address is not a local multiplayer address.
+ * Being reachable on the LAN does NOT imply internet reachability; that needs a
+ * public route, port forwarding, or a supported tunnel.
  */
 object LocalNetwork {
 
-    /** One address on one interface, reduced to what matters for the choice. */
     data class Candidate(
         val interfaceName: String,
         val address: String,
@@ -26,45 +27,59 @@ object LocalNetwork {
         val isLinkLocal: Boolean
     )
 
-    /**
-     * Pure selection logic (unit-tested). Keeps IPv4 LAN-style addresses of interfaces that are up,
-     * not loopback, not link-local (169.254.x.x) and not point-to-point (VPN/cellular tunnels), and
-     * lists Wi-Fi style names (wlan/eth) before anything else.
-     */
+    private fun isLanInterface(name: String): Boolean {
+        val n = name.lowercase()
+        return n.startsWith("wlan") || n.startsWith("wifi") ||
+            n.startsWith("eth") || n.startsWith("en") ||
+            n.startsWith("ap") || n.startsWith("swlan") ||
+            n.startsWith("br-lan") || n.startsWith("rndis")
+    }
+
+    private fun interfacePriority(name: String): Int {
+        val n = name.lowercase()
+        return when {
+            n.startsWith("wlan") || n.startsWith("wifi") -> 0
+            n.startsWith("ap") || n.startsWith("swlan") -> 1
+            else -> 2
+        }
+    }
+
+    /** Pure selection logic: only known Wi-Fi, hotspot, or Ethernet interfaces qualify. */
     fun pickLanAddresses(candidates: List<Candidate>): List<String> =
         candidates
-            .filter { it.isUp && !it.isLoopback && !it.isLinkLocal && !it.isPointToPoint && it.isSiteLocal }
-            .sortedBy { c ->
-                when {
-                    c.interfaceName.startsWith("wlan") || c.interfaceName.startsWith("eth") -> 0
-                    c.interfaceName.startsWith("ap") || c.interfaceName.startsWith("swlan") -> 1
-                    else -> 2
-                }
+            .filter {
+                isLanInterface(it.interfaceName) && it.isUp && !it.isLoopback &&
+                    !it.isLinkLocal && !it.isPointToPoint && it.isSiteLocal &&
+                    it.address.isNotBlank()
             }
+            .sortedBy { interfacePriority(it.interfaceName) }
             .map { it.address }
             .distinct()
 
     /**
-     * Prefer the active Android network's LinkProperties so VPN, cellular and stale
-     * interfaces do not accidentally win over the Wi-Fi address. Fall back to interface
-     * enumeration on devices whose connectivity service does not expose a usable address.
+     * Prefer LinkProperties from the active Wi-Fi/Ethernet network. If the active
+     * network is cellular or a VPN, do not mistake its private address for a LAN
+     * address; enumerate only recognized LAN interfaces as a fallback.
      */
     fun detect(context: Context? = null): List<String> {
         val activeNetworkAddresses = runCatching {
             val connectivity = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             val activeNetwork = connectivity?.activeNetwork
-            val properties: LinkProperties? = activeNetwork?.let { network -> connectivity?.getLinkProperties(network) }
+            val capabilities = activeNetwork?.let { connectivity.getNetworkCapabilities(it) }
+            val isLanTransport = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true ||
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true
+            if (!isLanTransport) return@runCatching emptyList()
+
+            val properties: LinkProperties? = activeNetwork?.let { connectivity.getLinkProperties(it) }
             val interfaceName = properties?.interfaceName.orEmpty()
+            if (!isLanInterface(interfaceName)) return@runCatching emptyList()
+
             properties?.linkAddresses.orEmpty()
                 .mapNotNull { it.address as? Inet4Address }
                 .filter { it.isSiteLocalAddress && !it.isLoopbackAddress && !it.isLinkLocalAddress }
-                .map { it.hostAddress.orEmpty() }
-                .filter { it.isNotBlank() }
+                .mapNotNull { it.hostAddress?.takeIf(String::isNotBlank) }
                 .distinct()
-                .let { addresses ->
-                    if (addresses.isEmpty()) emptyList()
-                    else addresses.sortedBy { if (interfaceName.startsWith("wlan") || interfaceName.startsWith("eth")) 0 else 1 }
-                }
+                .sortedBy { interfacePriority(interfaceName) }
         }.getOrDefault(emptyList())
         if (activeNetworkAddresses.isNotEmpty()) return activeNetworkAddresses
 
