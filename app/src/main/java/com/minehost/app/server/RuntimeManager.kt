@@ -417,8 +417,8 @@ class RuntimeManager @Inject constructor(
             val msg = e.message.orEmpty()
             val explanation = when {
                 "error=13" in msg || "Permission denied" in msg ->
-                    "Android refused to execute the packaged ${binary.name} from nativeLibraryDir. " +
-                        "This device's SELinux or executable-file policy may block this launch path."
+                    "Android refused to execute the downloaded ${binary.name} from app-private writable storage. " +
+                        "Android 10+ execution policy can block downloaded binaries in filesDir; the relay agent must be packaged in the APK nativeLibraryDir or built for Android before it can run reliably."
                 "error=8" in msg || "Exec format" in msg ->
                     "${binary.name} was built for a different CPU architecture than this device."
                 "error=2" in msg || "No such file" in msg ->
