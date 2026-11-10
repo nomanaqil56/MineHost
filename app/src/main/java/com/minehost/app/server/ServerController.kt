@@ -173,17 +173,32 @@ class ServerController @Inject constructor(
 
                 override fun onStarted() {
                     scope.launch {
+                        // A late readiness callback must not resurrect a server that is stopping
+                        // or overwrite the state of a different server instance.
+                        if (_activeServerId.value != serverId || _serverStatus.value != ServerStatus.STARTING) {
+                            AppLogger.w("ServerController", "Ignoring stale onStarted callback for $serverId")
+                            return@launch
+                        }
                         _serverStatus.value = ServerStatus.ONLINE
                         serverRepository.updateStatus(serverId, ServerStatus.ONLINE)
                         log(serverId, "[MineHost] Server process confirmed ONLINE on port ${server.localPort}!")
 
-                        // 7. Connect tunnel if enabled
-                        if (server.autoStartTunnel) {
+                        // 7. Connect tunnel if enabled. Re-check state after the suspend call:
+                        // stopServer may have run while the tunnel provider was connecting.
+                        if (server.autoStartTunnel &&
+                            _activeServerId.value == serverId &&
+                            _serverStatus.value == ServerStatus.ONLINE
+                        ) {
                             log(serverId, "[MineHost] Initiating worldwide reverse tunnel...")
                             val tunnelResult = tunnelManager.startTunnel(server.localPort, server.edition.defaultProtocol)
                             tunnelResult.onSuccess { endpoint ->
-                                serverRepository.updatePublicEndpoint(serverId, endpoint)
-                                log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
+                                if (_activeServerId.value == serverId && _serverStatus.value == ServerStatus.ONLINE) {
+                                    serverRepository.updatePublicEndpoint(serverId, endpoint)
+                                    log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
+                                } else {
+                                    // The server stopped while the tunnel was being established.
+                                    tunnelManager.stopTunnel()
+                                }
                             }.onFailure { err ->
                                 log(serverId, "[MineHost] Tunnel notice: ${err.message}. Server is running in LOCAL mode.")
                             }
@@ -337,9 +352,14 @@ class ServerController @Inject constructor(
     }
 
     private suspend fun handleServerStopped(serverId: String, finalStatus: ServerStatus) {
-        _serverStatus.value = finalStatus
+        // Always persist the terminal state for the server that emitted the callback, but only
+        // clear singleton runtime state if it is still the active server. A delayed callback
+        // from an older process must not tear down a newer server's handle or wake locks.
         serverRepository.updateStatus(serverId, finalStatus)
         serverRepository.updatePublicEndpoint(serverId, null)
+        if (_activeServerId.value != serverId) return
+
+        _serverStatus.value = finalStatus
         activeProcessHandle = null
         activeEngine = null
         _activeServerId.value = null
