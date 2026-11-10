@@ -83,6 +83,16 @@ There is no recorded evidence of a real server starting through MineHost, a seco
 
 **Required:** follow `docs/DEVICE_TESTING.md` and record device model, Android version, ABI, runtime/engine versions, client version, network type, logs and outcome.
 
+### 8. Google Play target API requirement
+
+The baseline project used targetSdk 34 / compileSdk 34. Google Play's current policy requires new app submissions and app updates to target Android 16 (API 36) or higher from 2026-08-31. This is a release blocker for MineHost. The production-readiness branch has now been migrated to target/compile API 36 with AGP 8.10.1, Gradle 8.11.1, Kotlin 2.2.21 and JDK 17; this migration is pending CI verification and Android 16 compatibility testing.
+
+Source: https://support.google.com/googleplay/android-developer/answer/11926878
+
+The app also uses a specialUse foreground service for user-initiated long-running server hosting. Its manifest subtype must accurately explain the hosting use case, and the foreground-service declaration and supporting demonstration must be reviewed in Play Console. Declaring specialUse is not automatic approval.
+
+Source: https://developer.android.com/develop/background-work/services/fgs/service-types
+
 ## Important source-level risks to verify/fix
 
 These are code-review findings, not device-confirmed failures:
@@ -93,7 +103,7 @@ These are code-review findings, not device-confirmed failures:
 - Live backup uses a fixed settle delay after save commands; it does not have a server-side acknowledgement that the flush completed. Large worlds need a stronger completion strategy or a clearly documented best-effort status.
 - Player tracking and Playit output parsing depend on expected log formats. Capture and test against real engine/agent output.
 - Credential handling for tunnel secrets needs an explicit Android Keystore-backed design and redaction review.
-- The manifest declares foreground-service types and the service uses `specialUse` on newer Android. Verify required declarations, Play policy eligibility and target-API behaviour before release.
+- The manifest declares foreground-service types and the service uses `specialUse` on newer Android. Verify required declarations, Play policy eligibility and API 36 behaviour before release.
 - Release signing now avoids the debug key and reads owner-supplied configuration. A production key still needs to be created, stored securely and used in a release build.
 - The build guide references a GitHub Actions workflow, but no `.github/workflows/` file was present in the inspected repository tree. Add CI or remove that instruction.
 - The inspected root tree did not contain a `LICENSE` file even though README previously claimed Apache-2.0. Confirm the intended project licence and add the corresponding licence text before distribution.
@@ -128,6 +138,7 @@ MineHost must not be called production-ready until all of the following have evi
 8. MineHost-operated relay path passes real external and international gameplay tests without a managed third-party tunnel.
 9. Direct/relay path latency, jitter, packet loss, reconnect behaviour and relay bandwidth cost are measured.
 10. Security, dependency licence, privacy, Minecraft branding and Google Play policy reviews are complete.
+12. targetSdkVersion and compileSdkVersion are at least API 36 and Android 16 behaviour is tested.
 11. Production signing, monitoring, support and rollback/recovery procedures are ready.
 
 See [MINEHOST_MASTER_ROADMAP.md](../MINEHOST_MASTER_ROADMAP.md) for the phased plan and acceptance criteria. See [DEVICE_TESTING.md](DEVICE_TESTING.md) for the physical-device test procedure.
