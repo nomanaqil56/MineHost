@@ -78,6 +78,14 @@ class BedrockConfigGeneratorTest {
     }
 
     @Test
+    fun generatesNetherNetUdpMuxPortFromSelectedServerPort() {
+        val yaml = BedrockConfigGenerator.generatePocketMineYml(config(port = 19140))
+        assertTrue(yaml.contains("ice-udp-mux: true"))
+        assertTrue(yaml.contains("port-range: [19140, 19140]"))
+        assertTrue(yaml.contains("port: 0"))
+    }
+
+    @Test
     fun writesValidPocketMineMemoryAndWorldSettings() {
         val yaml = BedrockConfigGenerator.generatePocketMineYml(config(maxMemoryMb = 1024))
         assertTrue(yaml.contains("global-limit: 1024M"))

@@ -59,7 +59,7 @@ object BedrockConfigGenerator {
             difficulty=$difficultyNum
             max-players=${config.maxPlayers}
             white-list=off
-            # NetherNet uses TCP signaling and UDP WebRTC on server-port; avoid a UDP query socket collision.
+            # NetherNet uses TCP signaling and a separate UDP WebRTC port range.
             enable-query=off
             enable-rcon=off
             view-distance=${config.viewDistance}
@@ -93,8 +93,9 @@ object BedrockConfigGenerator {
               name: nethernet
               nethernet:
                 key-file: nethernet.key
+                # ICE UDP mux shares this single UDP port across player sessions.
                 ice-udp-mux: true
-                port-range: [19132, 19132]
+                port-range: [${config.localPort}, ${config.localPort}]
                 mtu: 1200
                 builtin-signaling:
                   enabled: true
