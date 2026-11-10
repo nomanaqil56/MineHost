@@ -81,7 +81,7 @@ object ReadinessProbe {
                 writer.flush()
                 val statusLine = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.US_ASCII)).readLine()
                 val statusCode = statusLine?.split(' ')?.getOrNull(1)?.toIntOrNull()
-                statusCode in 200..299
+                statusCode != null && statusCode in 200..299
             }
         } catch (_: Exception) {
             false
