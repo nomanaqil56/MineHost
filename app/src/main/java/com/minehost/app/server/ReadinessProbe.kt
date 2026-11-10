@@ -1,9 +1,12 @@
 package com.minehost.app.server
 
+import java.io.BufferedReader
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.EOFException
 import java.io.InputStream
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -13,7 +16,7 @@ import java.net.Socket
  * Protocol-level readiness probes for real Minecraft servers.
  *
  * A server is only considered ready when it answers a genuine Minecraft protocol request:
- *  - Bedrock: RakNet "Unconnected Ping" -> "Unconnected Pong" over UDP.
+ *  - Bedrock: NetherNet HTTP signaling capability probe, with RakNet UDP fallback.
  *  - Java: Server List Ping (handshake + status request) -> JSON status response over TCP.
  *
  * Merely binding/not-binding a port, or the process being alive, is NOT proof of readiness.
@@ -58,19 +61,45 @@ object ReadinessProbe {
         return declaredStringLength > 0 && declaredStringLength == length - headerSize
     }
 
-    /** Returns true only if a RakNet server answers an unconnected ping on [host]:[port]. */
-    fun probeBedrock(host: String, port: Int, timeoutMs: Int = 1500): Boolean {
+    /**
+     * Axolotl-PM exposes GET /v1/join as a capability probe for NetherNet.
+     * Bedrock 1.26.60+ requires NetherNet; RakNet was removed from those clients.
+     * Keep the RakNet fallback for older Bedrock versions.
+     */
+    fun probeBedrock(host: String, port: Int, timeoutMs: Int = 1500): Boolean =
+        probeNetherNet(host, port, minOf(timeoutMs, 700)) || probeRakNet(host, port, timeoutMs)
+
+    fun probeNetherNet(host: String, port: Int, timeoutMs: Int = 1500): Boolean {
+        return try {
+            Socket().use { socket ->
+                socket.soTimeout = timeoutMs
+                socket.connect(InetSocketAddress(host, port), timeoutMs)
+                val writer = OutputStreamWriter(socket.getOutputStream(), Charsets.US_ASCII)
+                writer.write("GET /v1/join HTTP/1.1\r\n")
+                writer.write("Host: $host:$port\r\n")
+                writer.write("Connection: close\r\n\r\n")
+                writer.flush()
+                val statusLine = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.US_ASCII)).readLine()
+                val statusCode = statusLine?.split(' ')?.getOrNull(1)?.toIntOrNull()
+                statusCode in 200..299
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun probeRakNet(host: String, port: Int, timeoutMs: Int): Boolean {
         return try {
             DatagramSocket().use { socket ->
                 socket.soTimeout = timeoutMs
-                val ping = buildRakNetPing(System.currentTimeMillis(), 0x4D696E65486F7374L) // "MineHost"
+                val ping = buildRakNetPing(System.currentTimeMillis(), 0x4D696E65486F7374L) // MineHost
                 socket.send(DatagramPacket(ping, ping.size, InetSocketAddress(host, port)))
                 val buf = ByteArray(2048)
                 val reply = DatagramPacket(buf, buf.size)
                 socket.receive(reply)
                 isRakNetPong(buf, reply.length)
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
