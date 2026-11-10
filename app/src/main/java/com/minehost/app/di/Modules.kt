@@ -19,7 +19,7 @@ import com.minehost.app.domain.repository.LogRepository
 import com.minehost.app.domain.repository.PlayerRepository
 import com.minehost.app.domain.repository.ServerRepository
 import com.minehost.app.domain.repository.WorldRepository
-import com.minehost.app.networking.PlayitTunnelProvider
+import com.minehost.app.networking.UnavailableTunnelProvider
 import com.minehost.app.networking.TunnelProvider
 import dagger.Binds
 import dagger.Module
@@ -87,6 +87,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindTunnelProvider(impl: PlayitTunnelProvider): TunnelProvider
+    abstract fun bindTunnelProvider(impl: UnavailableTunnelProvider): TunnelProvider
 }
 
