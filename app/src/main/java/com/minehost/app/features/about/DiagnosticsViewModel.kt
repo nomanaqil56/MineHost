@@ -16,6 +16,7 @@ import com.minehost.app.services.DeviceThermalState
 import com.minehost.app.services.ThermalManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -109,16 +110,20 @@ class DiagnosticsViewModel @Inject constructor(
 
     /** Runs one install at a time and reports the real outcome, including failures. */
     private fun runDownload(label: String, block: suspend ((Float, String) -> Unit) -> Result<*>) {
-        if (_isDownloading.value) return
+        // Atomic gate: two rapid taps must not start concurrent downloads before the
+        // first coroutine gets scheduled and updates the StateFlow.
+        if (!_isDownloading.compareAndSet(expect = false, update = true)) return
         viewModelScope.launch {
-            _isDownloading.value = true
             _downloadState.value = DownloadState()
             val result: Result<*> = try {
                 block { progress, msg -> _downloadState.value = DownloadState(progress, msg) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure<Unit>(e)
+            } finally {
+                _isDownloading.value = false
             }
-            _isDownloading.value = false
             _downloadState.value = DownloadState(
                 error = result.exceptionOrNull()?.let { "$label failed: ${it.message ?: it.javaClass.simpleName}" }
             )
