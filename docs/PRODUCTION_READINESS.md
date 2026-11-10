@@ -6,7 +6,7 @@ _Audit date: 2026-11-10. Source review of the current development branch and rec
 
 **NOT PRODUCTION-READY. Do not publish or advertise the planned hosting capabilities as working yet.**
 
-The repository contains a meaningful Android application foundation and several real implementation components. However, the core product promise—running a real Minecraft server on an Android phone and allowing real players to join—has not been proven on a physical device. The two principal runtime paths are currently blocked.
+The repository contains a meaningful Android application foundation and several real implementation components. However, the core product promise—running a real Minecraft server on an Android phone and allowing real players to join—has not been proven on a physical device. The current PHP and JVM paths are blocked, and the original PocketMine upstream plus its official PHP-Binaries repository were archived in 2026. Engine selection must be reopened; see [ENGINE_EVALUATION.md](ENGINE_EVALUATION.md).
 
 ## Critical blockers
 
