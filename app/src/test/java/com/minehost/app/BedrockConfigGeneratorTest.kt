@@ -83,5 +83,9 @@ class BedrockConfigGeneratorTest {
         assertTrue(yaml.contains("global-limit: 1024M"))
         assertTrue(yaml.contains("main-limit: 896M"))
         assertTrue(yaml.contains("default-world: \"world\""))
+        assertTrue(yaml.contains("name: nethernet"))
+        assertTrue(yaml.contains("ice-udp-mux: true"))
+        assertTrue(yaml.contains("port-range: [19132, 19132]"))
+        assertTrue(yaml.contains("port: 0"))
     }
 }
