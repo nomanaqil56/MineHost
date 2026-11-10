@@ -196,6 +196,11 @@ class RuntimeManager @Inject constructor(
         }
     }
 
+    private fun githubRelease(repo: String, tag: String): Result<GhRelease> {
+        return fetchText("https://api.github.com/repos/$repo/releases/tags/$tag")
+            .mapCatching { json.decodeFromString<GhRelease>(it) }
+    }
+
     private fun latestGithubRelease(repo: String): Result<GhRelease> {
         return fetchText("https://api.github.com/repos/$repo/releases/latest")
             .mapCatching { json.decodeFromString<GhRelease>(it) }
@@ -216,8 +221,9 @@ class RuntimeManager @Inject constructor(
     suspend fun downloadPocketMinePhar(
         onProgress: (Float, String) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
-        onProgress(0.02f, "Looking up the latest Axolotl-PM Bedrock server release...")
-        val release = latestGithubRelease("axolotl-pm/PocketMine-MP").getOrElse {
+        val selectedRelease = "5.51.1"
+        onProgress(0.02f, "Looking up Axolotl-PM $selectedRelease...")
+        val release = githubRelease("axolotl-pm/PocketMine-MP", selectedRelease).getOrElse {
             return@withContext Result.failure(IOException("Could not query Axolotl-PM releases: ${it.message}", it))
         }
         val asset = release.assets.firstOrNull { it.name == "PocketMine-MP.phar" }
