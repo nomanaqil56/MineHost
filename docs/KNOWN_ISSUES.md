@@ -7,7 +7,7 @@ This document is a concise index of unresolved issues. The detailed source audit
 1. **No proven Android PHP runtime.** PocketMine-MP cannot start until a compatible ARM64 PHP runtime is available and proven on a physical Android device. A normal desktop Linux binary or an executable downloaded into app-private storage is not an acceptable assumption.
 2. **No proven Android JVM.** PaperMC and Geyser cannot run until an Android-compatible ARM64 JVM strategy is implemented and validated.
 3. **No real server acceptance test.** No current audit evidence demonstrates a real Bedrock or Java server starting and accepting a real Minecraft client on physical hardware.
-4. **No MineHost-owned public networking.** The current Playit provider is a third-party experiment. MineHost control plane, direct-connect negotiation, and MineHost-operated TCP/UDP relays are not implemented.
+4. **No MineHost-owned public networking.** Legacy Playit provider source remains unbound. MineHost control plane, direct-connect negotiation, and MineHost-operated TCP/UDP relays are not implemented.
 5. **No verified international join.** Public endpoint parsing or a tunnel process running does not prove a remote Minecraft client can join and play.
 6. **Cross-play is unavailable.** Geyser/Floodgate execution is blocked by the Java runtime and must remain disabled until real cross-play tests pass.
 7. **Release readiness is unproven.** Current release signing, target SDK, foreground-service policy, privacy, licensing, security, and Play distribution checks still require a complete release audit.
