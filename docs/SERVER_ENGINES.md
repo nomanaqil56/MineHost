@@ -72,12 +72,12 @@ Source: [Mojang NetherNet onboarding guide](https://mojang.github.io/bedrock-pro
 - Existing source adapter ID: java-paper.
 - Requires a complete Java 17/21-compatible JVM distribution and launcher for Android ARM64.
 - Android ART does not execute desktop Java server JARs as a substitute for a desktop JVM.
-- PojavLauncher documents mobile OpenJDK 17/21 ARM64 ports; this is a runtime research lead, not proof that the runtime can execute headless Paper.
+- Amethyst-Android (the maintained successor to discontinued PojavLauncher) documents mobile OpenJDK 17/21 ARM64 ports; this is a runtime research lead, not proof that the runtime can execute headless Paper.
 - Validate TLS, modules, native libraries, threads, filesystem, signal handling and headless server operation.
 - Measure RAM, GC pauses, tick time, chunk generation and thermal load on real phones.
 - **MineHost status:** Paper adapter/downloader source present; JVM and gameplay BLOCKED/UNVERIFIED.
 
-Source: [PojavLauncher mobile OpenJDK](https://github.com/PojavLauncherTeam/PojavLauncher/tree/v3_openjdk).
+Sources: [Amethyst-Android](https://github.com/AngelAuraMC/Amethyst-Android), [Amethyst runtime builds](https://github.com/AngelAuraMC/android-openjdk-build-multiarch).
 
 ## 4. Java/Bedrock cross-play
 
