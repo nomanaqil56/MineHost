@@ -335,7 +335,7 @@ class RuntimeManager @Inject constructor(
                 process.destroyForcibly()
                 Result.failure(IOException("${binary.name} started but did not exit within ${timeoutSeconds}s."))
             } else {
-                Result.success(process.inputStream.bufferedReader().readText().take(300))
+                Result.success(process.inputStream.bufferedReader().readText().take(8192))
             }
         } catch (e: IOException) {
             val msg = e.message.orEmpty()
