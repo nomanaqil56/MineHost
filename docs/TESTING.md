@@ -1,5 +1,7 @@
 # MineHost: Testing Status
 
+**Main-branch update (2026-11-10):** A GitHub Actions workflow now runs Gradle unit tests, Android lint, and debug APK assembly on pushes and pull requests targeting `main`. Its first successful run has not yet been confirmed in this audit session.
+
 This file separates what was **run**, what was **only written**, and what is **not tested**. Earlier versions of this
 file listed many items as PASS without a reproducible run; those claims were removed.
 
