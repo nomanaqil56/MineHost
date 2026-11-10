@@ -351,7 +351,7 @@ fun ConnectionCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Worldwide Public Address",
+                        text = "Connection Addresses",
                         style = MaterialTheme.typography.titleMedium,
                         color = TextPrimary
                     )
@@ -361,15 +361,58 @@ fun ConnectionCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Same-network address: works only for devices on the same Wi-Fi, not the internet.
+            // Local LAN endpoint is independent of the optional public tunnel.
             Text(
-                text = when {
-                    localAddress != null -> "Same Wi-Fi: $localAddress:$localPort"
-                    else -> "Same Wi-Fi: no local network connection found"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (localAddress != null) TextPrimary else StatusYellow
+                text = "LOCAL NETWORK · SAME WI-FI",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+                fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (localAddress != null) "$localAddress:$localPort" else "LAN address unavailable",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (localAddress != null) PrimaryEmerald else StatusYellow,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (isServerRunning) "Join from a device on the same Wi-Fi" else "Start the server before joining",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+                if (localAddress != null) {
+                    IconButton(onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Local Minecraft Server", "$localAddress:$localPort"))
+                        Toast.makeText(context, "LAN address copied", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy LAN address", tint = TextPrimary)
+                    }
+                    IconButton(onClick = {
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            putExtra(Intent.EXTRA_TEXT, "Join my Minecraft Bedrock server on the same Wi-Fi:\nAddress: $localAddress\nPort: $localPort")
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Share LAN server address"))
+                    }) {
+                        Icon(imageVector = Icons.Default.Share, contentDescription = "Share LAN address", tint = TextPrimary)
+                    }
+                }
+            }
+            if (isServerRunning) {
+                Text(
+                    text = "Minecraft → Play → Servers → Add Server. Enter the address above and port $localPort.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
             if (endpoint != null && isServerRunning) {
                 Text(
                     text = when (remoteReachable) {
@@ -433,7 +476,7 @@ fun ConnectionCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = "IP / Host", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            Text(text = "PUBLIC INTERNET ENDPOINT", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             Text(text = endpoint.hostname, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = PrimaryEmerald)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(text = "Port: ${endpoint.port}", style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
@@ -465,7 +508,7 @@ fun ConnectionCard(
                 }
             } else {
                 Text(
-                    text = "Server running locally on port $localPort (LAN only). Enable tunnel or check Diagnostics if Playit agent is not running.",
+                    text = "No public endpoint is available. Local Wi-Fi connections can still use the LAN address above. Public access requires a working tunnel or router configuration.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
