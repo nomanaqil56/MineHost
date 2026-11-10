@@ -1,77 +1,76 @@
 # MineHost 🎮📱
 
-> **Native Android Minecraft Server Hosting Platform**  
-> Turn your Android smartphone or tablet into a high-performance, dedicated Minecraft server machine.
+> **Phone-first Minecraft server hosting for Android.**  
+> Your device. Your world. Your network.
 
----
+MineHost is an Android application project intended to run Minecraft server software locally on a user's Android device. The phone remains the game host and stores the authoritative world. MineHost's long-term goal is to provide direct-first, international connectivity through infrastructure that MineHost operates itself.
 
-## 🌟 Overview
+**Project status: active development — not production-ready.** Real-device execution, Android runtime compatibility, and public-internet connectivity still have blockers. See the current evidence-based status in [Production Readiness](docs/PRODUCTION_READINESS.md) and the [Master Roadmap](docs/MINEHOST_MASTER_ROADMAP.md).
 
-**MineHost** is a complete, production-grade native Android application that hosts real Minecraft servers directly on your mobile device.
+## Product principles
 
-Unlike third-party dashboard apps that merely connect to cloud hosting providers, **MineHost runs the server process locally on the Android device hardware**. Your phone is the host machine, your device storage holds your worlds, and incoming connections from friends around the world are bridged seamlessly via encrypted low-latency reverse tunnels.
+- **Local-first hosting:** the Minecraft server process runs on the Android host device; MineHost does not rent a cloud game server on the user's behalf.
+- **Free core hosting:** basic local hosting is intended to remain free.
+- **Direct-first networking:** prefer LAN and viable direct public routes; use MineHost-operated relays when NAT/CGNAT prevents direct access.
+- **Infrastructure independence:** the target is to own and operate MineHost's coordinator and relay software rather than permanently depending on a managed tunnel provider.
+- **World ownership:** local worlds and server files remain exportable and portable.
+- **Honest status:** a process being alive or a tunnel assigning an endpoint is not proof that a real Minecraft client can join.
 
-### Core Features
+## Current technical foundation
 
-- ⚡ **Genuine Local Server Execution:** Runs Minecraft server engines (PocketMine-MP, PowerNukkitX, PaperMC) directly on Android ARM64.
-- 🌍 **Worldwide Multiplayer:** Automatic reverse tunneling via Playit.gg — players join from any country without port forwarding or router configuration.
-- 🔄 **Cross-Play Ready:** Integrated GeyserMC bridge allows Bedrock players (iOS, Android, Windows, Consoles) and Java players (PC, Mac) to play together on the same server.
-- 💾 **100% Local World Ownership:** World data never leaves your device. Features automated snapshots, `.mcworld` import/export, and safe recovery guards.
-- 📱 **Background Hosting with Foreground Service:** Keeps the server alive while you minimize the app, lock your screen, or play Minecraft on the same phone.
-- 💻 **Live Terminal Console:** Monospace log streaming, color-coded log levels, live player tracking, and server command administration (`say`, `kick`, `gamemode`, `save-all`).
-- 🎨 **Dark Gaming UI:** Designed in Jetpack Compose and Material 3 with a custom, sleek server-management aesthetic.
+- Kotlin, Jetpack Compose, Material 3
+- Clean Architecture / MVVM structure
+- Room persistence and Hilt dependency injection
+- Server-engine abstraction and runtime manager
+- Bedrock and Java engine integration work (runtime execution is not yet proven on physical Android devices)
+- Tunnel-provider abstraction; the current Playit adapter is an experimental integration, not the intended permanent dependency
+- Local networking and connection diagnostics
+- World backup, restore, import/export utilities
+- Foreground service, wake-lock and thermal-monitoring components
+- Unit-test sources and a Python verification harness
 
----
+These are source-code capabilities, not a claim that every feature has passed end-to-end testing.
 
-## 🏗️ Architecture
+## Build from source
 
-MineHost is architected in Kotlin following **Clean Architecture** and modern Android standards:
-- **Presentation:** Jetpack Compose, Material 3, Navigation Compose, Kotlin StateFlow.
-- **Domain:** Pure business logic, `ServerEngine` abstraction, `TunnelProvider` interface, and lifecycle state machines.
-- **Data:** Room Database (SQLite), Jetpack DataStore, and structured private file I/O (`/files/minehost/`).
-- **Platform Services:** Android `ForegroundService` (`specialUse|dataSync`), `WakeLockManager`, and `ProcessBuilder` execution.
+### Requirements
+- Android Studio / Android SDK compatible with the project Gradle configuration
+- JDK 17 for the Gradle build
+- Android ARM64 device for actual server-runtime testing
 
-For detailed architecture diagrams and subsystem specifications, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Android 9.0+ (API 28+), recommended Android 12+ (API 31+).
-- ARM64 device (Snapdragon 7xx/8xx, Dimensity 800+, or equivalent).
-- 4GB+ RAM (6GB - 8GB recommended for Java / Cross-play).
-- 2GB+ free internal storage.
-
-### Building from Source
+### Build
 ```bash
-# Clone the repository
 git clone https://github.com/nomanaqil56/MineHost.git
 cd MineHost
-
-# Build the Debug APK using Gradle
 ./gradlew assembleDebug
-
-# Install on a connected Android device
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+./gradlew testDebugUnitTest
 ```
-For complete build instructions, see [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md).
 
----
+On Windows:
+```powershell
+.\gradlew.bat assembleDebug
+.\gradlew.bat testDebugUnitTest
+```
 
-## 📚 Documentation
+A successful APK build does **not** prove that a Minecraft engine can execute on a physical Android device. Follow the device and external-network acceptance tests before treating a server engine as supported.
 
-- [Technical Research & Feasibility](docs/TECHNICAL_RESEARCH.md)
+## Documentation
+
+- [Master Product & Engineering Roadmap](docs/MINEHOST_MASTER_ROADMAP.md)
 - [System Architecture](docs/ARCHITECTURE.md)
-- [Supported Server Engines](docs/SERVER_ENGINES.md)
-- [Networking & Tunnel Architecture](docs/NETWORKING.md)
+- [Technical Research & Feasibility](docs/TECHNICAL_RESEARCH.md)
+- [Server Engines & Compatibility](docs/SERVER_ENGINES.md)
+- [Networking Architecture](docs/NETWORKING.md)
 - [Storage & Backup Management](docs/STORAGE.md)
-- [Testing & Quality Assurance](docs/TESTING.md)
+- [Build Guide](docs/BUILD_GUIDE.md)
+- [Testing](docs/TESTING.md)
+- [Device Testing](docs/DEVICE_TESTING.md)
 - [Development Progress](docs/DEVELOPMENT_PROGRESS.md)
-- [Known Issues & Limitations](docs/KNOWN_ISSUES.md)
+- [Known Issues](docs/KNOWN_ISSUES.md)
+- [Production Readiness](docs/PRODUCTION_READINESS.md)
 
----
+## License and Minecraft notice
 
-## 📄 License
-This project is open-source under the Apache 2.0 License.
-Minecraft is a registered trademark of Mojang AB / Microsoft. MineHost is not affiliated with Mojang AB or Microsoft.
+The MineHost application source is licensed under Apache License 2.0 (see [LICENSE](LICENSE) when present). Each bundled or downloaded engine, runtime, library, and binary remains subject to its own licence and redistribution terms; review those terms before distribution.
+
+Minecraft is a trademark of Mojang AB and Microsoft. MineHost is an independent third-party project and is not affiliated with, endorsed by, or associated with Mojang or Microsoft. MineHost does not distribute Minecraft game assets.
