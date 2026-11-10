@@ -113,7 +113,9 @@ class ReadinessProbeTest {
         val truncatedFrame = statusResponse("""{"version":{}}""").dropLast(1).toByteArray()
         assertFalse(ReadinessProbe.parseJavaStatusResponse(ByteArrayInputStream(truncatedFrame)))
         // Outer frame includes trailing data not accounted for by the JSON length.
-        val framedWithTrailingGarbage = statusResponse("""{"version":{}}""") + byteArrayOf(0x55)
+        val framedWithTrailingGarbage = statusResponse("""{"version":{}}""").copyOf().also {
+            it[0] = (it[0] + 1).toByte() // include one unaccounted byte inside the declared frame
+        } + byteArrayOf(0x55)
         assertFalse(ReadinessProbe.parseJavaStatusResponse(ByteArrayInputStream(framedWithTrailingGarbage)))
         // A five-byte VarInt may use only the low four bits of its final byte.
         assertFalse(
