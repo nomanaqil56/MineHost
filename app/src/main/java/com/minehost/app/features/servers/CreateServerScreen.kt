@@ -352,7 +352,7 @@ fun StepGameplayConfiguration(state: CreateServerFormState, viewModel: CreateSer
                 color = TextPrimary
             )
             Text(
-                text = "MineHost's own public network is under development. This build supports local Wi-Fi hosting only; no third-party tunnel is started.",
+                text = "MineHost's own public network is under development. This build supports local network hosting only; no third-party tunnel is started.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
                 modifier = Modifier.padding(top = 4.dp)
@@ -390,7 +390,7 @@ fun StepReviewAndCreate(state: CreateServerFormState) {
                 ReviewRow("Engine", state.engineId)
                 ReviewRow("Local Port", state.port.toString())
                 ReviewRow("Max Players", state.maxPlayers.toString())
-                ReviewRow("Public Connectivity", "Not available yet (local Wi-Fi only)")
+                ReviewRow("Public Connectivity", "Not available yet (local network only)")
                 ReviewRow("Local World Storage", "/files/minehost/servers/")
             }
         }
