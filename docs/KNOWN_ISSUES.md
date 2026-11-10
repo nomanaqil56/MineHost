@@ -60,16 +60,22 @@ Review the storage of agent secrets and any future MineHost relay credentials. U
 
 ## Release and repository hygiene
 
-### 13. Project licence file
+### 17. Android 16 target API migration
+The previous baseline targeted API 34, which is not sufficient for new Google Play app submissions or updates after 2026-08-31. The production-readiness branch now targets API 36 and upgrades AGP/Gradle/Kotlin; the migration still needs a passing CI run and Android 16 device testing.
+
+### 18. Special-use foreground service review
+The app uses specialUse for user-initiated persistent Minecraft server hosting. Google Play reviews the manifest subtype and requires an accurate declaration and supporting evidence. Approval is not guaranteed; prepare the Play Console declaration and demo video.
+
+### 19. Project licence file
 The inspected root tree did not contain a `LICENSE` file, although an earlier README claimed Apache-2.0. The owner must confirm the intended project licence and add the correct licence text before public distribution. Do not infer a licence from dependencies.
 
-### 14. CI and build verification
+### 20. CI and build verification
 An Android CI workflow has been added at `.github/workflows/android-ci.yml`. Its first run is pending. Until it passes, the current source changes remain uncompiled by CI.
 
-### 15. Release signing
+### 21. Release signing
 The Gradle release configuration no longer falls back to the debug key. A release build remains unsigned unless a valid owner-controlled production keystore is supplied. Keep the keystore and passwords outside Git.
 
-### 16. Play Store and legal review
+### 22. Play Store and legal review
 Review current Google Play target API, foreground-service declarations, downloaded executable-code policies, privacy disclosures, dependency licences, Mojang/Minecraft branding and distribution terms before release.
 
 ## What is not a bug but a product constraint
