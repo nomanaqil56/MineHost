@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.minehost.app.core.common.Constants
 import com.minehost.app.data.local.MineHostDatabase
+import com.minehost.app.data.local.MIGRATION_1_2
 import com.minehost.app.data.local.dao.BackupDao
 import com.minehost.app.data.local.dao.PlayerDao
 import com.minehost.app.data.local.dao.ServerDao
