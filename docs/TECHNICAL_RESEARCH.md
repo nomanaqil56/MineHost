@@ -13,27 +13,42 @@ This creates three independent performance budgets:
 
 A low ping does not prove healthy TPS. A 20 TPS server does not prove a low-latency network. Measure them separately.
 
-## 2. Bedrock engine candidates
+## 2. Bedrock engine candidate: Axolotl-PM
 
-### PocketMine-MP
-- PHP-based Bedrock server implementation with a PHAR distribution.
-- Potential advantage: comparatively lightweight server architecture and plugin extensibility.
-- Trade-off: not full vanilla Bedrock parity; feature differences must be clearly disclosed.
-- Critical feasibility work: source a maintained Android ARM64 PHP CLI/runtime with required extensions; validate process launch and dynamic libraries on physical devices; review licences; test current Bedrock client transport compatibility.
-- The repository currently downloads the PHAR but does not contain a validated PHP runtime installer/binary.
+The original `pmmp/PocketMine-MP` project ended support and was archived in July 2026. MineHost should not build its current-version promise around that archived repository.
 
-### PowerNukkitX
-- Java-based Bedrock server implementation.
-- Potential advantage: Java plugin ecosystem and a different feature/parity profile.
-- Critical feasibility work: requires the same unresolved Android JVM problem as Java Edition; measure memory, CPU, battery and thermal load.
-- Do not claim resource use or vanilla parity without version-specific tests.
+[Axolotl-PM](https://github.com/axolotl-pm/PocketMine-MP) is the maintained continuation. Its current 5.51.1 release (2026-11-02) targets Bedrock 1.26.60 / v26.60 and includes support for NetherNet. Axolotl-PM is still not a vanilla-parity engine; gameplay differences such as world generation, redstone and mob AI must be disclosed.
 
-### Official Bedrock Dedicated Server
-- Check Mojang's current release artifacts and supported architectures before considering it.
-- Do not assume an official Android/ARM64 build exists.
-- x86 translation/emulation is not the preferred path for a performance-first phone host.
+### Android runtime
+[Axolotl-PM PHP-Binaries](https://github.com/axolotl-pm/PHP-Binaries) publishes an Android ARM64 PHP 8.4 build. Its build script compiles `axolotl-pm/ext-webrtc` (version 0.3.1 in the inspected build) for NetherNet, and its Android build workflow checks that the PHP executable is statically linked.
 
-**Decision gate:** select one maintained engine that can actually run on Android ARM64 and supports the current target Bedrock client transport. A PHAR/JAR download alone does not satisfy this gate.
+The Android ARM64 PHP 8.4 asset SHA-256 published by GitHub Releases is:
+`45b462ff5e290ee06d34eced589c325d27a2743185acab53acab291b0188e181`
+
+MineHost now pins this asset in `tools/prepare_android_php_runtime.sh`, packages the executable through `jniLibs/arm64-v8a/libphp.so`, and checks at runtime for the PHP `webrtc` module before starting the server.
+
+**Still unverified:** CI packaging, APK extraction, execution on physical Android ARM64, required extension availability, Axolotl-PM startup, NetherNet signalling, UDP ICE/DTLS data channel, and a real Bedrock client join. Review every PHP/native dependency licence and the upstream release/update policy before public release.
+
+### NetherNet
+Bedrock 1.26.60 uses NetherNet rather than legacy RakNet. NetherNet uses WebRTC (ICE, DTLS and SCTP DataChannels):
+- TCP HTTP(S) signalling, including `GET /v1/join` and `POST /v1/join/{networkId}`.
+- UDP WebRTC game traffic.
+- Axolotl-PM's `ext-webrtc` extension backed by libdatachannel.
+- STUN/TURN ICE servers for NAT traversal and relay.
+
+The generated MineHost config enables `transport.name: nethernet`, built-in signalling, a persistent `nethernet.key`, and a fixed UDP port range sized from max players. `ice-udp-mux` remains disabled because Axolotl-PM documents that it cannot be combined with TURN.
+
+A successful `GET /v1/join` is only a signalling readiness result. It does not prove that the UDP WebRTC game path is reachable. Real client joins are mandatory.
+
+### MineHost connectivity implications
+For Bedrock, do not reinvent NAT traversal if NetherNet already supplies WebRTC ICE. MineHost should:
+1. Provide an authenticated outbound TCP reverse tunnel from the phone to a MineHost edge, allowing the edge to terminate HTTPS for the public signalling endpoint and forward to the phone's local Axolotl-PM HTTP signalling port.
+2. Operate its own STUN/TURN infrastructure. Direct ICE candidate pairs should win when possible; TURN is the fallback for restrictive NAT/CGNAT.
+3. Keep the TCP signalling path and UDP TURN data path separate and observable.
+4. Avoid third-party managed STUN/TURN services in the production configuration.
+5. Measure actual WebRTC gameplay latency separately from HTTP signalling RTT.
+
+TURN relays all game traffic and consumes bandwidth. It must be regionally deployed, authenticated, capacity-limited and costed. Axolotl-PM warns that configured ICE servers must be reachable because candidate gathering can delay joins until timeout.
 
 ## 3. Java engine candidate
 
@@ -59,21 +74,6 @@ Do not advertise cross-play until Paper + Geyser (+ Floodgate where needed) exec
 - Packaging native code in `jniLibs` has ABI, loader, library naming, linker and Play policy implications; a shared library is not automatically a standalone CLI executable.
 - PRoot or a Linux rootfs may improve compatibility for some tools but adds storage, performance, security and maintenance costs. It must be justified by measurements.
 - Pin every runtime and engine version; record source, ABI, licence, dependency set and trusted digest/signature.
-
-## 5A. Android PHP runtime candidate (research update 2026-11-10)
-
-The official `pmmp/PHP-Binaries` repository documents an `android-aarch64` cross-compile target using an `aarch64-linux-musl` toolchain. Its PM5 PHP 8.4 release exposes an asset named `PHP-8.4-Android-arm64-PM5.tar.gz`; the GitHub Releases API currently reports SHA-256:
-
-`d8867966340121f821591b9bb29c80a58ad77abd6cc8e0e44d1cbbb3aaedd70c`
-
-The upstream Android build test checks that the PHP executable has no dynamic section. This is promising because a static ARM64 executable can avoid relying on a desktop glibc loader. The MineHost repository now has `tools/prepare_android_php_runtime.sh`, which verifies the archive digest, checks the ELF architecture/static linkage, and copies the executable as `libphp.so` under `jniLibs/arm64-v8a` so Android packages/extracts it with native libraries.
-
-**This is only a packaging spike, not a validated runtime.** The upstream PHP-Binaries repository is archived, and the full PHP/dependency licence inventory and update strategy must be reviewed before release. CI packaging, APK inspection, execution on current physical Android versions, required PHP extensions, PocketMine startup, and real Bedrock client join are still required. Do not mark Bedrock as supported based on the script alone.
-
-Sources:
-- [PMMP PHP-Binaries build documentation](https://github.com/pmmp/PHP-Binaries)
-- [PMMP PHP-Binaries PM5 PHP 8.4 release](https://github.com/pmmp/PHP-Binaries/releases/tag/pm5-php-8.4-latest)
-- [PMMP PHP-Binaries Android build workflow](https://github.com/pmmp/PHP-Binaries/blob/stable/.github/workflows/main-pm-matrix.yml)
 
 ## 6. Networking feasibility
 
