@@ -183,7 +183,7 @@ class ReadinessProbeTest {
                         val request = socket.getInputStream().bufferedReader().readLine()
                         if (request == "GET /v1/join HTTP/1.1") {
                             socket.getOutputStream().write(
-                                "HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nOK".toByteArray()
+                                "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK".toByteArray()
                             )
                             socket.getOutputStream().flush()
                         }
