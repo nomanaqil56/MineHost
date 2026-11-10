@@ -14,7 +14,7 @@ Do not publish claims that MineHost currently provides production-grade hosting,
 
 | # | Blocker | Source evidence / consequence | Required proof |
 |---|---|---|---|
-| 1 | No validated PHP runtime | `BedrockEngine` calls `RuntimeManager.getPhpExecutable()`; no `jniLibs` directory or PHP runtime installer is present in the repository tree. The PocketMine PHAR download alone cannot run the engine. | Select and legally distribute a compatible ARM64 Android PHP runtime and prove its CLI/extensions/process model on a physical device. |
+| 1 | PHP runtime not yet device-validated | A new build-time script downloads a pinned PMMP PHP-Binaries Android ARM64 static build, verifies the published archive SHA-256 and ELF/static properties, then places it at `jniLibs/arm64-v8a/libphp.so`. It has not yet passed CI packaging or a physical-device launch; the upstream binary/dependency licence review is also pending. | Run the CI packaging step, inspect the APK/nativeLibraryDir, launch `libphp.so -v` on physical Android ARM64, verify required extensions, then start PocketMine and join with a real Bedrock client. |
 | 2 | No validated Java VM | `JavaEngine` expects `libjava.so` in `nativeLibraryDir`; the repository has no bundled Java runtime or Java runtime installer. Android ART does not execute desktop Paper JARs. | Prove a compatible JVM and native dependency set on target Android devices; run Paper and a real Java client. |
 | 3 | Android executable packaging model is unproven | Runtime manager has paths for downloaded executables in app-private writable storage, including the Playit agent. Modern Android execution restrictions mean `setExecutable(true)` is not proof that a downloaded ELF can execute. | Validate packaging/loader strategy against current Android versions and Play policy. Never assume desktop Linux assets run on Android/Bionic. |
 | 4 | No MineHost-owned public relay | Current provider implementation is Playit-specific. The product goal requires MineHost-operated coordinator and relay services. | Deploy and test MineHost's own authenticated TCP and protocol-appropriate UDP relay from a CGNAT phone to a client on another ISP. |
@@ -45,10 +45,11 @@ Do not publish claims that MineHost currently provides production-grade hosting,
 
 ## Immediate next actions
 
-1. Add reproducible Android CI and run `assembleDebug` plus `testDebugUnitTest`.
-2. Remove misleading "supported" claims for engines whose runtime is missing.
-3. Decide whether PocketMine or another maintained Bedrock implementation is viable for current Bedrock transport and Android ARM64.
-4. Build or adopt a properly licensed Android-compatible PHP runtime; test it independently before integrating.
+1. Run the new CI workflow; confirm the PHP runtime archive verifies, packages into the APK, and Gradle build/tests pass.
+2. On a physical ARM64 phone, launch the packaged PHP executable, verify PHP version and required extensions, then test PocketMine.
+3. Complete the PHP binary and bundled dependency licence/redistribution review before release.
+4. Remove misleading "supported" claims for engines whose runtime is not device-verified.
+5. Decide whether PocketMine or another maintained Bedrock implementation is viable for current Bedrock transport.
 5. Investigate Java VM feasibility separately; do not let Paper/Geyser block a real Bedrock milestone.
 6. Stop treating Playit as the production networking architecture. Keep it isolated as an optional experimental adapter, while specifying and implementing MineHost's own control/data planes.
 7. Prove a real local Bedrock server and client join on physical Android hardware.
