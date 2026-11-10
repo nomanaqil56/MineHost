@@ -45,6 +45,15 @@ class BedrockEngine @Inject constructor(
             )
         }
 
+        if (runtimeManager.getPhpExecutable() == null) {
+            return Result.failure(
+                IllegalStateException(
+                    "Bedrock hosting is not installable on this build yet: a verified Android ARM64 PHP runtime is not bundled. " +
+                        "MineHost will not mark PocketMine as installed until the runtime is available."
+                )
+            )
+        }
+
         val result = runtimeManager.downloadPocketMinePhar(onProgress)
         return result.map { }
     }
