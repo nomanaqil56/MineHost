@@ -30,7 +30,7 @@ object ZipUtils {
 
         val allFiles = sourceDir.walkTopDown().filter { it.isFile }.toList()
         val validatedAdditionalFiles = additionalFiles.map { (entryName, file) ->
-            val normalizedName = entryName.replace('\\\\', '/')
+            val normalizedName = entryName.replace('\\', '/')
             require(
                 normalizedName.isNotBlank() &&
                     !normalizedName.startsWith("/") &&
@@ -39,7 +39,7 @@ object ZipUtils {
             require(file.isFile) { "Additional ZIP source must be an existing file: ${file.absolutePath}" }
             normalizedName to file
         }
-        val existingNames = allFiles.map { it.relativeTo(sourceDir).path.replace('\\\\', '/') }.toSet()
+        val existingNames = allFiles.map { it.relativeTo(sourceDir).path.replace('\\', '/') }.toSet()
         require(validatedAdditionalFiles.none { it.first in existingNames }) {
             "An additional ZIP entry duplicates a file already in the source directory."
         }
