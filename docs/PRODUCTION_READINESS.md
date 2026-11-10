@@ -1,7 +1,7 @@
 # MineHost — Production Readiness Audit
 
 **Audit date:** 2026-11-10  
-**Source reviewed:** `work/production-readiness` at `d02fa9c1909886cdad1ca1e008eb32d391c2f292` on 2026-11-10.  
+**Source reviewed:** `work/production-readiness` at the latest branch head on 2026-11-10. The latest successful full CI baseline is `ef96eaa04ed96d6f55e5d10a53ba331a98733391`; subsequent diagnostics and shutdown-reporting fixes are awaiting their own CI run.  
 **Verdict: NOT PRODUCTION READY.**
 
 This document deliberately distinguishes source code, pure-logic tests, Android builds, physical-device tests and real multiplayer tests. Code existing in the repository is not evidence that it works on an Android device.
@@ -10,7 +10,7 @@ This document deliberately distinguishes source code, pure-logic tests, Android 
 
 The project has a substantial Android application foundation: Kotlin/Compose UI, Room/Hilt, server-engine abstractions, runtime/download management, process supervision, local-network helpers, backup/restore safeguards, thermal/wake-lock services and a Playit tunnel adapter.
 
-However, the central product promise has not yet been demonstrated end to end. The production-readiness branch now passes GitHub Actions unit tests, Android lint and debug APK assembly (run 42753556848). This verifies the Android build, not native runtime execution, physical-device behaviour or Minecraft gameplay. No physical device or real Minecraft client has yet been tested.
+However, the central product promise has not yet been demonstrated end to end. The production-readiness branch now passes GitHub Actions unit tests, Android lint and debug APK assembly (run 42754538024). This verifies the Android build, not native runtime execution, physical-device behaviour or Minecraft gameplay. No physical device or real Minecraft client has yet been tested.
 
 The current source still contains a Playit-specific provider. MineHost-owned public relay infrastructure, its control plane, direct NAT traversal and international gameplay tests are not implemented. Java runtime execution and Geyser cross-play are not verified.
 
@@ -43,7 +43,7 @@ A file named `libphp.so` is not automatically a valid command-line executable. A
 
 ### 2. Java ARM64 runtime
 
-`JavaEngine` expects `libjava.so` in the native library directory and invokes it as the Java executable. No JRE/JVM runtime is present in the repository tree. A JVM shared library is not necessarily the `bin/java` launcher and requires its complete runtime layout and compatible libc.
+`JavaEngine` now requires a complete runtime under `files/minehost/runtimes/java`, including an executable `bin/java` launcher and library layout. No validated Android ARM64 JRE is currently present in the repository tree. A launcher path alone is not proof of Bionic compatibility or headless server execution.
 
 **Required:** validate a complete ARM64 JVM strategy on Android (including launcher, libraries, modules, libc and process execution). Until then, Java hosting is BLOCKED.
 
@@ -99,8 +99,9 @@ Source: https://developer.android.com/develop/background-work/services/fgs/servi
 These are code-review findings, not device-confirmed failures:
 
 - `ServerController` now serializes start/stop with a lifecycle mutex and reconciles a missing process handle instead of silently reporting success. The change compiles in CI, but start/stop races and service recovery still need physical-device testing.
-- `RuntimeManager.getPlayitExecutable()` can return a binary under app-private tunnel storage and calls `setExecutable(true)`; this path needs a real Android execution test.
-- `RuntimeManager.getPhpExecutable()` and `JavaEngine` use shared-object-style names as process paths. Validate actual ELF launchability rather than file presence.
+- `RuntimeManager.getPlayitExecutable()` now requires a regular executable file and no longer attempts to bypass Android execution restrictions with `setExecutable(true)`. A real Android process-launch test is still required.
+- `RuntimeManager.getPhpExecutable()` still accepts a candidate packaged `libphp.so` only when it is marked executable; validate its ELF type, interpreter and actual CLI launch before calling the runtime ready.
+- `RuntimeManager.isPaperJavaInstalled()` now requires both the Paper JAR and a `bin/java` launcher. Diagnostics distinguishes downloaded server archives from a runnable engine.
 - Live backup uses a fixed settle delay after save commands; it does not have a server-side acknowledgement that the flush completed. Large worlds need a stronger completion strategy or a clearly documented best-effort status.
 - Player tracking and Playit output parsing depend on expected log formats. Capture and test against real engine/agent output.
 - Credential handling for tunnel secrets needs an explicit Android Keystore-backed design and redaction review.
@@ -148,10 +149,10 @@ See [MINEHOST_MASTER_ROADMAP.md](../MINEHOST_MASTER_ROADMAP.md) for the phased p
 ## CI verification update — 2026-11-10
 
 The production-readiness branch now has a successful Android CI run:
-- [GitHub Actions run 42753556848](https://github.com/nomanaqil56/MineHost/actions/runs/42753556848)
+- [GitHub Actions run 42754538024](https://github.com/nomanaqil56/MineHost/actions/runs/42753556848)
 - Unit tests: PASS.
 - Android lint: PASS.
 - Debug APK assembly: PASS.
-- Debug APK artifact: `minehost-debug-apk` (68.9 MB).
+- Debug APK artifact: `minehost-debug-apk` (approximately 18.3 MiB (debug APK artifact ZIP)).
 
 This closes the initial reproducible Android debug-build gate only. It does **not** close the PHP/JVM runtime, Android executable policy, physical-device, current NetherNet, Geyser, MineHost relay, international gameplay, licensing or Play Store release gates. The branch is not production-ready and has not been merged to `main`.
