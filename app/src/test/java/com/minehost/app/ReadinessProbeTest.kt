@@ -174,6 +174,33 @@ class ReadinessProbeTest {
     }
 
     @Test
+    fun netherNetProbeUsesTheHttpJoinCapabilityEndpoint() {
+        ServerSocket(0).use { server ->
+            val responder = thread(start = true) {
+                try {
+                    server.accept().use { socket ->
+                        socket.soTimeout = 2000
+                        val request = socket.getInputStream().bufferedReader().readLine()
+                        if (request == "GET /v1/join HTTP/1.1") {
+                            socket.getOutputStream().write(
+                                "HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\nOK".toByteArray()
+                            )
+                            socket.getOutputStream().flush()
+                        }
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            assertTrue(ReadinessProbe.probeNetherNet("127.0.0.1", server.localPort, timeoutMs = 2000))
+            responder.join(2000)
+        }
+
+        ServerSocket(0).use { silent ->
+            assertFalse(ReadinessProbe.probeNetherNet("127.0.0.1", silent.localPort, timeoutMs = 300))
+        }
+    }
+
+    @Test
     fun javaProbeSucceedsAgainstAStatusResponderAndFailsAgainstAPlainOpenPort() {
         // Responder that speaks Server List Ping
         ServerSocket(0).use { good ->
