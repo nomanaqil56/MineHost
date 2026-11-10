@@ -17,6 +17,9 @@ The original audit below identified several false-positive runtime checks. Follo
 - `BedrockEngine` and `JavaEngine` now return explicit runtime-blocked errors instead of attempting to execute those shared libraries.
 - Playit detection no longer treats `libplayit.so` as a standalone agent executable.
 - The README now describes these features as goals/scaffolding, not working production capabilities.
+- Bedrock release source now targets Axolotl-PM 5.51.1 for Bedrock 1.26.60. The original PMMP upstream was archived; see [Decision 0001](decisions/0001-bedrock-engine-and-php-runtime.md).
+- The matching Axolotl PHP-Binaries Android ARM64 PHP 8.4 archive has been identified and its published SHA-256 recorded, but the archive has not yet been inspected, packaged, or launched by MineHost.
+- The Axolotl-PM PHAR downloader is pinned to release 5.51.1 rather than an unqualified latest release.
 - An Android CI workflow has been added for unit tests, lint and debug APK assembly.
 
 **Verification status:** these latest source and workflow changes have not yet been confirmed by a successful CI run in this session. No PHP/Java runtime has been added, no Android device has been tested, and no real Minecraft client has joined. MineHost remains **NOT PRODUCTION READY**.
