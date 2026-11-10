@@ -92,6 +92,6 @@ Development is active. Work should proceed in small, testable phases:
 
 ## Licensing and Minecraft notice
 
-The repository's project licence is Apache-2.0; see [LICENSE](LICENSE) if present in the checked-out revision. Each bundled or downloaded dependency has its own licence and redistribution requirements, which must be reviewed separately.
+The project-level licence is not confirmed in this revision: the inspected root tree does not contain a `LICENSE` file. Choose and add the intended licence before public distribution. Each bundled or downloaded dependency has its own licence and redistribution requirements, which must be reviewed separately.
 
 Minecraft is a trademark of Mojang AB and Microsoft. MineHost is an independent third-party project and is not affiliated with, endorsed by, or associated with Mojang or Microsoft. Follow the current Minecraft usage guidelines before public distribution.
