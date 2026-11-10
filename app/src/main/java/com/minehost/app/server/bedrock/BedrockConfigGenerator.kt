@@ -26,9 +26,7 @@ object BedrockConfigGenerator {
     private fun propertyValue(value: String): String =
         value.replace(Regex("[\\r\\n\\u0000-\\u001F\\u007F]"), " ").trim()
 
-    private fun yamlQuoted(value: String): String =
-        "\"" + value.replace("\\\\", "\\\\\\\\").replace("\"", "\\\\"")
-            .replace("\\r", " ").replace("\\n", " ") + "\""
+    private fun yamlQuoted(value: String): String = "\"${value}\""
 
     fun generateServerProperties(config: ServerConfiguration): String {
         validate(config).getOrThrow()
