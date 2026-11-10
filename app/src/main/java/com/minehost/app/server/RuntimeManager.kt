@@ -112,10 +112,15 @@ class RuntimeManager @Inject constructor(
     /**
      * Verifies that Bedrock PocketMine-MP and its PHP runtime are actually installed on disk.
      */
-    fun isBedrockPocketMineInstalled(): Boolean {
+    fun isPocketMinePharAvailable(): Boolean {
         val phar = File(baseEnginesDir, "bedrock/PocketMine-MP.phar")
+        return phar.isFile && phar.length() > 100_000
+    }
+
+    /** The engine is runnable only when both its server archive and PHP CLI runtime exist. */
+    fun isBedrockPocketMineInstalled(): Boolean {
         val phpBinary = getPhpExecutable()
-        return phar.exists() && phar.length() > 100_000 && phpBinary != null && phpBinary.isFile && phpBinary.canExecute()
+        return isPocketMinePharAvailable() && phpBinary != null && phpBinary.isFile && phpBinary.canExecute()
     }
 
     /**
@@ -149,10 +154,13 @@ class RuntimeManager @Inject constructor(
     /**
      * Verifies that PaperMC Java JAR is actually installed on disk.
      */
-    fun isPaperJavaInstalled(): Boolean {
+    fun isPaperJarAvailable(): Boolean {
         val jar = File(baseEnginesDir, "java/paper.jar")
-        return jar.exists() && jar.length() > 1_000_000
+        return jar.isFile && jar.length() > 1_000_000
     }
+
+    /** Paper is runnable only when both the server JAR and a Java launcher are present. */
+    fun isPaperJavaInstalled(): Boolean = isPaperJarAvailable() && getJavaExecutable() != null
 
     fun getPaperJar(): File? {
         val jar = File(baseEnginesDir, "java/paper.jar")
@@ -179,24 +187,16 @@ class RuntimeManager @Inject constructor(
     /**
      * Verifies that Playit agent executable exists and is executable.
      */
-    fun isPlayitAgentInstalled(): Boolean {
-        val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return true
-
-        val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        return inTunnels.exists() && inTunnels.length() > 100_000
-    }
+    fun isPlayitAgentInstalled(): Boolean = getPlayitExecutable() != null
 
     fun getPlayitExecutable(): File? {
         val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return inNativeLib
+        if (inNativeLib.isFile && inNativeLib.canExecute()) return inNativeLib
 
+        // Do not chmod downloaded files here: Android's app-data execution restrictions
+        // cannot be bypassed by setting the executable bit.
         val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        if (inTunnels.exists()) {
-            inTunnels.setExecutable(true)
-            return inTunnels
-        }
-        return null
+        return inTunnels.takeIf { it.isFile && it.length() > 100_000 && it.canExecute() }
     }
 
     // ------------------------------------------------------------------ source resolution
