@@ -23,11 +23,11 @@ class BedrockEngine @Inject constructor(
     private val runtimeManager: RuntimeManager
 ) : ServerEngine {
 
-    override val id: String = "bedrock-pocketmine-v5"
-    override val name: String = "PocketMine-MP (Bedrock)"
+    override val id: String = "bedrock-axolotl-pm-v5"
+    override val name: String = "Axolotl-PM (Bedrock)"
     override val edition: MinecraftEdition = MinecraftEdition.BEDROCK
-    override val defaultVersion: String = "1.20.80"
-    override val supportedVersions: List<String> = listOf("1.20.80", "1.21.0")
+    override val defaultVersion: String = "1.26.60"
+    override val supportedVersions: List<String> = listOf("1.26.60")
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -36,7 +36,7 @@ class BedrockEngine @Inject constructor(
     }
 
     override suspend fun install(onProgress: (Float, String) -> Unit): Result<Unit> {
-        AppLogger.i("BedrockEngine", "Installing PocketMine-MP engine...")
+        AppLogger.i("BedrockEngine", "Installing Axolotl-PM Bedrock engine...")
         if (!runtimeManager.isSupportedArchitecture()) {
             return Result.failure(
                 UnsupportedOperationException(
@@ -52,7 +52,7 @@ class BedrockEngine @Inject constructor(
     override suspend fun configure(serverDir: File, config: ServerConfiguration): Result<Unit> {
         return runCatching {
             BedrockConfigGenerator.writeConfigurations(serverDir, config)
-            AppLogger.i("BedrockEngine", "Bedrock server configured at: ${serverDir.absolutePath}")
+            AppLogger.i("BedrockEngine", "Axolotl-PM Bedrock server configured at: ${serverDir.absolutePath}")
         }
     }
 
@@ -72,7 +72,7 @@ class BedrockEngine @Inject constructor(
         }
 
         if (phar == null || !phar.exists()) {
-            val errorMsg = "PocketMine-MP.phar was not found in engines directory. Please download the Bedrock engine."
+            val errorMsg = "Axolotl-PM server archive (PocketMine-MP.phar) was not found. Download the Bedrock engine first."
             AppLogger.e("BedrockEngine", errorMsg)
             listener.onError(errorMsg)
             return Result.failure(FileNotFoundException(errorMsg))
