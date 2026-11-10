@@ -196,6 +196,7 @@ class WorldBackupManager @Inject constructor(
                     ZipUtils.zipDirectory(worldDir, preRestoreZip)
                 } catch (e: Exception) {
                     preRestoreZip.delete()
+                    stagedIdentityKey.delete()
                     FileUtils.deleteDirectoryRecursively(tempDir)
                     return Resource.Error("Could not create a safety snapshot of the current world (${e.message}). Restore cancelled; nothing was changed.", e)
                 }
