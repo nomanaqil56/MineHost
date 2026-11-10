@@ -31,7 +31,7 @@ The 2026-11-09/10 source audit found a substantial Android application foundatio
 - Bedrock/PocketMine: engine code exists, but **blocked** because no usable Android-compatible PHP runtime is supplied.
 - Java/Paper: engine/configuration code exists, but **blocked** because no usable Android-compatible JVM is supplied.
 - Geyser/Floodgate: configuration groundwork exists; actual cross-play execution is not implemented.
-- Playit: provider code exists, but it is a third-party dependency and must not be the long-term default. Real public joins have not been verified.
+- Playit: legacy provider source remains unbound; the app now binds an explicit unavailable MineHost provider, removes the Playit setup UI, and does not start a third-party tunnel. Real public joins have not been verified.
 - MineHost-owned control plane and relay network: not implemented.
 - Direct public connectivity/NAT traversal: not implemented.
 - Physical-device and international Minecraft-client testing: not completed.
@@ -67,6 +67,7 @@ See [ENGINE_EVALUATION.md](ENGINE_EVALUATION.md). PocketMine-MP and its official
 - [ ] Validate Android linker/Bionic compatibility and Android executable-memory/W^X constraints.
 - [ ] Do not assume a desktop Linux/glibc binary or a downloaded executable can run on Android.
 - [ ] Implement runtime installation, version pinning, integrity verification, rollback, and clear failure reporting.
+- [ ] Never treat a downloaded executable in writable app storage as runnable on Android 10+; package native runtime code for the supported ABI and verify the actual launch path.
 - [ ] Start a real server, answer a real protocol readiness probe, join from a real Bedrock client, and verify persistence after restart.
 
 ### Java
