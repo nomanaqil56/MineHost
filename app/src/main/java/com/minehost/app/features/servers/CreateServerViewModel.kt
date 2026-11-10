@@ -31,7 +31,7 @@ data class CreateServerFormState(
     val difficulty: Difficulty = Difficulty.NORMAL,
     val pvpEnabled: Boolean = true,
     val onlineMode: Boolean = true,
-    val autoStartTunnel: Boolean = true,
+    val autoStartTunnel: Boolean = false,
     val currentStep: Int = 1,
     val errorMessage: String? = null,
     val isCreating: Boolean = false
