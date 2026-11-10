@@ -10,7 +10,7 @@ This guide covers building the Android application. **A successful APK build doe
 - Git.
 - Android ARM64 physical device and ADB for end-to-end testing.
 
-The project targets Android 16 (API 36) and currently uses Gradle Wrapper 8.11.1, Android Gradle Plugin 8.10.1, Kotlin 2.2.21 and JDK 17. Use the checked-in wrapper rather than a globally installed Gradle. The first CI run after this toolchain migration must pass before treating it as build-verified.
+The project targets Android 16 (API 36) and currently uses Gradle Wrapper 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.21 and JDK 17. Use the checked-in wrapper rather than a globally installed Gradle. The first CI run after this toolchain migration must pass before treating it as build-verified. Compose BOM 2026.04.01, KSP 2.3.9 and Hilt 2.60.1 are aligned with the Kotlin 2.3 toolchain.
 
 ## 2. Build and test locally
 
