@@ -62,7 +62,7 @@ class JavaEngine @Inject constructor(
         listener: ProcessListener
     ): Result<ServerProcessHandle> {
         val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val javaBinary = File(nativeDir, "libjava.so")
+        val javaBinary = runtimeManager.getJavaExecutable()
         val jarFile = runtimeManager.getPaperJar()
 
         if (jarFile == null || !jarFile.exists()) {
@@ -72,8 +72,8 @@ class JavaEngine @Inject constructor(
             return Result.failure(FileNotFoundException(errorMsg))
         }
 
-        if (!javaBinary.exists()) {
-            val errorMsg = "ARM64 Java runtime binary (libjava.so) was not found in native library directory. A Java 17/21 JRE is required to run PaperMC."
+        if (javaBinary == null || !javaBinary.isFile || !javaBinary.canExecute()) {
+            val errorMsg = "A runnable Android ARM64 Java CLI launcher was not found. A libjava.so shared library alone is not a complete JVM. Paper hosting remains unavailable until a compatible Java runtime and Android process-launch path are installed."
             AppLogger.e("JavaEngine", errorMsg)
             listener.onError(errorMsg)
             return Result.failure(FileNotFoundException(errorMsg))
