@@ -93,7 +93,7 @@ class ServerController @Inject constructor(
             activeEngine = engine
 
             if (!engine.isInstalled()) {
-                val notInstalledMsg = "Server engine '${engine.name}' is not installed on this device. Please download and install it via Diagnostics or Setup."
+                val notInstalledMsg = "Server engine '${engine.name}' is not ready on this device. Check Diagnostics for missing runtime requirements; MineHost will not start an engine until its runtime and server files are available."
                 log(serverId, "[ERROR] $notInstalledMsg")
                 handleServerStopped(serverId, ServerStatus.ERROR)
                 return Resource.Error(notInstalledMsg)
