@@ -20,7 +20,8 @@ object ZipUtils {
     fun zipDirectory(
         sourceDir: File,
         targetZipFile: File,
-        onProgress: ((Float) -> Unit)? = null
+        onProgress: ((Float) -> Unit)? = null,
+        additionalFiles: Map<String, File> = emptyMap()
     ): String {
         if (!sourceDir.exists() || !sourceDir.isDirectory) {
             throw IllegalArgumentException("Source must be an existing directory: ${sourceDir.absolutePath}")
@@ -28,7 +29,21 @@ object ZipUtils {
         targetZipFile.parentFile?.mkdirs()
 
         val allFiles = sourceDir.walkTopDown().filter { it.isFile }.toList()
-        val totalBytes = allFiles.sumOf { it.length() }
+        val validatedAdditionalFiles = additionalFiles.map { (entryName, file) ->
+            val normalizedName = entryName.replace('\\\\', '/')
+            require(
+                normalizedName.isNotBlank() &&
+                    !normalizedName.startsWith("/") &&
+                    normalizedName.split('/').none { it.isBlank() || it == "." || it == ".." }
+            ) { "Invalid additional ZIP entry name: $entryName" }
+            require(file.isFile) { "Additional ZIP source must be an existing file: ${file.absolutePath}" }
+            normalizedName to file
+        }
+        val existingNames = allFiles.map { it.relativeTo(sourceDir).path.replace('\\\\', '/') }.toSet()
+        require(validatedAdditionalFiles.none { it.first in existingNames }) {
+            "An additional ZIP entry duplicates a file already in the source directory."
+        }
+        val totalBytes = allFiles.sumOf { it.length() } + validatedAdditionalFiles.sumOf { it.second.length() }
         var bytesProcessed = 0L
 
         val digest = MessageDigest.getInstance("SHA-256")
@@ -41,6 +56,24 @@ object ZipUtils {
                 val entry = ZipEntry(relativePath)
                 zos.putNextEntry(entry)
 
+                BufferedInputStream(FileInputStream(file)).use { bis ->
+                    var count: Int
+                    while (bis.read(buffer).also { count = it } != -1) {
+                        zos.write(buffer, 0, count)
+                        digest.update(buffer, 0, count)
+                        bytesProcessed += count
+                        if (totalBytes > 0) {
+                            onProgress?.invoke(bytesProcessed.toFloat() / totalBytes)
+                        }
+                    }
+                }
+                zos.closeEntry()
+            }
+
+            // Append explicitly selected server metadata (for example, NetherNet identity keys)
+            // after the world tree. Entry names are validated above and never derived from untrusted input.
+            for ((entryName, file) in validatedAdditionalFiles) {
+                zos.putNextEntry(ZipEntry(entryName))
                 BufferedInputStream(FileInputStream(file)).use { bis ->
                     var count: Int
                     while (bis.read(buffer).also { count = it } != -1) {
