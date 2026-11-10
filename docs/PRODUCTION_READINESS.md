@@ -67,3 +67,24 @@ MineHost has a well-organised app shell (UI, database, services, backups), but *
 6. Safe backups of a live server (`save-off`/`save-all`); surface download errors in Diagnostics.
 7. Real release signing via environment variables or local properties.
 8. Java runtime investigation, then Geyser cross-play.
+
+
+## Update (later in the same audit): status after further changes
+
+Still **NOT READY**. Blockers 1 to 3 (PHP, Java, executing binaries on Android 10+) are unchanged. All items below are **implemented but uncompiled and untested on a device** unless a unit test is named.
+
+| Area | Now |
+|---|---|
+| Download integrity (blocker 5) | `RuntimeManager` resolves real release assets and verifies published SHA-256 when one exists. Asset names were not confirmed by a run. |
+| EULA | Consent dialog, stored consent (Room migration 1 to 2), Java never starts without it. |
+| Tunnel state model | Separate states and health facts, protocol-aware probes (UDP/TCP), supervised restart with backoff, redacted logs. Playit output formats are assumed (`TunnelSupportTest`). |
+| Players | Online list from parsed join/leave lines (`PlayerTrackerTest`, formats assumed); commands need an ONLINE server and a successful send. |
+| Server detail | Shows LAN address and an internet-check line; no hard-coded player count. |
+| Diagnostics | Download failures are shown; concurrent downloads blocked. |
+| Backups | Live backups pause world saving (`save-off`/`save-all`). |
+| Release signing | Reads env vars or `local.properties`; the release build is unsigned (not debug-signed) if absent. |
+| Stale state | On app start, servers recorded ONLINE/STARTING are marked CRASHED. |
+| Service/backup rules | `specialUse` type, `START_NOT_STICKY`; tunnel dir excluded from backups. |
+| Credential storage | Still **NOT IMPLEMENTED**: the Playit agent keeps its secret in an app-private, owner-only directory; no Keystore encryption. |
+
+Not done: dependency/license inventory, security and performance reviews beyond this table, any build or device run. Test status is in `docs/TESTING.md`.

@@ -65,3 +65,7 @@ Target: Follow Part 16 sequence on physical Android ARM64 device:
 2. Run initial setup and download PocketMine-MP in Diagnostics.
 3. Start Bedrock server on port 19132.
 4. Connect Bedrock client over local Wi-Fi to test world generation, block placement, and restart persistence.
+
+
+## Latest session
+Added readiness probes, safe restore, EULA consent, tunnel state model, player tracking, LAN address, diagnostics errors, signing config, stale-state reconcile (commits up to 7063430 on main). 40 pure-Kotlin tests run and pass outside Gradle. Android code was not compiled; nothing was run on a device. See `docs/PRODUCTION_READINESS.md` and `docs/TESTING.md`.

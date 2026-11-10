@@ -102,3 +102,8 @@ MineHost maintains distinct statuses for the server and the networking tunnel:
 - Measures round-trip ping time to the tunnel edge relay every 30 seconds.
 - Automatically triggers exponential backoff reconnection if the device switches networks (e.g. Wi-Fi to 5G cellular).
 
+
+
+## Update: current tunnel behaviour (uncompiled, untested on a device)
+
+`TunnelStatus` now has DISCONNECTED, INSTALLING, AUTHENTICATING (claim required), STARTING, CONNECTED, RECONNECTING, ERROR and STOPPING. CONNECTED is shown only after the agent reports an endpoint; the app then probes the local server and the public endpoint with the real protocol (RakNet ping for Bedrock, Server List Ping for Java) and shows "Unreachable" if the probe fails. Restarts use backoff 5/10/20/40/60 s, at most 5 attempts. Agent output formats are assumed, not captured. LAN reachability does not imply internet reachability.
