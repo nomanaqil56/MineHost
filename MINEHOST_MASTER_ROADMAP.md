@@ -200,7 +200,8 @@ MineHost can own its software, control plane, relay fleet and operational proced
 ### Phase 0 — Baseline audit (current priority)
 - [ ] Read the complete repository and current main history.
 - [ ] Reconcile stale/contradictory docs and status claims.
-- [ ] Verify Gradle wrapper, dependency versions, manifest, target SDK and release configuration.
+- [ ] Verify Gradle wrapper, dependency versions, manifest, target SDK 36 and release configuration.
+- [ ] Keep targetSdk/compileSdk at API 36 or higher for new Google Play submissions; validate Android 16 behaviour.
 - [ ] Establish reproducible CI build and unit-test workflow.
 - [ ] Run lint, unit tests and static checks in a real Android build environment.
 - [ ] Inventory licences, runtime assets and download provenance.
@@ -248,7 +249,7 @@ MineHost can own its software, control plane, relay fleet and operational proced
 - [ ] Closed beta with 30–50 real testers.
 - [ ] Measure install success, start success, session duration, crashes, return rate and support issues.
 - [ ] Fix critical/high bugs before expansion.
-- [ ] Google Play policy and legal review.
+- [ ] Google Play policy and legal review, including API 36 target, specialUse foreground-service declaration and required demonstration.
 - [ ] Production signing, privacy policy, listing, disclosures and support channel.
 - [ ] Staged rollout with rollback plan.
 - **Exit gate:** Release criteria below are met and no critical blocker remains.
