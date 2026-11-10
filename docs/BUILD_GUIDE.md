@@ -6,11 +6,11 @@ This guide covers building the Android application. **A successful APK build doe
 
 - Windows 10/11, macOS or Linux.
 - JDK 17.
-- Android SDK Platform 34 and Build Tools 34.0.0 (matching the current project configuration).
+- Android SDK Platform 36 and Build Tools 35.0.0 (matching the current project configuration).
 - Git.
 - Android ARM64 physical device and ADB for end-to-end testing.
 
-The project currently uses Gradle Wrapper 8.4 and Android Gradle Plugin 8.3.2. Use the checked-in wrapper rather than a globally installed Gradle.
+The project targets Android 16 (API 36) and currently uses Gradle Wrapper 8.11.1, Android Gradle Plugin 8.10.1, Kotlin 2.2.21 and JDK 17. Use the checked-in wrapper rather than a globally installed Gradle. The first CI run after this toolchain migration must pass before treating it as build-verified.
 
 ## 2. Build and test locally
 
@@ -37,7 +37,7 @@ Debug APK output:
 
 ## 3. Continuous integration
 
-The repository now includes `.github/workflows/android-ci.yml`. It installs JDK 17 and Android SDK Platform 34, runs unit tests and lint, assembles the debug APK, and uploads the APK as the `minehost-debug-apk` artifact.
+The repository now includes `.github/workflows/android-ci.yml`. It installs JDK 17 and Android SDK Platform 36, runs unit tests and lint, assembles the debug APK, and uploads the APK as the `minehost-debug-apk` artifact.
 
 The first workflow run must pass before treating the branch as build-verified. CI does not replace physical-device or real Minecraft-client testing.
 
