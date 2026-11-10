@@ -1,71 +1,103 @@
-# MineHost — Development Progress Tracker
+# MineHost — Development Progress
 
-## Status Classification Legend
-- **IMPLEMENTED:** Source code and architecture completely implemented.
-- **AUTOMATED TESTED:** Unit / Protocol / Logic verification suite passed.
-- **EMULATOR TESTED:** Verified in Android Virtual Device environment.
-- **PHYSICAL DEVICE TESTED:** Verified on real physical Android ARM64 hardware with physical Minecraft client.
-- **EXTERNAL NETWORK TESTED:** Verified through public internet from an external network connection.
-- **NOT IMPLEMENTED:** Planned feature not yet written.
-- **BLOCKED:** Blocked by external hardware, missing binary, or OS constraint.
+**Last reconciled:** 2026-11-10  
+**Authoritative roadmap:** [MINEHOST_MASTER_ROADMAP.md](../MINEHOST_MASTER_ROADMAP.md)  
+**Current verdict:** Active development; not production-ready.
 
----
+## Verification labels
 
+- **SOURCE PRESENT:** Implementation exists in the repository; it may still be incomplete.
+- **PURE-LOGIC TESTED:** A unit/helper test has been executed. This does not prove Android integration.
+- **ANDROID BUILD VERIFIED:** Gradle Android build completed successfully in CI or a documented local environment.
+- **DEVICE VERIFIED:** Tested on a physical Android device.
+- **REAL CLIENT VERIFIED:** A real compatible Minecraft client joined and played.
+- **EXTERNAL NETWORK VERIFIED:** A client on a separate public network joined successfully.
+- **NOT IMPLEMENTED / BLOCKED:** Required implementation or prerequisite is missing.
 
-> **Audit correction (2026-11-09):** In the table below, "AUTOMATED TESTED" means only that unit tests exist for helper logic (config generators, zip utilities, ANSI parsing). **No row has been verified on a device or with a real Minecraft client**, and the build/test results in "Build & Test Verification Milestones" were reported by the previous author and **not reproduced** in the audit. The Bedrock and Java engines are **BLOCKED** because no PHP/Java runtime is bundled. See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) for the verified status.
+Never promote a feature to a higher verification level without a reproducible test record.
 
----
+## Current implementation inventory
 
-## Live Implementation Inventory
+| Area | Source status | Verification | Notes |
+|---|---|---|---|
+| Kotlin/Compose application shell | SOURCE PRESENT | Android build not verified in latest notes | Navigation, screens, MVVM, Hilt and Room exist |
+| Server dashboard/create/detail/console | SOURCE PRESENT | Not device verified | UI and ViewModels exist |
+| Server engine abstraction | SOURCE PRESENT | Not end-to-end verified | Engine registry and lifecycle code exist |
+| PocketMine adapter | SOURCE PRESENT, runtime BLOCKED | Not device verified | PHP launch path must be validated on ARM64 Android |
+| Paper adapter | SOURCE PRESENT, runtime BLOCKED | Not device verified | A complete Android-compatible JVM is absent/unverified |
+| Geyser configuration | PARTIAL SOURCE | Not operational | No proven Java runtime + Geyser process; cross-play must remain unavailable |
+| Runtime downloads | SOURCE PRESENT | Pure logic only where tested | Release asset resolution and checksum validation exist; executable launchability remains unproven |
+| Local network discovery | SOURCE PRESENT | 4 pure-Kotlin tests reported | No physical LAN client join recorded |
+| Playit tunnel adapter | SOURCE PRESENT | 10 pure-Kotlin tests reported | Third-party dependency; live agent, claim, Android execution and external join unverified |
+| MineHost-owned relay/control plane | NOT IMPLEMENTED | N/A | Required for final infrastructure-independence goal |
+| Direct public connectivity/NAT traversal | NOT IMPLEMENTED | N/A | Requires protocol-specific design and tests |
+| World storage | SOURCE PRESENT | No real Minecraft world test recorded | App-private storage layout exists |
+| Backup/restore safeguards | SOURCE PRESENT | Pure tests reported | Real engine flush and real world restore not device verified |
+| Foreground service/wake lock | SOURCE PRESENT | Not device verified | Android version, OEM and Play policy checks required |
+| Thermal monitoring | SOURCE PRESENT | Not device verified | Needs sustained device tests |
+| Server readiness probes | SOURCE PRESENT | 8 pure-Kotlin tests reported | Current Bedrock probe is RakNet-specific; validate selected current engine/client transport |
+| Player tracking | SOURCE PRESENT | 6 pure-Kotlin tests reported | Log formats require capture from real server output |
+| Server lifecycle serialization | SOURCE UPDATED | Not compiled | Start/stop now serialized with a mutex; process-handle absence/early exit is handled explicitly |
+| Android CI workflow | ADDED | First workflow run pending | Builds, runs unit tests and lint, then uploads debug APK |
 
-| Subsystem / Feature | Current Status | Verification Level | Notes & Realistic Limitations |
-| :--- | :--- | :--- | :--- |
-| **Android Clean Architecture Foundation** | **IMPLEMENTED** | AUTOMATED TESTED | MVVM, Room Database (5 DAOs/entities), Hilt DI, Navigation Compose |
-| **UI Design System & Screens** | **IMPLEMENTED** | AUTOMATED TESTED | Jetpack Compose Material 3 dark gaming aesthetic, server wizard, console, diagnostics |
-| **Runtime Manager (Downloads & Hashes)** | **IMPLEMENTED** | AUTOMATED TESTED | Streaming downloads with SHA-256 validation, atomic replace for PocketMine, Paper & Playit |
-| **Bedrock PocketMine-MP Engine** | **IMPLEMENTED** | AUTOMATED TESTED | Native process execution, `server.properties` and `pocketmine.yml` generation, stdin command piping |
-| **Bedrock Physical Device Gameplay** | **NOT IMPLEMENTED** | PENDING HARDWARE | Requires physical Android device test (Phase 16) |
-| **World Storage & File Layout** | **IMPLEMENTED** | AUTOMATED TESTED | App-private storage `/files/minehost/servers/<id>/worlds/`, tested against restart persistence |
-| **World Atomic Backup & Restore** | **IMPLEMENTED** | AUTOMATED TESTED | ZIP snapshotting, SHA-256 manifest calculation, safety pre-restore rollback snapshot |
-| **World Validation (Zip Slip & Formats)** | **IMPLEMENTED** | AUTOMATED TESTED | Safe extraction with canonical path validation guarding against Zip Slip traversal |
-| **Playit.gg Agent Integration** | **IMPLEMENTED** | AUTOMATED TESTED | Real agent execution (`playit-cli`), claim URL detection, stdout endpoint parser (no fake endpoints) |
-| **Playit Worldwide External Join** | **NOT IMPLEMENTED** | PENDING NETWORK | Requires live claim and external player join across public internet |
-| **Java PaperMC Engine** | **IMPLEMENTED** | AUTOMATED TESTED | PaperMC v2 API downloader, configuration generator, eula consent guard, JVM memory checks |
-| **Java ARM64 Runtime Execution** | **BLOCKED** | PENDING RUNTIME | Requires desktop JRE 17/21 distribution for Android bionic/musl |
-| **Cross-Play (GeyserMC Bridge)** | **PARTIALLY IMPLEMENTED** | NOT IMPLEMENTED | Configuration generator written; runtime bridge execution pending Java runtime milestone |
-| **Android Foreground Service & WakeLock** | **IMPLEMENTED** | AUTOMATED TESTED | `specialUse|dataSync` FGS, partial CPU wake lock, high-performance Wi-Fi lock |
-| **Hardware Thermal Monitoring** | **IMPLEMENTED** | AUTOMATED TESTED | `PowerManager.OnThermalStatusChangedListener` listener reporting device thermal throttling |
-| **Live Monospace Terminal Console** | **IMPLEMENTED** | AUTOMATED TESTED | Monospace log stream, ANSI code stripper, stdin server command dispatch |
-| **Player Administration** | **IMPLEMENTED** | AUTOMATED TESTED | Database tracking, `/kick`, `/op`, `/ban`, `/whitelist` command dispatch |
+## Test evidence currently documented
 
----
+The previous development notes report **40/40 pure-Kotlin tests passing using kotlinc and JUnit outside Gradle**. This report has not been independently reproduced in this audit session.
 
-## Detailed Audit of Replaced Simulations
-1. **Removed Fake Bedrock Process:** Eliminated the infinite sleep shell mock (`echo ...; while true; do sleep 5; done`). The engine now strictly validates the presence of the real PHP binary and `PocketMine-MP.phar`.
-2. **Removed Fake Java Process:** Eliminated the shell sleep loop. The engine now verifies real Paper JAR presence.
-3. **Removed Unconditional Installation Checks:** Removed `|| true` from `BedrockEngine.isInstalled()` and `JavaEngine.isInstalled()`. Both engines now inspect actual files on disk via `RuntimeManager`.
-4. **Removed Random Public Endpoints:** Removed the random hostname generator (`minehost-node-XXXX.joinmc.link`). `PlayitTunnelProvider` now only exposes endpoints parsed from genuine agent output or reports `DISCONNECTED` / `ERROR`.
-5. **Added Playit Agent Claim Workflow:** The application detects the claim URL output by the agent and exposes it in the UI so the user can claim their tunnel on `playit.gg`.
-6. **EULA Consent Guard:** Java server configuration no longer silently auto-accepts the Mojang EULA; user consent is explicitly checked.
-7. **Port Conflict Validator:** `ServerController` now tests whether local UDP 19132 or TCP 25565 is already occupied before attempting to start a server.
+The test set covers:
+- Readiness probe packet framing and loopback fakes.
+- Console command sanitization.
+- Backup checksum and archive validation.
+- Directory swap/rollback helpers.
+- Tunnel parser, reconnect policy and reachability tracking.
+- Player join/leave log parsing.
+- Local network address selection.
 
----
+These tests do not prove that an Android app compiles, that native runtimes launch, or that a Minecraft client can join.
 
-## Build & Test Verification Milestones Completed
-1. **Gradle Build Complete:** `gradle assembleDebug` succeeds cleanly, producing `app-debug.apk` (59 MB) with AAPT2 resources, Room schema generation, and Hilt dependency injection.
-2. **Unit Test Suite Verified:** `gradle testDebugUnitTest` runs with 100% pass rate (8/8 tests passing).
-3. **Protocol & State Verification Suite:** `python tests/verify_minehost.py` runs with 100% pass rate (9/9 tests passing RakNet, VarInt, persistence, and recovery checks).
-4. **Live Latency & Tunnel Monitoring:** Added `ConnectionMonitor` providing real round-trip socket ping checks for active endpoints.
+## Critical blockers
 
----
+1. **Android build:** Latest notes do not contain a reproducible Gradle build result. New CI workflow has been added; inspect its first run and fix any build/lint/test failures.
+2. **Bedrock runtime:** A real Android ARM64 PHP runtime and launch mechanism must be selected and tested.
+3. **Java runtime:** A complete compatible Android ARM64 JVM and launcher are not available/verified.
+4. **Execution policy:** Validate native executable placement/launch on modern Android; a downloaded executable in app data and a shared object named `lib*.so` are not automatically executable.
+5. **MineHost connectivity:** The only concrete provider adapter is Playit-specific. MineHost-owned relay/control-plane services are not implemented.
+6. **Cross-play:** Geyser/Floodgate are not operationally integrated.
+7. **Physical device:** No recorded end-to-end device acceptance test.
+8. **International play:** No recorded external or international Minecraft client session.
+9. **Release/legal:** Dependency licences, project licence file, privacy, Google Play policy, target API and production signing still need final review.
 
-## Next Milestone: Physical Device Bedrock Testing
-Target: Follow Part 16 sequence on physical Android ARM64 device:
-1. Install `app-debug.apk` via ADB or manual install.
-2. Run initial setup and download PocketMine-MP in Diagnostics.
-3. Start Bedrock server on port 19132.
-4. Connect Bedrock client over local Wi-Fi to test world generation, block placement, and restart persistence.
+## Immediate next work
 
+### P0 — Reproducible baseline
+- [ ] Check the first `Android CI` workflow run on branch `work/production-readiness`.
+- [ ] Fix build, lint and test failures before further feature work.
+- [ ] Verify the new lifecycle mutex change compiles and add a regression test where practical.
+- [ ] Reconcile documentation and remove stale claims.
 
-## Latest session
-Added readiness probes, safe restore, EULA consent, tunnel state model, player tracking, LAN address, diagnostics errors, signing config, stale-state reconcile (commits up to 7063430 on main). 40 pure-Kotlin tests run and pass outside Gradle. Android code was not compiled; nothing was run on a device. See `docs/PRODUCTION_READINESS.md` and `docs/TESTING.md`.
+### P1 — One real local server
+- [ ] Choose a maintained Bedrock engine after checking current protocol compatibility.
+- [ ] Prove its ARM64 Android runtime/launcher.
+- [ ] Start it through MineHost on a physical device.
+- [ ] Join from a second device on the same Wi-Fi.
+- [ ] Verify persistence, backup/restore and screen-off stability.
+
+### P2 — MineHost-owned public connectivity
+- [ ] Specify the protocol adapters for the chosen Bedrock transport and Java TCP.
+- [ ] Implement a minimal MineHost relay and Android client.
+- [ ] Implement control-plane registration, short-lived credentials and relay allocation.
+- [ ] Test Wi-Fi, cellular, CGNAT and international clients.
+- [ ] Measure latency, jitter, loss, bandwidth and relay cost.
+
+### P3 — Java and cross-play
+- [ ] Validate Android ARM64 JVM execution.
+- [ ] Prove Paper with a real Java client.
+- [ ] Integrate and test Geyser/Floodgate only after the underlying runtimes and transports work.
+
+## Change log for this branch
+
+- Added `MINEHOST_MASTER_ROADMAP.md` as the product and engineering source of truth.
+- Rewrote README claims to distinguish vision from current implementation.
+- Reworked production readiness and networking docs to reflect actual implementation and missing MineHost-owned connectivity.
+- Added Android CI workflow for Gradle unit tests, lint and debug APK assembly.
+- Serialized server start/stop lifecycle operations and added explicit handling for missing or already-exited process handles. This change is source-only until CI/build verification passes.
