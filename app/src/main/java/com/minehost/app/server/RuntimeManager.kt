@@ -194,6 +194,11 @@ class RuntimeManager @Inject constructor(
             .mapCatching { json.decodeFromString<GhRelease>(it) }
     }
 
+    private fun githubReleaseByTag(repo: String, tag: String): Result<GhRelease> {
+        return fetchText("https://api.github.com/repos/$repo/releases/tags/$tag")
+            .mapCatching { json.decodeFromString<GhRelease>(it) }
+    }
+
     /** GitHub publishes asset checksums as "sha256:<64 hex>". Returns the hex, or null if absent/other algorithm. */
     private fun sha256FromDigest(digest: String?): String? {
         val hex = digest?.removePrefix("sha256:") ?: return null
@@ -207,21 +212,31 @@ class RuntimeManager @Inject constructor(
     suspend fun downloadPocketMinePhar(
         onProgress: (Float, String) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
-        onProgress(0.02f, "Looking up the latest PocketMine-MP release...")
-        val release = latestGithubRelease("axolotl-pm/PocketMine-MP").getOrElse {
-            return@withContext Result.failure(IOException("Could not query Axolotl-PM releases: ${it.message}", it))
+        // Pin the engine release to a client protocol that MineHost explicitly supports.
+        // Update this tag and digest only after the new release passes device/client acceptance.
+        val pinnedTag = "5.51.1"
+        val pinnedSha256 = "bcfbd0deff349c2b25b1688299a7d54f1fc8a080d2f95e19884f8e341319021a"
+        onProgress(0.02f, "Looking up Axolotl-PM $pinnedTag...")
+        val release = githubReleaseByTag("axolotl-pm/PocketMine-MP", pinnedTag).getOrElse {
+            return@withContext Result.failure(IOException("Could not query Axolotl-PM release $pinnedTag: ${it.message}", it))
         }
         val asset = release.assets.firstOrNull { it.name == "PocketMine-MP.phar" }
-            ?: return@withContext Result.failure(IOException("Release ${release.tagName} has no PocketMine-MP.phar asset."))
+            ?: return@withContext Result.failure(IOException("Axolotl-PM $pinnedTag has no PocketMine-MP.phar asset."))
+        val publishedSha256 = sha256FromDigest(asset.digest)
+        if (publishedSha256 != pinnedSha256) {
+            return@withContext Result.failure(
+                IOException("Axolotl-PM $pinnedTag asset digest is missing or does not match the pinned SHA-256.")
+            )
+        }
 
         val targetDir = File(baseEnginesDir, "bedrock").apply { mkdirs() }
         downloadFileWithProgress(
             url = asset.url,
             targetFile = File(targetDir, "PocketMine-MP.phar"),
-            componentName = "Axolotl-PM ${release.tagName}",
+            componentName = "Axolotl-PM $pinnedTag",
             onProgress = onProgress,
-            expectedSha256 = sha256FromDigest(asset.digest),
-            version = release.tagName
+            expectedSha256 = pinnedSha256,
+            version = pinnedTag
         )
     }
 
