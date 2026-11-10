@@ -6,7 +6,7 @@
 **Package in captured evidence:** `com.minehost.app.debug`  
 **Source commit actually tested:** `74fce0c34ebde5fd388e8fd8ecb19c26713d01e3`
 
-> **Important:** This is a historical device report. It predates the latest configured-NetherNet-port correction and subsequent Phase 1 cleanup work. The latest branch APK has not yet been installed and retested on the physical phone. Do not represent the historical results as acceptance of the latest source.
+> **Important:** This is a historical device report. It predates the latest configured-NetherNet-port correction and subsequent Phase 1 cleanup work. The Phase 1 hardening branch passed CI and was merged to `main` as `b1e128c9a05859e367f9a6ca1604b6d06320f390`. Its PR CI run `42819256915` passed JVM unit tests, lint, debug APK assembly, PHP APK payload verification, and PHP archive/QEMU smoke testing. The merged APK has not yet been installed and retested on the physical phone. Do not represent the historical results as acceptance of the latest source.
 
 ## 1. Recorded summary
 
@@ -82,7 +82,7 @@ Record the exact APK SHA-256, source commit, device model, Android version, test
 
 ## 5. Final acceptance decision
 
-**Latest-APK device acceptance: NOT RUN.**  
+**Latest-APK device acceptance: NOT RUN (merged commit `b1e128c9a05859e367f9a6ca1604b6d06320f390`).**  
 **Real second-client gameplay: BLOCKED / NOT VERIFIED.**  
 **Backup/restore acceptance: PENDING.**  
 **Phase 1: NOT COMPLETE.**
