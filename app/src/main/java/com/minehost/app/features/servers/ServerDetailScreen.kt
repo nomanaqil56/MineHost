@@ -359,11 +359,11 @@ fun ConnectionCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Same-network address: works only for devices on the same Wi-Fi, not the internet.
+            // Same-network address: works for devices on the same local network, not the public internet.
             Text(
                 text = when {
-                    localAddress != null -> "Same Wi-Fi: $localAddress:$localPort"
-                    else -> "Same Wi-Fi: no local network connection found"
+                    localAddress != null -> "Same network: $localAddress:$localPort"
+                    else -> "Same network: no local network connection found"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (localAddress != null) TextPrimary else StatusYellow
