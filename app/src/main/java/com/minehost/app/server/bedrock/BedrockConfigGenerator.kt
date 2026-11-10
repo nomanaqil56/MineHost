@@ -46,7 +46,7 @@ object BedrockConfigGenerator {
 
     fun generatePocketMineYml(config: ServerConfiguration): String {
         return """
-            # PocketMine-MP Configuration File
+            # Axolotl-PM Configuration File
             settings:
               language: "eng"
               enable-ansi: false
@@ -73,8 +73,15 @@ object BedrockConfigGenerator {
                 builtin-signaling:
                   enabled: true
                   port: 0
-                  # Plain HTTP uses Trust On First Use. MineHost's public relay must provide
-                  # HTTPS termination before this is considered production-ready.
+                  # Plain HTTP uses Trust On First Use. MineHost's public edge must provide
+                  # HTTPS termination before international hosting is considered production-ready.
+            # Keep the engine local-first: MineHost manages version updates and diagnostics.
+            auto-updater:
+              enabled: false
+            auto-report:
+              enabled: false
+            anonymous-statistics:
+              enabled: false
         """.trimIndent()
     }
 
