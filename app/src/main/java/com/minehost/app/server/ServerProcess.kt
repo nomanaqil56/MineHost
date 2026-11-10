@@ -14,6 +14,8 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.util.concurrent.TimeUnit
 
+private const val FORCED_STOP_WAIT_MS = 5_000L
+
 private const val LOCALHOST = "127.0.0.1"
 private const val FORCED_STOP_WAIT_MS = 5_000L
 
