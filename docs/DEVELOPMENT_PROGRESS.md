@@ -23,7 +23,7 @@ Never promote a feature to a higher status without recording the command, commit
 | Kotlin / Compose app shell | SOURCE PRESENT | UI, navigation and feature screens exist; latest build not reproduced in this review. |
 | Room / Hilt / repositories | SOURCE PRESENT | Data and DI layers exist; instrumented migration tests not recorded here. |
 | Server engine abstraction | SOURCE PRESENT | Interface, registry and lifecycle classes exist. |
-| PocketMine adapter | SOURCE PRESENT / BLOCKED | Requires a real PHP CLI runtime; no validated runtime installer or bundled runtime is present. |
+| PocketMine adapter | SOURCE PRESENT / BLOCKED | Build-time script now downloads a pinned PMMP Android ARM64 static PHP asset into generated `jniLibs`; packaging and physical-device launch are not yet verified. Runtime dependency/licence review pending. |
 | Paper adapter | SOURCE PRESENT / BLOCKED | Requires a compatible JVM; adapter expects `libjava.so`, but no validated runtime is present. |
 | Geyser config | SOURCE PRESENT / BLOCKED | Configuration generation exists; Java/Paper and bridge execution are not proven. |
 | Runtime downloads | SOURCE PRESENT | PHAR/JAR/Playit download logic exists; runtime execution, pinning and trust model need further work. |
@@ -51,7 +51,7 @@ The earlier report of 40 pure-Kotlin tests is historical information from the pr
 
 1. [ ] Add CI for `assembleDebug` and `testDebugUnitTest`.
 2. [ ] Make the synthetic Python harness label its results as simulations, not functional integration.
-3. [ ] Prove a supported PHP runtime on ARM64 Android.
+3. [ ] Run CI packaging and prove the bundled PHP executable and required extensions on physical ARM64 Android.
 4. [ ] Prove a supported Java VM on ARM64 Android (separate milestone).
 5. [ ] Complete physical-device local Bedrock acceptance test.
 6. [ ] Implement and test one MineHost-owned public relay.
