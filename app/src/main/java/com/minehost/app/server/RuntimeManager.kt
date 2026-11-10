@@ -121,13 +121,10 @@ class RuntimeManager @Inject constructor(
      * Finds the PHP executable either in nativeLibraryDir or in private app runtimes.
      */
     fun getPhpExecutable(): File? {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val candidates = listOf(
-            File(nativeDir, "libphp.so"),
-            File(baseRuntimesDir, "php/bin/php"),
-            File(baseRuntimesDir, "php/php")
-        )
-        return candidates.firstOrNull { it.isFile && it.canExecute() }
+        // Android 10+ does not permit executing downloaded binaries from writable app-home
+        // directories. Runtime executables must be packaged for this ABI in the APK/AAB.
+        val packagedPhp = File(context.applicationInfo.nativeLibraryDir, "libphp.so")
+        return packagedPhp.takeIf { it.isFile && it.canExecute() }
     }
 
     /**
