@@ -38,6 +38,7 @@ MineHost is **not production-ready yet**.
 - No real Minecraft client has been shown joining a server launched by the app.
 - Android-dependent code has not been compiled in the latest documented audit environment.
 - The repository's latest notes report 40 pure-Kotlin tests passing outside Gradle; this does not validate Android integration or real server execution.
+- The production-readiness branch now targets Android 16 / API 36 with an updated AGP/Gradle/Kotlin toolchain; CI and Android 16 device verification are still pending.
 - PHP and Java runtime launch paths on Android ARM64 remain critical unverified blockers. A shared library named `libphp.so` or `libjava.so` is not automatically a valid CLI executable.
 - Java hosting and Geyser cross-play are not verified operational capabilities.
 - Current tunnel integration is Playit-specific. MineHost-owned relay/control-plane infrastructure and direct NAT traversal are future work.
