@@ -77,7 +77,7 @@ object LocalNetwork {
             properties?.linkAddresses.orEmpty()
                 .mapNotNull { it.address as? Inet4Address }
                 .filter { it.isSiteLocalAddress && !it.isLoopbackAddress && !it.isLinkLocalAddress }
-                .mapNotNull { it.hostAddress?.takeIf(String::isNotBlank) }
+                .mapNotNull { address -> address.hostAddress?.takeIf { it.isNotBlank() } }
                 .distinct()
                 .sortedBy { interfacePriority(interfaceName) }
         }.getOrDefault(emptyList())
