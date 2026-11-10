@@ -85,12 +85,36 @@ class BedrockEngine @Inject constructor(
             return Result.failure(it)
         }
 
+        val pharIntegrity = runtimeManager.verifyPocketMinePhar(phar)
+        if (pharIntegrity.isFailure) {
+            val errorMsg = pharIntegrity.exceptionOrNull()?.message ?: "Axolotl-PM PHAR integrity verification failed."
+            AppLogger.e("BedrockEngine", errorMsg, pharIntegrity.exceptionOrNull())
+            listener.onError(errorMsg)
+            return Result.failure(pharIntegrity.exceptionOrNull() ?: IllegalStateException(errorMsg))
+        }
+
         val phpCheck = runtimeManager.verifyExecutable(phpBinary, "-v")
         if (phpCheck.isFailure) {
             val errorMsg = "The packaged PHP CLI failed its Android launch check: ${phpCheck.exceptionOrNull()?.message}"
             AppLogger.e("BedrockEngine", errorMsg, phpCheck.exceptionOrNull())
             listener.onError(errorMsg)
             return Result.failure(phpCheck.exceptionOrNull() ?: IllegalStateException(errorMsg))
+        }
+
+        // Validate extensions using the same ini file that will be used by the server.
+        val moduleCheck = runtimeManager.verifyExecutable(phpBinary, "-c", phpIni.absolutePath, "-m")
+        if (moduleCheck.isFailure) {
+            val errorMsg = "PHP could not load the bundled configuration or enumerate extensions: ${moduleCheck.exceptionOrNull()?.message}"
+            AppLogger.e("BedrockEngine", errorMsg, moduleCheck.exceptionOrNull())
+            listener.onError(errorMsg)
+            return Result.failure(moduleCheck.exceptionOrNull() ?: IllegalStateException(errorMsg))
+        }
+        val missingModules = BedrockRuntimeContract.missingRequiredModules(moduleCheck.getOrThrow())
+        if (missingModules.isNotEmpty()) {
+            val errorMsg = "The packaged PHP runtime is missing required Axolotl-PM extensions: ${missingModules.joinToString()}. Reinstall MineHost with the supported runtime."
+            AppLogger.e("BedrockEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(IllegalStateException(errorMsg))
         }
 
         val command = listOf(

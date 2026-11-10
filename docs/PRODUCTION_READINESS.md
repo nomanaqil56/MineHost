@@ -20,10 +20,10 @@ The original audit below identified several false-positive runtime checks. Follo
 - Bedrock release source now targets Axolotl-PM 5.51.1 for Bedrock 1.26.60. The original PMMP upstream was archived; see [Decision 0001](decisions/0001-bedrock-engine-and-php-runtime.md).
 - The matching Axolotl PHP-Binaries Android ARM64 PHP 8.4 archive is SHA-256 verified and has passed a QEMU ARM64 smoke test: PHP 8.4.27 ZTS, required PocketMine/Axolotl extensions (including `webrtc`), and bundled `php.ini` load successfully.
 - Gradle now downloads and verifies that archive at build time, packages the static CLI in the APK's `arm64-v8a` native-library directory, and packages `php.ini` as an asset. The installed app does not download native executable code.
-- The Axolotl-PM PHAR downloader is pinned to release 5.51.1 rather than an unqualified latest release.
+- The Axolotl-PM PHAR downloader is pinned to release 5.51.1 and a hard-coded SHA-256; launch re-verifies the installed PHAR.
 - An Android CI workflow has been added for unit tests, lint and debug APK assembly.
 
-**Verification status (2026-11-10):** the pinned PHP archive checksum, AArch64 ELF shape, PHP 8.4.27 CLI, required modules and bundled configuration passed the QEMU ARM64 CI smoke test. The Android unit-test and lint steps passed, and Gradle successfully assembled the debug APK with the packaged runtime. A follow-up CI assertion now checks that `lib/arm64-v8a/libphp.so` and `assets/php/php.ini` are actually present in the APK and that the CLI payload is at least 5 MiB; that assertion is pending its first run. No physical Android process launch, Bedrock server start, or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
+**Verification status (2026-11-10):** the pinned PHP archive checksum, AArch64 ELF shape, PHP 8.4.27 CLI, required modules and bundled configuration passed the QEMU ARM64 CI smoke test. The Android unit-test and lint steps passed, and Gradle successfully assembled the debug APK with the packaged runtime. The APK content assertion for `lib/arm64-v8a/libphp.so` and `assets/php/php.ini` passed in CI run `42764077291`. No physical Android process launch, Bedrock server start, or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
 
 
 
@@ -35,7 +35,7 @@ The original audit below identified several false-positive runtime checks. Follo
 | 2 | **No Java CLI runtime is available.** A complete Android-compatible ARM64 JVM and executable `bin/java` launcher are not present. A shared library alone is not accepted. | `RuntimeManager.getJavaExecutable()`, `JavaEngine.start()` | Validate a complete JVM distribution and process-launch strategy on Android. Java is therefore **BLOCKED**. |
 | 3 | **Android native-library execution path is not yet device-verified.** The PHP CLI is now embedded in the APK's extracted native-library directory rather than downloaded to writable app storage. | `jniLibs/arm64-v8a/libphp.so`, `nativeLibraryDir` | Verify `execve` succeeds on supported Android API levels and OEM devices. |
 | 4 | **Playit Android execution remains unverified.** The current downloader resolves release assets from metadata and attempts an execution check, but Android/Bionic compatibility and W^X policy have not been proven on a device. | `RuntimeManager.downloadPlayitAgent()` | Validate the actual ARM64 release asset and launch path; keep Playit optional and temporary, not the final MineHost network. |
-| 5 | **Download supply-chain policy needs a final audit.** The current implementation resolves release metadata and compares a published SHA-256 digest when available; version pinning, signature/provenance policy and fallback behaviour still need review. | `RuntimeManager.downloadFileWithProgress()` | Define supported versions and require trusted integrity metadata before promoting runtime assets. |
+| 5 | **Download supply-chain policy is partially hardened.** Axolotl-PM release tag, asset name, canonical URL and published SHA-256 are pinned in source; the downloaded PHAR and every launch-time PHAR are checked against the pinned digest. Other downloads (including Playit and Paper) still accept optional upstream digests and need separate policy review. | `RuntimeManager.downloadFileWithProgress()`, `BedrockRuntimeContract` | Extend the same pinned integrity policy to every executable/runtime component; assess signed provenance. |
 | 6 | **No physical-device or real-client test has been done**, so every end-to-end claim is unproven. | n/a | Run the Bedrock acceptance test in the brief (Part 5.5). |
 
 ## Changes made in this audit (not yet built or run)
@@ -95,7 +95,7 @@ Still **NOT READY**. Blockers 1 to 3 (PHP, Java, executing binaries on Android 1
 
 | Area | Now |
 |---|---|
-| Download integrity (blocker 5) | `RuntimeManager` resolves real release assets and verifies published SHA-256 when one exists. Asset names were not confirmed by a run. |
+| Download integrity (blocker 5) | Axolotl-PM PHAR tag, asset name, canonical URL and SHA-256 are hard-pinned; launch verifies the on-disk PHAR. PHP module presence is checked at startup against the Axolotl-PM required set. |
 | EULA | Consent dialog, stored consent (Room migration 1 to 2), Java never starts without it. |
 | Tunnel state model | Separate states and health facts, protocol-aware probes (UDP/TCP), supervised restart with backoff, redacted logs. Playit output formats are assumed (`TunnelSupportTest`). |
 | Players | Online list from parsed join/leave lines (`PlayerTrackerTest`, formats assumed); commands need an ONLINE server and a successful send. |

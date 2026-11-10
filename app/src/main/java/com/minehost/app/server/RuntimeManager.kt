@@ -261,18 +261,47 @@ class RuntimeManager @Inject constructor(
         val release = githubRelease("axolotl-pm/PocketMine-MP", selectedRelease).getOrElse {
             return@withContext Result.failure(IOException("Could not query Axolotl-PM releases: ${it.message}", it))
         }
-        val asset = release.assets.firstOrNull { it.name == "PocketMine-MP.phar" }
-            ?: return@withContext Result.failure(IOException("Release ${release.tagName} has no PocketMine-MP.phar asset."))
+        val asset = release.assets.firstOrNull { it.name == BedrockRuntimeContract.PHAR_ASSET }
+            ?: return@withContext Result.failure(IOException("Release ${release.tagName} has no ${BedrockRuntimeContract.PHAR_ASSET} asset."))
+
+        val contractError = BedrockRuntimeContract.validateReleaseMetadata(
+            tag = release.tagName,
+            assetName = asset.name,
+            assetUrl = asset.url,
+            publishedDigest = asset.digest
+        )
+        if (contractError != null) {
+            return@withContext Result.failure(IOException("Axolotl-PM release metadata failed the pinned integrity contract: $contractError"))
+        }
 
         val targetDir = File(baseEnginesDir, "bedrock").apply { mkdirs() }
         downloadFileWithProgress(
-            url = asset.url,
+            // Use the canonical pinned URL, not a mutable URL returned by release metadata.
+            url = BedrockRuntimeContract.PHAR_DOWNLOAD_URL,
             targetFile = File(targetDir, "PocketMine-MP.phar"),
             componentName = "Axolotl-PM ${release.tagName}",
             onProgress = onProgress,
-            expectedSha256 = sha256FromDigest(asset.digest),
+            expectedSha256 = BedrockRuntimeContract.PHAR_SHA256,
             version = release.tagName
         )
+    }
+
+    /** Verify an existing PHAR on every launch; presence and file size alone are insufficient. */
+    fun verifyPocketMinePhar(file: File): Result<Unit> = runCatching {
+        require(file.isFile && file.length() > 100_000L) { "Axolotl-PM PHAR is missing or unexpectedly small." }
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        val actual = digest.digest().joinToString("") { "%02x".format(it) }
+        check(actual.equals(BedrockRuntimeContract.PHAR_SHA256, ignoreCase = true)) {
+            "Axolotl-PM PHAR integrity check failed. Reinstall the Bedrock engine; the file was not trusted."
+        }
     }
 
     /**
