@@ -88,7 +88,10 @@ class BedrockEngine @Inject constructor(
 
         val env = mutableMapOf(
             "LD_LIBRARY_PATH" to context.applicationInfo.nativeLibraryDir,
-            "TMPDIR" to context.cacheDir.absolutePath
+            "TMPDIR" to context.cacheDir.absolutePath,
+            // PocketMine's bundled Android PHP build is intended to run without a host php.ini.
+            // This mirrors PMMP's start.sh behaviour when using its bundled PHP runtime.
+            "PHPRC" to ""
         )
 
         val managedProcess = ManagedServerProcess(
