@@ -28,7 +28,8 @@ data class BackupManifest(
     val createdAt: Long,
     val sizeBytes: Long,
     val checksumSha256: String,
-    val note: String? = null
+    val note: String? = null,
+    val includesServerIdentityKey: Boolean = false
 )
 
 @Singleton
@@ -61,7 +62,15 @@ class WorldBackupManager @Inject constructor(
             val targetZip = File(backupsDir, "$backupId.zip")
 
             AppLogger.i("WorldBackupManager", "Creating backup to: ${targetZip.absolutePath}")
-            val checksum = ZipUtils.zipDirectory(worldDir, targetZip, onProgress)
+            // NetherNet clients pin this private server identity key. Preserve it with the world
+            // so restores/migrations do not unexpectedly change the server identity.
+            val identityKey = File(worldManager.getServerDirectory(serverId), "nethernet.key")
+            val additionalFiles = if (identityKey.isFile) {
+                mapOf("__minehost/nethernet.key" to identityKey)
+            } else {
+                emptyMap()
+            }
+            val checksum = ZipUtils.zipDirectory(worldDir, targetZip, onProgress, additionalFiles)
 
             val manifest = BackupManifest(
                 backupId = backupId,
@@ -71,7 +80,8 @@ class WorldBackupManager @Inject constructor(
                 createdAt = System.currentTimeMillis(),
                 sizeBytes = targetZip.length(),
                 checksumSha256 = checksum,
-                note = note
+                note = note,
+                includesServerIdentityKey = additionalFiles.isNotEmpty()
             )
 
             // Write manifest alongside zip
@@ -155,6 +165,47 @@ class WorldBackupManager @Inject constructor(
                 return Resource.Error("The backup archive contains no world data. Your current world was not changed.")
             }
 
+            // Extract the optional NetherNet identity key from the archive metadata area. It must
+            // be restored beside the server data, not inside the world directory.
+            val metadataDir = File(tempDir, "__minehost")
+            val backupIdentityKey = File(metadataDir, "nethernet.key")
+            val serverDir = worldManager.getServerDirectory(backup.serverId)
+            val liveIdentityKey = File(serverDir, "nethernet.key")
+            val stagedIdentityKey = File(serverDir, ".nethernet.key.restore-new-$stamp")
+            val previousIdentityKey = File(serverDir, ".nethernet.key.restore-old-$stamp")
+            var identityKeyUpdated = false
+
+            if (backupIdentityKey.isFile) {
+                try {
+                    backupIdentityKey.copyTo(stagedIdentityKey, overwrite = true)
+                    if (liveIdentityKey.isFile) {
+                        liveIdentityKey.copyTo(previousIdentityKey, overwrite = true)
+                    }
+                    if (liveIdentityKey.exists() && !liveIdentityKey.delete()) {
+                        throw IOException("Could not stage the existing NetherNet identity key.")
+                    }
+                    if (!stagedIdentityKey.renameTo(liveIdentityKey)) {
+                        if (previousIdentityKey.isFile) {
+                            previousIdentityKey.copyTo(liveIdentityKey, overwrite = true)
+                        }
+                        throw IOException("Could not install the restored NetherNet identity key.")
+                    }
+                    liveIdentityKey.setReadable(false, false)
+                    liveIdentityKey.setWritable(false, false)
+                    liveIdentityKey.setReadable(true, true)
+                    liveIdentityKey.setWritable(true, true)
+                    identityKeyUpdated = true
+                } catch (e: Exception) {
+                    stagedIdentityKey.delete()
+                    previousIdentityKey.delete()
+                    FileUtils.deleteDirectoryRecursively(tempDir)
+                    return Resource.Error("Could not restore the NetherNet server identity key: ${e.message}. Your world was not changed.", e)
+                }
+            }
+
+            // Metadata is now staged outside the world tree; never restore it into the world itself.
+            metadataDir.deleteRecursively()
+
             // Step 3: Safety snapshot of the existing world. If it cannot be made, abort.
             if (worldDir.exists() && worldDir.listFiles()?.isNotEmpty() == true) {
                 val preRestoreZip = File(
@@ -173,8 +224,21 @@ class WorldBackupManager @Inject constructor(
             // Step 4: Swap with rollback (see WorldSwap). The old world is only deleted after the
             // verified replacement is in place.
             when (val swap = WorldSwap.replace(worldDir, tempDir, oldDir, FileUtils::deleteDirectoryRecursively)) {
-                is WorldSwap.Result.Failed -> return Resource.Error(swap.message)
-                WorldSwap.Result.Success -> Unit
+                is WorldSwap.Result.Failed -> {
+                    if (identityKeyUpdated) {
+                        liveIdentityKey.delete()
+                        if (previousIdentityKey.isFile) {
+                            previousIdentityKey.copyTo(liveIdentityKey, overwrite = true)
+                        }
+                    }
+                    stagedIdentityKey.delete()
+                    previousIdentityKey.delete()
+                    return Resource.Error(swap.message)
+                }
+                WorldSwap.Result.Success -> {
+                    previousIdentityKey.delete()
+                    stagedIdentityKey.delete()
+                }
             }
 
             AppLogger.i("WorldBackupManager", "World restored successfully from: $backupId")
