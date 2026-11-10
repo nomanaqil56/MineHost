@@ -29,7 +29,7 @@ This tracker distinguishes source implementation from verified operation. Update
 | Java ARM64 JVM | Missing | Blocked | Must prove Android/Bionic compatibility. |
 | Geyser/Floodgate | Configuration groundwork | Not runtime verified | Cross-play is unavailable until Java runtime and bridge work. |
 | Runtime downloads | Present | Unit/source review only | Version and integrity policy needs hardening for executable assets. |
-| Playit provider | Present, experimental | Not external-network verified | Third-party dependency; not intended production architecture. |
+| Playit provider | Legacy source retained but unbound | Not external-network verified | App binds an unavailable MineHost provider; Playit setup UI and automatic launch were removed. |
 | MineHost control plane | Not implemented | Not tested | Host registration/session coordination/relay allocation absent. |
 | MineHost-owned TCP/UDP relays | Not implemented | Not tested | Separate Java TCP and Bedrock transport implementation required. |
 | Direct public connectivity/NAT traversal | Not implemented | Not tested | Requires protocol-specific validation. |
@@ -56,6 +56,10 @@ This tracker distinguishes source implementation from verified operation. Update
 - Tunnel status separates authentication/start/reconnect/error states and redacts sensitive log content.
 - Player counts are derived from parsed server logs rather than hard-coded.
 - Release builds do not silently fall back to the debug signing key.
+- Bedrock/Paper installation now requires a packaged executable runtime; missing PHP/JVM causes a clear install failure rather than a false installed state.
+- New server profiles default to local-only; old profiles cannot silently start Playit.
+- The diagnostics screen disables engine package downloads when the required runtime is absent.
+- Thermal diagnostics initialize the current platform thermal state and no longer claim automatic throttling/world saves that are not implemented.
 
 These safeguards still need Android build, device, and real-server verification.
 
