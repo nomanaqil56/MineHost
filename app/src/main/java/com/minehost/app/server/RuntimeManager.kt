@@ -208,15 +208,17 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Downloads PocketMine-MP.phar from the latest official pmmp/PocketMine-MP release.
-     * The download is checked against the checksum GitHub publishes for the asset when available.
+     * Downloads the Axolotl-PM PocketMine-MP-compatible server archive.
+     * The original pmmp/PocketMine-MP repository was archived in July 2026;
+     * Axolotl-PM is the actively maintained continuation. The download is checked
+     * against the release asset's published SHA-256 digest when available.
      */
     suspend fun downloadPocketMinePhar(
         onProgress: (Float, String) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
-        onProgress(0.02f, "Looking up the latest PocketMine-MP release...")
-        val release = latestGithubRelease("pmmp/PocketMine-MP").getOrElse {
-            return@withContext Result.failure(IOException("Could not query PocketMine-MP releases: ${it.message}", it))
+        onProgress(0.02f, "Looking up the latest Axolotl-PM Bedrock server release...")
+        val release = latestGithubRelease("axolotl-pm/PocketMine-MP").getOrElse {
+            return@withContext Result.failure(IOException("Could not query Axolotl-PM releases: ${it.message}", it))
         }
         val asset = release.assets.firstOrNull { it.name == "PocketMine-MP.phar" }
             ?: return@withContext Result.failure(IOException("Release ${release.tagName} has no PocketMine-MP.phar asset."))
@@ -225,7 +227,7 @@ class RuntimeManager @Inject constructor(
         downloadFileWithProgress(
             url = asset.url,
             targetFile = File(targetDir, "PocketMine-MP.phar"),
-            componentName = "PocketMine-MP ${release.tagName}",
+            componentName = "Axolotl-PM ${release.tagName}",
             onProgress = onProgress,
             expectedSha256 = sha256FromDigest(asset.digest),
             version = release.tagName
