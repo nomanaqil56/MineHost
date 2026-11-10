@@ -1,109 +1,178 @@
-# MineHost — Networking Architecture & Worldwide Connectivity
+# MineHost — Networking Architecture
 
-## 1. Networking Overview
+**Status:** Partly implemented. This document distinguishes current source from the target architecture. The target is MineHost-operated connectivity; the current app still contains a Playit-specific provider and has no MineHost relay service.
 
-MineHost's networking subsystem provides low-latency, worldwide multiplayer connectivity without requiring router access, UPnP, or public IPv4 addresses.
+See [MINEHOST_MASTER_ROADMAP.md](../MINEHOST_MASTER_ROADMAP.md) for product principles and release gates.
 
-```mermaid
-graph LR
-    subgraph ClientLayer ["Player Devices"]
-        BedrockClient["Bedrock Client\n(Android / iOS / Win)"]
-        JavaClient["Java Client\n(PC / Mac / Linux)"]
-    end
+## 1. Product requirement
 
-    subgraph InternetLayer ["Public Internet"]
-        AnycastDNS["Anycast Edge\n(*.joinmc.link / *.ply.gg)"]
-    end
+The Minecraft server process and world stay on the user's Android device. MineHost's network infrastructure only coordinates connections and forwards packets when a direct path is unavailable. It must never become a hidden cloud game-server host.
 
-    subgraph RelayLayer ["Tunnel Infrastructure"]
-        PlayitRelay["Playit.gg Anycast Node\n(UDP + TCP Forwarder)"]
-    end
+Required user experience:
+- Host over Wi-Fi or mobile data.
+- Same-LAN play works without MineHost cloud services.
+- Remote players use ordinary compatible Minecraft clients; they do not need MineHost installed.
+- Prefer the shortest viable direct path.
+- Fall back to a MineHost-operated relay when direct connectivity is impossible.
+- Show truthful local, tunnel and remote reachability states.
+- A control-plane outage must not stop a running local server.
 
-    subgraph HostDevice ["Android Host Device (MineHost)"]
-        TunnelAgent["Playit Agent\n(libplayit.so)"]
-        LocalLoopback["Local Ports\n(UDP 19132 / TCP 25565)"]
-        ServerProcess["Minecraft Server Process\n(PM5 / PNX / Paper)"]
-    end
+## 2. Target connection priority
 
-    BedrockClient -->|UDP 19132| AnycastDNS
-    JavaClient -->|TCP 25565| AnycastDNS
-    AnycastDNS --> PlayitRelay
-    PlayitRelay <==|Encrypted Control & Data Tunnel|=> TunnelAgent
-    TunnelAgent --> LocalLoopback
-    LocalLoopback --> ServerProcess
+1. **LAN:** Connect directly to the host's local address. No relay or account required.
+2. **Reachable public address:** Use direct IPv6 or public IPv4 only when reachable and safely configured.
+3. **NAT traversal:** Attempt direct UDP traversal where the actual protocol and network support it. STUN/ICE concepts are useful, but generic WebRTC ICE is not a drop-in Minecraft transport.
+4. **MineHost relay:** Allocate a MineHost-operated relay only if a direct path cannot be established.
+
+Do not force all players through a central relay. A relay adds an extra network leg, processing/queueing and bandwidth cost. It can improve a poor route, but it cannot remove physical distance or a weak host uplink.
+
+## 3. Transport adapters
+
+Java and Bedrock must not be treated as one generic tunnel.
+
+### Java Edition
+- Gameplay uses TCP.
+- Requires a TCP reverse tunnel/proxy or a separately proven TCP traversal method.
+- Preserve ordered byte-stream semantics.
+- Measure handshake and end-to-end latency; avoid excessive buffering.
+- UDP hole punching alone does not solve Java TCP reachability.
+
+### Bedrock Edition
+- Transport is version-dependent. Track the selected server engine's supported protocol and the actual client transport.
+- Older versions commonly use RakNet over UDP; do not assume this is the only current transport.
+- Probe the real protocol, not just whether UDP port 19132 is open.
+- Preserve datagram boundaries and size limits where the selected transport requires them.
+- Verify signaling and gameplay sockets independently.
+- A RakNet readiness probe only proves compatibility with a RakNet-speaking endpoint; it must not be treated as a universal current Bedrock probe.
+
+### Java + Bedrock cross-play
+Geyser introduces a Bedrock-facing transport and a Java TCP connection to the backend server. Both legs need correct forwarding and real-client testing. A generated Geyser config is not evidence that cross-play works.
+
+## 4. Target architecture
+
+```text
+Java / Bedrock client
+        |
+        +---- LAN / direct public path ----------------------+
+        |                                                    |
+        +---- direct NAT traversal (where supported) -------+
+        |                                                    |
+        +---- MineHost regional relay (fallback)             |
+                                                             |
+                                                     Android host agent
+                                                             |
+                                                     Local server port
+                                                             |
+                                                 Minecraft process on phone
+
+MineHost control plane:
+  host registration, short-lived credentials, session negotiation,
+  relay discovery/allocation, health and abuse controls.
+
+MineHost data plane:
+  self-operated TCP/UDP forwarding nodes. No Minecraft simulation,
+  world storage or game-server hosting.
 ```
 
----
+## 5. Wi-Fi and cellular
 
-## 2. Protocol Requirements
+Use Android `ConnectivityManager` and `NetworkCallback` to observe available networks and changes.
 
-### 2.1 Minecraft Bedrock Edition (UDP / RakNet)
-- Protocol: RakNet over UDP.
-- Default local port: `19132`.
-- Packet characteristics: Connectionless UDP datagrams carrying RakNet reliability headers, ACK/NACK frames, and split packets.
-- Tunnel requirement: Tunnel agent must buffer datagram boundaries accurately without dropping MTU payload sizes (~1400 bytes).
+- Support both Wi-Fi and cellular.
+- Choose using validated internet, measured quality, upload capacity, packet loss, jitter, policy and data cost—not a hard-coded Wi-Fi preference.
+- Distinguish LAN availability from public internet availability.
+- Detect CGNAT and IPv6 conditions where possible.
+- On network change, rebind/recreate the host tunnel, verify the new route, update the endpoint and report whether clients must reconnect.
+- Do not claim seamless TCP session migration. A change of network often changes NAT mappings and source addresses.
+- Do not claim Wi-Fi/cellular bandwidth bonding unless a multipath transport is actually implemented and tested.
+- Warn users before high mobile-data usage.
 
-### 2.2 Minecraft Java Edition (TCP)
-- Protocol: TCP streaming protocol.
-- Default local port: `25565`.
-- Packet characteristics: Connection-oriented byte stream with VarInt frame length prefixing.
-- Tunnel requirement: TCP socket proxying with low buffering latency to prevent tick lag.
+## 6. MineHost relay and control plane (not yet implemented)
 
----
+The production system should be operated by MineHost.
 
-## 3. Tunnel Provider Abstraction (`TunnelProvider`)
+### Control plane
+- Host registration and device identity.
+- Short-lived scoped credentials.
+- Connection/session negotiation.
+- Relay discovery and allocation.
+- Endpoint lifecycle and health reporting.
+- Rate limits, abuse detection and relay quotas.
+- Redundant instances and minimal durable state.
+- Must not carry the Minecraft gameplay data path unless explicitly designed for that purpose.
 
-The networking subsystem defines a unified interface for multiple tunnel backends:
+### Data plane
+- MineHost-operated TCP and UDP relays.
+- Authenticated and encrypted host-to-relay channel.
+- Protocol-correct forwarding.
+- Backpressure, bounded buffers and resource limits.
+- Per-session accounting and abuse controls.
+- Health/capacity telemetry.
+- Regional nodes added only after measured demand and cost justification.
 
-```kotlin
-interface TunnelProvider {
-    val id: String
-    val name: String
-    val status: StateFlow<TunnelStatus>
-    val publicEndpoint: StateFlow<PublicEndpoint?>
+### Route selection
 
-    suspend fun initialize(context: Context): Result<Unit>
-    suspend fun start(localPort: Int, protocol: NetworkProtocol): Result<PublicEndpoint>
-    suspend fun stop(): Result<Unit>
-    suspend fun reconnect(): Result<PublicEndpoint>
-    fun getDiagnosticLogs(): List<String>
-}
-```
+Select by measured end-to-end quality, not geography alone. Candidate inputs:
+- Client-to-relay and relay-to-host RTT.
+- End-to-end protocol probe.
+- Jitter and packet loss.
+- Relay queue depth, CPU and bandwidth.
+- Host upload capacity and network type.
+- Regional/ISP routing.
 
-### 3.1 Playit.gg Implementation
-- **Binary:** Native Rust agent compiled for `aarch64-linux-android`, loaded as `libplayit.so`.
-- **Claim Protocol:**
-  - Upon first launch without a claim token, the agent generates an auth keypair and outputs a unique claim URL (`https://playit.gg/claim/...`).
-  - MineHost intercepts this URL via stdout parser, presents a direct clickable button in the UI or auto-claims via the Playit REST API when user provides an API token.
-- **Tunnels Configured:**
-  - Bedrock: `udp/19132` -> Public endpoint (e.g. `stone-golem.gl.joinmc.link:38491`).
-  - Java: `tcp/25565` -> Public endpoint (e.g. `stone-golem.gl.joinmc.link:25565`).
+A relay close to the player may still be a poor route to the host. Test candidate routes and use measured results.
 
-### 3.2 Custom Self-Hosted Relay (Rathole / FRP)
-- Optional alternative provider for advanced users hosting their own VPS relay.
-- Uses token authentication, encrypting traffic with Noise protocol / TLS.
+## 7. Current repository implementation
 
----
+Present in source:
+- `TunnelProvider` abstraction.
+- `TunnelManager` and tunnel health model.
+- `PlayitTunnelProvider` as a third-party provider adapter.
+- `LocalNetwork` discovery.
+- `ConnectionMonitor` with TCP Java and UDP Bedrock-style probes.
+- Reconnect policy and Playit output parser tests.
 
-## 4. Connection State & Diagnostics
+Not implemented:
+- MineHost control-plane service.
+- MineHost relay server or Android relay client.
+- Direct public path negotiation.
+- Production NAT traversal.
+- Region selection or route optimization.
+- Independent public address allocation.
+- Real international gameplay tests.
 
-MineHost maintains distinct statuses for the server and the networking tunnel:
+The Playit adapter is currently a development/compatibility integration only. It must not be described as MineHost-owned infrastructure or treated as a mandatory final dependency. Its Android executable path and live claim/join flow are unverified.
 
-| Server State | Tunnel State | UI Display | User Action |
-| :--- | :--- | :--- | :--- |
-| `ONLINE` | `CONNECTED` | **Active & Reachable Worldwide** (Green badge) | Share public address & port |
-| `ONLINE` | `CONNECTING` | **Local Server Online, Tunnel Connecting...** (Yellow badge) | Wait for endpoint assignment |
-| `ONLINE` | `DISCONNECTED` | **Local Only / Offline Relay** (Orange badge) | Check internet, press Reconnect Tunnel |
-| `STOPPED` | `DISCONNECTED` | **Server Offline** (Grey badge) | Press Start Server |
-| `ONLINE` | `ERROR` | **Tunnel Error: <reason>** (Red badge) | Inspect networking diagnostics |
+## 8. Observability
 
-### Health Check & Auto-Reconnection
-- `ConnectionMonitor` continuously pings the local server port via UDP/TCP to confirm engine health.
-- Measures round-trip ping time to the tunnel edge relay every 30 seconds.
-- Automatically triggers exponential backoff reconnection if the device switches networks (e.g. Wi-Fi to 5G cellular).
+Track separate measurements:
+- Local server protocol readiness.
+- Tunnel agent process health.
+- Authentication/claim state.
+- Endpoint assignment.
+- Remote protocol reachability.
+- End-to-end RTT (median and p95), jitter and packet loss.
+- Upload/download throughput and data volume.
+- Reconnect attempts and time-to-recovery.
+- Server TPS/MSPT separately from network metrics.
 
+A public hostname being assigned does not prove that a player can join. A local port responding does not prove public reachability. A TCP connect does not prove Bedrock UDP gameplay works.
 
+## 9. Network acceptance tests
 
-## Update: current tunnel behaviour (uncompiled, untested on a device)
+- [ ] Same-LAN Bedrock client join.
+- [ ] Same-LAN Java client join.
+- [ ] Direct public IPv6 path where available.
+- [ ] Direct public IPv4 path where available.
+- [ ] Wi-Fi behind CGNAT.
+- [ ] Cellular behind carrier CGNAT.
+- [ ] MineHost relay TCP path for Java.
+- [ ] MineHost relay Bedrock path for each supported transport/version.
+- [ ] Geyser dual-leg path, if cross-play is advertised.
+- [ ] Host Wi-Fi-to-cellular network change and recovery.
+- [ ] Relay outage and failover.
+- [ ] Control-plane outage while local server and LAN play continue.
+- [ ] International real-client play from at least two regions.
+- [ ] Record p50/p95 RTT, jitter, packet loss, reconnect time, throughput and relay cost.
 
-`TunnelStatus` now has DISCONNECTED, INSTALLING, AUTHENTICATING (claim required), STARTING, CONNECTED, RECONNECTING, ERROR and STOPPING. CONNECTED is shown only after the agent reports an endpoint; the app then probes the local server and the public endpoint with the real protocol (RakNet ping for Bedrock, Server List Ping for Java) and shows "Unreachable" if the probe fails. Restarts use backoff 5/10/20/40/60 s, at most 5 attempts. Agent output formats are assumed, not captured. LAN reachability does not imply internet reachability.
+**No zero-lag or universal-uptime promise:** the network is bounded by distance, ISP routing, radio conditions, host upload speed, relay capacity and the phone's processing/thermal limits.
