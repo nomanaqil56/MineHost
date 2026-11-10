@@ -146,7 +146,7 @@ fun DiagnosticsScreen(
                         title = "Bedrock Engine (PocketMine-MP)",
                         installed = state.isPocketMineInstalled,
                         onDownload = { viewModel.downloadPocketMine() },
-                        enabled = !state.isDownloading
+                        enabled = !state.isDownloading && state.isPhpRuntimeAvailable
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -163,7 +163,7 @@ fun DiagnosticsScreen(
                         title = "Java Engine (PaperMC 1.20.4)",
                         installed = state.isPaperInstalled,
                         onDownload = { viewModel.downloadPaper() },
-                        enabled = !state.isDownloading
+                        enabled = !state.isDownloading && state.isJavaRuntimeAvailable
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
