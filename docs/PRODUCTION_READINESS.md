@@ -12,7 +12,7 @@ MineHost has a well-organised app shell (UI, database, services, backups), but *
 
 The original audit below identified several false-positive runtime checks. Follow-up commits on `main` have hardened those checks:
 
-- `RuntimeManager.getPhpExecutable()` no longer treats `libphp.so` as a PHP CLI command. It accepts only an executable candidate under the managed PHP runtime directory.
+- `RuntimeManager.getPhpExecutable()` accepts only the pinned static ARM64 PHP CLI packaged by Gradle into `ApplicationInfo.nativeLibraryDir/libphp.so`; it rejects writable app-data candidates and validates the ELF header.
 - `RuntimeManager.getJavaExecutable()` now requires an actual `bin/java`-style CLI launcher. `libjava.so` alone is no longer accepted.
 - `BedrockEngine` and `JavaEngine` now return explicit runtime-blocked errors instead of attempting to execute those shared libraries.
 - Playit detection no longer treats `libplayit.so` as a standalone agent executable.
@@ -23,7 +23,7 @@ The original audit below identified several false-positive runtime checks. Follo
 - The Axolotl-PM PHAR downloader is pinned to release 5.51.1 rather than an unqualified latest release.
 - An Android CI workflow has been added for unit tests, lint and debug APK assembly.
 
-**Verification status:** the PHP archive inspection and QEMU CLI/module/configuration smoke test have passed in CI. The APK packaging integration is committed but must pass the next Android Gradle CI run. No physical Android process launch, Bedrock server start, or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
+**Verification status (2026-11-10):** the pinned PHP archive checksum, AArch64 ELF shape, PHP 8.4.27 CLI, required modules and bundled configuration passed the QEMU ARM64 CI smoke test. The Android unit-test and lint steps passed, and Gradle successfully assembled the debug APK with the packaged runtime. A follow-up CI assertion now checks that `lib/arm64-v8a/libphp.so` and `assets/php/php.ini` are actually present in the APK and that the CLI payload is at least 5 MiB; that assertion is pending its first run. No physical Android process launch, Bedrock server start, or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
 
 
 
