@@ -51,9 +51,9 @@ Grant only the permissions required by the app. Review notification, battery-opt
 
 ## 5. Current runtime limitation
 
-The Diagnostics screen may report that PHP or Java runtime components are unavailable. Do not assume downloading PocketMine-MP.phar or Paper.jar alone is sufficient:
-- PocketMine requires a working Android ARM64 PHP runtime and valid launcher.
-- Paper requires a complete Android-compatible ARM64 JVM and launcher.
+The Diagnostics screen may report that PHP or Java runtime components are unavailable. Do not assume downloading a server PHAR/JAR alone is sufficient:
+- The leading Bedrock proof-of-concept candidate is VanillaMine, which requires a current Android ARM64 PHP 8.4 runtime with matching extensions and an Android ARM64 `pm-nethernet` helper. Altay is a secondary candidate; its PHP runtime and licence obligations need separate validation.
+- The Java proof-of-concept candidate is Paper 1.21.11 on a complete Android-compatible ARM64 Java 21 runtime. ViaVersion/Geyser/Floodgate are not yet operationally integrated.
 - A desktop Linux executable or a file named `libphp.so` / `libjava.so` is not automatically runnable on Android.
 
 Do not proceed to gameplay acceptance testing until the selected runtime is validated on the target device.

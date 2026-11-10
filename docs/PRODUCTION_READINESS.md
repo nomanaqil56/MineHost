@@ -97,7 +97,7 @@ Source: https://developer.android.com/develop/background-work/services/fgs/servi
 
 These are code-review findings, not device-confirmed failures:
 
-- `ServerController.stopServer()` currently returns success when `activeProcessHandle` is null. If a stop is requested while the server is still STARTING and the process handle has not yet been assigned, the request may do nothing while reporting success. The lifecycle needs an explicit cancellable start job/state transition.
+- `ServerController` now serializes start/stop with a lifecycle mutex and reconciles a missing process handle instead of silently reporting success. The change compiles in CI, but start/stop races and service recovery still need physical-device testing.
 - `RuntimeManager.getPlayitExecutable()` can return a binary under app-private tunnel storage and calls `setExecutable(true)`; this path needs a real Android execution test.
 - `RuntimeManager.getPhpExecutable()` and `JavaEngine` use shared-object-style names as process paths. Validate actual ELF launchability rather than file presence.
 - Live backup uses a fixed settle delay after save commands; it does not have a server-side acknowledgement that the flush completed. Large worlds need a stronger completion strategy or a clearly documented best-effort status.

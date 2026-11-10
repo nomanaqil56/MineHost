@@ -23,8 +23,8 @@ Never promote a feature to a higher verification level without a reproducible te
 | Kotlin/Compose application shell | SOURCE PRESENT | ANDROID BUILD VERIFIED | Navigation, screens, MVVM, Hilt and Room exist; debug APK assembled in CI; no physical-device test |
 | Server dashboard/create/detail/console | SOURCE PRESENT | Not device verified | UI and ViewModels exist |
 | Server engine abstraction | SOURCE PRESENT | Not end-to-end verified | Engine registry and lifecycle code exist |
-| PocketMine adapter | SOURCE PRESENT, runtime BLOCKED | Not device verified | PHP launch path must be validated on ARM64 Android |
-| Paper adapter | SOURCE PRESENT, runtime BLOCKED | Not device verified | A complete Android-compatible JVM is absent/unverified |
+| Legacy PocketMine adapter | SOURCE PRESENT, NOT CURRENT | Not device verified | Original upstream is archived; replace/retire after VanillaMine/Altay proof-of-concept selection |
+| Paper adapter | SOURCE PRESENT, runtime BLOCKED | Not device verified | Test Paper 1.21.11 with an Android-compatible Java 21 runtime |
 | Geyser configuration | PARTIAL SOURCE | Not operational | No proven Java runtime + Geyser process; cross-play must remain unavailable |
 | Runtime downloads | SOURCE PRESENT | Pure logic only where tested | Release asset resolution and checksum validation exist; executable launchability remains unproven |
 | Local network discovery | SOURCE PRESENT | 4 pure-Kotlin tests reported | No physical LAN client join recorded |

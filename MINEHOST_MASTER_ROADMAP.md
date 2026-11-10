@@ -285,16 +285,18 @@ These are proposed gates, not current results or universal guarantees.
 
 ## 11. Current known baseline (2026-11-10)
 
-Based on source inspection of the repository's `main` branch at the time this document was written:
+Based on source inspection of branch `work/production-readiness` at commit `d02fa9c1909886cdad1ca1e008eb32d391c2f292`:
 
 - The Android application has a Kotlin/Compose/Room/Hilt foundation and server-management screens.
 - Engine adapters, runtime download management, readiness probes, backup/restore safeguards, thermal/wake-lock services and a Playit tunnel adapter exist in source.
-- The repository's latest development notes report 40 pure-Kotlin tests run outside Gradle with 40 passing.
-- The latest development notes explicitly say Android-dependent code has not been compiled in that environment and no physical-device or real Minecraft-client test has been completed.
-- PHP and Java runtime execution on Android remains an unproven critical blocker. A file named `libphp.so` or `libjava.so` must not be assumed to be a valid process executable.
+- GitHub Actions run [42753556848](https://github.com/nomanaqil56/MineHost/actions/runs/42753556848) passed `testDebugUnitTest`, Android lint and debug APK assembly using API 36 / Android Gradle Plugin 8.13.2 / Gradle 8.13 / Kotlin 2.3.21.
+- The debug APK artifact was uploaded as `minehost-debug-apk` (68.9 MB). This proves the Android debug build only; it does not prove native runtime launch or gameplay.
+- PHP and Java runtime execution on Android remains unproven. A file named `libphp.so` or `libjava.so` must not be assumed to be a valid process executable.
+- VanillaMine is the leading Bedrock proof-of-concept candidate; current Android PHP and pm-nethernet builds still need to be produced and tested. Altay is a secondary candidate with additional GPL-3.0 review.
 - The current network provider is Playit-specific. MineHost-owned relay/control-plane infrastructure and direct NAT traversal are not implemented.
-- Geyser cross-play is not currently operational; configuration scaffolding is not a working bridge.
-- No production readiness claim is justified until the exit gates above are evidenced.
+- Geyser cross-play is not operational; configuration scaffolding is not a working bridge.
+- No physical Android device, real Minecraft client, external network or international gameplay test has been completed.
+- The branch has not been merged to `main`. No production readiness claim is justified until the exit gates above are evidenced.
 
 Update this section whenever new tests are actually run. Record the commit, device model, Android version, engine/runtime version, test network, client version and result. Do not promote planned or source-only work to “tested.”
 
