@@ -173,7 +173,9 @@ class ManagedServerProcess(
         }
 
         cleanupStreams()
-        return@withContext true
+        // Report whether the requested graceful stop actually completed. The caller uses
+        // this value for truthful lifecycle logging and diagnostics.
+        return@withContext exited
     }
 
     override fun destroy() {
