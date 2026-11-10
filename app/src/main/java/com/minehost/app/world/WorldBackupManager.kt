@@ -5,6 +5,7 @@ import com.minehost.app.core.common.Resource
 import com.minehost.app.core.logging.AppLogger
 import com.minehost.app.core.util.FileUtils
 import com.minehost.app.core.util.ZipUtils
+import com.minehost.app.server.ServerController
 import com.minehost.app.domain.model.BackupModel
 import com.minehost.app.domain.repository.BackupRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,7 +38,8 @@ data class BackupManifest(
 class WorldBackupManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val worldManager: WorldManager,
-    private val backupRepository: BackupRepository
+    private val backupRepository: BackupRepository,
+    private val serverController: ServerController
 ) {
     private val json = Json { prettyPrint = true }
 
@@ -55,65 +57,68 @@ class WorldBackupManager @Inject constructor(
         var manifestForCleanup: File? = null
         var manifestTempForCleanup: File? = null
         return try {
-            val worldDir = worldManager.getWorldDirectory(serverId, worldName)
-            if (!worldDir.exists()) {
-                return Resource.Error("World directory does not exist: ${worldDir.absolutePath}")
+            serverController.withWorldSavePaused(serverId) {
+                val worldDir = worldManager.getWorldDirectory(serverId, worldName)
+                if (!worldDir.exists()) {
+                    return@withWorldSavePaused Resource.Error("World directory does not exist: ${worldDir.absolutePath}")
+                }
+    
+                val backupsDir = worldManager.getBackupsDirectory(serverId)
+                val timestampStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val backupId = "backup_${serverId.take(8)}_${timestampStr}_${UUID.randomUUID().toString().take(8)}"
+                val targetZip = File(backupsDir, "$backupId.zip")
+                archiveForCleanup = targetZip
+    
+                AppLogger.i("WorldBackupManager", "Creating backup to: ${targetZip.absolutePath}")
+                // NetherNet clients pin this private server identity key. Preserve it with the world
+                // so restores/migrations do not unexpectedly change the server identity.
+                val identityKey = File(worldManager.getServerDirectory(serverId), "nethernet.key")
+                val additionalFiles = if (identityKey.isFile) {
+                    mapOf("__minehost/nethernet.key" to identityKey)
+                } else {
+                    emptyMap()
+                }
+                val checksum = ZipUtils.zipDirectory(worldDir, targetZip, onProgress, additionalFiles)
+    
+                val manifest = BackupManifest(
+                    backupId = backupId,
+                    serverId = serverId,
+                    serverName = serverName,
+                    worldName = worldName,
+                    createdAt = System.currentTimeMillis(),
+                    sizeBytes = targetZip.length(),
+                    checksumSha256 = checksum,
+                    note = note,
+                    includesServerIdentityKey = additionalFiles.isNotEmpty()
+                )
+    
+                // Write manifest alongside zip
+                val manifestFile = File(backupsDir, "$backupId.json")
+                val manifestTempFile = File(backupsDir, "$backupId.json.tmp")
+                manifestForCleanup = manifestFile
+                manifestTempForCleanup = manifestTempFile
+                manifestTempFile.writeText(json.encodeToString(manifest))
+                if (manifestFile.exists() || !manifestTempFile.renameTo(manifestFile)) {
+                    throw IOException("Could not atomically publish the backup manifest.")
+                }
+    
+                val model = BackupModel(
+                    id = backupId,
+                    serverId = serverId,
+                    serverName = serverName,
+                    worldName = worldName,
+                    archivePath = targetZip.absolutePath,
+                    sizeBytes = targetZip.length(),
+                    checksumSha256 = checksum,
+                    createdAt = manifest.createdAt,
+                    note = note
+                )
+                backupRepository.saveBackup(model)
+    
+                AppLogger.i("WorldBackupManager", "Backup created successfully: $backupId")
+                Resource.Success(model)
+    
             }
-
-            val backupsDir = worldManager.getBackupsDirectory(serverId)
-            val timestampStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val backupId = "backup_${serverId.take(8)}_${timestampStr}_${UUID.randomUUID().toString().take(8)}"
-            val targetZip = File(backupsDir, "$backupId.zip")
-            archiveForCleanup = targetZip
-
-            AppLogger.i("WorldBackupManager", "Creating backup to: ${targetZip.absolutePath}")
-            // NetherNet clients pin this private server identity key. Preserve it with the world
-            // so restores/migrations do not unexpectedly change the server identity.
-            val identityKey = File(worldManager.getServerDirectory(serverId), "nethernet.key")
-            val additionalFiles = if (identityKey.isFile) {
-                mapOf("__minehost/nethernet.key" to identityKey)
-            } else {
-                emptyMap()
-            }
-            val checksum = ZipUtils.zipDirectory(worldDir, targetZip, onProgress, additionalFiles)
-
-            val manifest = BackupManifest(
-                backupId = backupId,
-                serverId = serverId,
-                serverName = serverName,
-                worldName = worldName,
-                createdAt = System.currentTimeMillis(),
-                sizeBytes = targetZip.length(),
-                checksumSha256 = checksum,
-                note = note,
-                includesServerIdentityKey = additionalFiles.isNotEmpty()
-            )
-
-            // Write manifest alongside zip
-            val manifestFile = File(backupsDir, "$backupId.json")
-            val manifestTempFile = File(backupsDir, "$backupId.json.tmp")
-            manifestForCleanup = manifestFile
-            manifestTempForCleanup = manifestTempFile
-            manifestTempFile.writeText(json.encodeToString(manifest))
-            if (manifestFile.exists() || !manifestTempFile.renameTo(manifestFile)) {
-                throw IOException("Could not atomically publish the backup manifest.")
-            }
-
-            val model = BackupModel(
-                id = backupId,
-                serverId = serverId,
-                serverName = serverName,
-                worldName = worldName,
-                archivePath = targetZip.absolutePath,
-                sizeBytes = targetZip.length(),
-                checksumSha256 = checksum,
-                createdAt = manifest.createdAt,
-                note = note
-            )
-            backupRepository.saveBackup(model)
-
-            AppLogger.i("WorldBackupManager", "Backup created successfully: $backupId")
-            Resource.Success(model)
         } catch (e: Exception) {
             archiveForCleanup?.delete()
             manifestTempForCleanup?.delete()
@@ -133,6 +138,10 @@ class WorldBackupManager @Inject constructor(
         return try {
             val backup = backupRepository.getBackupById(backupId)
                 ?: return Resource.Error("Backup record not found: $backupId")
+
+            if (serverController.activeServerId.value == backup.serverId) {
+                return Resource.Error("Stop this server before restoring a backup. The active world must not be replaced while its process is running.")
+            }
 
             val archiveFile = File(backup.archivePath)
             if (!archiveFile.exists()) {
