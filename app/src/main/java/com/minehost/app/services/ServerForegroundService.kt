@@ -51,8 +51,10 @@ class ServerForegroundService : Service() {
         val notification = notificationManager.buildForegroundNotification(serverName, port, publicEndpoint)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Hosting a game server is not "data sync" (which Android 15 time-limits), so on
+            // Android 14+ declare only specialUse. Older versions have no specialUse type.
             val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             } else {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             }
@@ -61,7 +63,9 @@ class ServerForegroundService : Service() {
             startForeground(ServerNotificationManager.NOTIFICATION_ID, notification)
         }
 
-        return START_STICKY
+        // NOT sticky: if Android kills the app the server process dies with it, and a restarted
+        // service would show a "server running" notification for a server that no longer exists.
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {

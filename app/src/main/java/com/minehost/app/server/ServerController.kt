@@ -10,6 +10,7 @@ import com.minehost.app.core.logging.AppLogger
 import com.minehost.app.domain.model.PublicEndpoint
 import com.minehost.app.domain.model.ServerModel
 import com.minehost.app.domain.repository.LogRepository
+import com.minehost.app.domain.repository.PlayerRepository
 import com.minehost.app.domain.repository.ServerRepository
 import com.minehost.app.networking.TunnelManager
 import com.minehost.app.services.ServerForegroundService
@@ -38,6 +39,7 @@ class ServerController @Inject constructor(
     private val worldManager: WorldManager,
     private val serverRepository: ServerRepository,
     private val logRepository: LogRepository,
+    private val playerRepository: PlayerRepository,
     private val wakeLockManager: WakeLockManager,
     private val thermalManager: ThermalManager
 ) {
@@ -53,6 +55,11 @@ class ServerController @Inject constructor(
 
     private val _serverStatus = MutableStateFlow(ServerStatus.STOPPED)
     val serverStatus: StateFlow<ServerStatus> = _serverStatus.asStateFlow()
+
+    private val playerTracker = PlayerTracker()
+    private val _onlinePlayers = MutableStateFlow<Set<String>>(emptySet())
+    /** Players seen joining in the console of the running server (best effort; see [PlayerTracker]). */
+    val onlinePlayers: StateFlow<Set<String>> = _onlinePlayers.asStateFlow()
 
     private var activeProcessHandle: ServerProcessHandle? = null
     private var activeEngine: ServerEngine? = null
@@ -148,6 +155,15 @@ class ServerController @Inject constructor(
             // 6. Launch real engine process
             val processListener = object : ProcessListener {
                 override fun onLog(line: String) {
+                    if (playerTracker.onLine(line)) {
+                        val before = _onlinePlayers.value
+                        val after = playerTracker.names()
+                        _onlinePlayers.value = after
+                        // Remember players who just joined so the Players screen lists real players.
+                        (after - before).forEach { name ->
+                            scope.launch { playerRepository.recordJoin(serverId, name, System.currentTimeMillis()) }
+                        }
+                    }
                     scope.launch { log(serverId, line) }
                 }
 
@@ -296,6 +312,8 @@ class ServerController @Inject constructor(
         activeProcessHandle = null
         activeEngine = null
         _activeServerId.value = null
+        playerTracker.reset()
+        _onlinePlayers.value = emptySet()
 
         wakeLockManager.releaseLocks()
         thermalManager.stopListening()

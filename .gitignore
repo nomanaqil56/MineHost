@@ -12,3 +12,8 @@
 *.aab
 
 /.tools/
+
+# Signing material: never commit
+*.jks
+*.keystore
+keystore.properties

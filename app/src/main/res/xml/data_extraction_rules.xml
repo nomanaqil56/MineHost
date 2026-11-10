@@ -4,9 +4,11 @@
         <exclude domain="file" path="minehost/servers/" />
         <exclude domain="file" path="minehost/engines/" />
         <exclude domain="file" path="minehost/runtimes/" />
+        <exclude domain="file" path="minehost/tunnels/" />
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="minehost/" />
+        <exclude domain="file" path="minehost/tunnels/" />
     </device-transfer>
 </data-extraction-rules>
 

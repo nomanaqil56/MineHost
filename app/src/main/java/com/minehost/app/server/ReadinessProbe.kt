@@ -125,6 +125,21 @@ object ReadinessProbe {
         }
     }
 
+    // ---------------------------------------------------------------- round-trip timing
+
+    /** Round-trip time in ms of a successful RakNet ping, or null if the server did not answer. */
+    fun measureBedrockMs(host: String, port: Int, timeoutMs: Int = 2000): Long? =
+        timed { probeBedrock(host, port, timeoutMs) }
+
+    /** Round-trip time in ms of a successful Server List Ping, or null if the server did not answer. */
+    fun measureJavaMs(host: String, port: Int, timeoutMs: Int = 3000): Long? =
+        timed { probeJava(host, port, timeoutMs) }
+
+    private inline fun timed(probe: () -> Boolean): Long? {
+        val start = System.nanoTime()
+        return if (probe()) (System.nanoTime() - start) / 1_000_000L else null
+    }
+
     // ---------------------------------------------------------------- helpers
 
     fun writeVarInt(out: ByteArrayOutputStream, value: Int) {

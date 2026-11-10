@@ -18,6 +18,14 @@ interface ServerRepository {
     suspend fun updatePublicEndpoint(id: String, endpoint: PublicEndpoint?)
     suspend fun updateEulaConsent(id: String, accepted: Boolean)
     suspend fun deleteServer(id: String)
+
+    /**
+     * Run once when the app process starts. A server cannot still be running (or starting/stopping)
+     * if the app process was just created, so any such status left in the database is stale: it is
+     * marked CRASHED (it did not stop cleanly) and its public endpoint is cleared.
+     * Returns how many servers were corrected.
+     */
+    suspend fun reconcileAfterProcessRestart(): Int
 }
 
 interface WorldRepository {
@@ -38,6 +46,8 @@ interface PlayerRepository {
     fun getPlayersForServer(serverId: String): Flow<List<PlayerModel>>
     suspend fun savePlayer(player: PlayerModel)
     suspend fun deletePlayer(player: PlayerModel)
+    /** Records that [playerName] was seen joining; keeps any existing op/ban/whitelist flags. */
+    suspend fun recordJoin(serverId: String, playerName: String, joinedAt: Long)
     suspend fun setOp(serverId: String, playerName: String, isOp: Boolean)
     suspend fun setWhitelisted(serverId: String, playerName: String, isWhitelisted: Boolean)
     suspend fun setBanned(serverId: String, playerName: String, isBanned: Boolean)

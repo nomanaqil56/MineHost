@@ -21,6 +21,7 @@ import com.minehost.app.domain.repository.PlayerRepository
 import com.minehost.app.domain.repository.ServerRepository
 import com.minehost.app.domain.repository.WorldRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 import javax.inject.Inject
@@ -61,6 +62,16 @@ class ServerRepositoryImpl @Inject constructor(
 
     override suspend fun deleteServer(id: String) {
         serverDao.deleteServerById(id)
+    }
+
+    override suspend fun reconcileAfterProcessRestart(): Int {
+        val staleStatuses = setOf(ServerStatus.ONLINE, ServerStatus.STARTING, ServerStatus.STOPPING)
+        val stale = serverDao.getAllServers().first().filter { it.status in staleStatuses }
+        stale.forEach {
+            serverDao.updateStatus(it.id, ServerStatus.CRASHED)
+            serverDao.updatePublicEndpoint(it.id, null, null)
+        }
+        return stale.size
     }
 }
 
@@ -123,6 +134,22 @@ class PlayerRepositoryImpl @Inject constructor(
 
     override suspend fun deletePlayer(player: PlayerModel) {
         playerDao.deletePlayer(player.toEntity())
+    }
+
+    override suspend fun recordJoin(serverId: String, playerName: String, joinedAt: Long) {
+        val existing = playerDao.getPlayer(serverId, playerName)
+        if (existing != null) {
+            playerDao.updatePlayer(existing.copy(lastJoinedAt = joinedAt))
+        } else {
+            playerDao.insertPlayer(
+                PlayerEntity(
+                    id = UUID.randomUUID().toString(),
+                    serverId = serverId,
+                    name = playerName,
+                    lastJoinedAt = joinedAt
+                )
+            )
+        }
     }
 
     override suspend fun setOp(serverId: String, playerName: String, isOp: Boolean) {

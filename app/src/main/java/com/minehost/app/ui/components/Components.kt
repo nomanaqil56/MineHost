@@ -87,7 +87,10 @@ fun ServerStatusBadge(status: ServerStatus) {
 fun TunnelStatusBadge(status: TunnelStatus) {
     val (color, text) = when (status) {
         TunnelStatus.CONNECTED -> StatusGreen to "RELAY ONLINE"
-        TunnelStatus.CONNECTING -> StatusYellow to "CONNECTING..."
+        TunnelStatus.INSTALLING -> StatusYellow to "INSTALLING AGENT"
+        TunnelStatus.AUTHENTICATING -> StatusYellow to "CLAIM REQUIRED"
+        TunnelStatus.STARTING -> StatusYellow to "STARTING..."
+        TunnelStatus.STOPPING -> StatusYellow to "STOPPING..."
         TunnelStatus.RECONNECTING -> StatusYellow to "RECONNECTING"
         TunnelStatus.DISCONNECTED -> StatusGray to "RELAY OFFLINE"
         TunnelStatus.ERROR -> StatusRed to "RELAY ERROR"

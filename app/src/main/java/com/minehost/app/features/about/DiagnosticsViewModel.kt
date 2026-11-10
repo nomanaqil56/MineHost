@@ -40,7 +40,19 @@ data class DiagnosticsUiState(
     val thermalState: DeviceThermalState = DeviceThermalState.NONE,
     val downloadProgress: Float? = null,
     val downloadStatusMessage: String? = null,
-    val isDownloading: Boolean = false
+    val isDownloading: Boolean = false,
+    /** Why the last download/install failed, or null. Never swallowed. */
+    val downloadError: String? = null,
+    /** libphp.so (or another PHP) found. Without it a Bedrock server cannot start. */
+    val isPhpRuntimeAvailable: Boolean = false,
+    /** libjava.so found. Without it a Java server cannot start. */
+    val isJavaRuntimeAvailable: Boolean = false
+)
+
+private data class DownloadState(
+    val progress: Float? = null,
+    val message: String? = null,
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -52,7 +64,7 @@ class DiagnosticsViewModel @Inject constructor(
     val thermalManager: ThermalManager
 ) : ViewModel() {
 
-    private val _downloadState = MutableStateFlow<Pair<Float?, String?>>(null to null)
+    private val _downloadState = MutableStateFlow(DownloadState())
     private val _isDownloading = MutableStateFlow(false)
 
     val uiState: StateFlow<DiagnosticsUiState> = combine(
@@ -82,9 +94,12 @@ class DiagnosticsViewModel @Inject constructor(
             serverStatus = status,
             tunnelStatus = tunnel,
             thermalState = thermal,
-            downloadProgress = download.first,
-            downloadStatusMessage = download.second,
-            isDownloading = downloading
+            downloadProgress = download.progress,
+            downloadStatusMessage = download.message,
+            isDownloading = downloading,
+            downloadError = download.error,
+            isPhpRuntimeAvailable = runtimeManager.getPhpExecutable() != null,
+            isJavaRuntimeAvailable = java.io.File(context.applicationInfo.nativeLibraryDir, "libjava.so").exists()
         )
     }.stateIn(
         scope = viewModelScope,
@@ -92,37 +107,27 @@ class DiagnosticsViewModel @Inject constructor(
         initialValue = DiagnosticsUiState()
     )
 
-    fun downloadPocketMine() {
+    /** Runs one install at a time and reports the real outcome, including failures. */
+    private fun runDownload(label: String, block: suspend ((Float, String) -> Unit) -> Result<*>) {
+        if (_isDownloading.value) return
         viewModelScope.launch {
             _isDownloading.value = true
-            runtimeManager.downloadPocketMinePhar { progress, msg ->
-                _downloadState.value = progress to msg
+            _downloadState.value = DownloadState()
+            val result: Result<*> = try {
+                block { progress, msg -> _downloadState.value = DownloadState(progress, msg) }
+            } catch (e: Exception) {
+                Result.failure<Unit>(e)
             }
             _isDownloading.value = false
-            _downloadState.value = null to null
+            _downloadState.value = DownloadState(
+                error = result.exceptionOrNull()?.let { "$label failed: ${it.message ?: it.javaClass.simpleName}" }
+            )
         }
     }
 
-    fun downloadPlayitAgent() {
-        viewModelScope.launch {
-            _isDownloading.value = true
-            runtimeManager.downloadPlayitAgent { progress, msg ->
-                _downloadState.value = progress to msg
-            }
-            _isDownloading.value = false
-            _downloadState.value = null to null
-        }
-    }
+    fun downloadPocketMine() = runDownload("PocketMine-MP download") { cb -> runtimeManager.downloadPocketMinePhar(cb) }
 
-    fun downloadPaper() {
-        viewModelScope.launch {
-            _isDownloading.value = true
-            runtimeManager.downloadPaperJar("1.20.4") { progress, msg ->
-                _downloadState.value = progress to msg
-            }
-            _isDownloading.value = false
-            _downloadState.value = null to null
-        }
-    }
+    fun downloadPlayitAgent() = runDownload("Playit agent install") { cb -> runtimeManager.downloadPlayitAgent(cb) }
+
+    fun downloadPaper() = runDownload("Paper download") { cb -> runtimeManager.downloadPaperJar("1.20.4", cb) }
 }
-

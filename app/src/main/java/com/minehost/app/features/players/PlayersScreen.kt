@@ -3,6 +3,7 @@ package com.minehost.app.features.players
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -57,6 +58,7 @@ fun PlayersScreen(
     onNavigateBack: () -> Unit
 ) {
     val players by viewModel.players.collectAsState()
+    val message by viewModel.message.collectAsState()
 
     Scaffold(
         containerColor = DarkBackground,
@@ -77,6 +79,17 @@ fun PlayersScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            message?.let { text ->
+                Text(
+                    text = text,
+                    color = StatusYellow,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable { viewModel.dismissMessage() }
+                )
+            }
             if (players.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),

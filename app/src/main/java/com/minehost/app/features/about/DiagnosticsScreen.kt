@@ -167,6 +167,23 @@ fun DiagnosticsScreen(
                         enabled = !state.isDownloading
                     )
 
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DiagRow(
+                        label = "PHP runtime (required for Bedrock)",
+                        value = if (state.isPhpRuntimeAvailable) "Found" else "Missing: Bedrock cannot start",
+                        isGood = state.isPhpRuntimeAvailable
+                    )
+                    DiagRow(
+                        label = "Java runtime (required for Paper)",
+                        value = if (state.isJavaRuntimeAvailable) "Found" else "Missing: Java cannot start",
+                        isGood = state.isJavaRuntimeAvailable
+                    )
+
+                    state.downloadError?.let { err ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = err, style = MaterialTheme.typography.bodySmall, color = StatusRed)
+                    }
+
                     if (state.isDownloading) {
                         Spacer(modifier = Modifier.height(12.dp))
                         state.downloadStatusMessage?.let {
@@ -292,7 +309,7 @@ fun ComponentStatusRow(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = if (installed) "Installed & Verified" else "Not Installed",
+                    text = if (installed) "Installed" else "Not Installed",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (installed) StatusGreen else StatusYellow
                 )

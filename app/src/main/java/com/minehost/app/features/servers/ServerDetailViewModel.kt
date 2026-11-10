@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -27,6 +28,12 @@ data class ServerDetailUiState(
     val tunnelStatus: TunnelStatus = TunnelStatus.DISCONNECTED,
     val claimUrl: String? = null,
     val latencyMs: Long? = null,
+    /** True/false once probed through the public endpoint; null = not checked (never assumed). */
+    val remoteReachable: Boolean? = null,
+    /** This device's LAN IPv4 address (same-Wi-Fi hosting), or null if not on a local network. */
+    val localAddress: String? = null,
+    /** Players seen joining via the console; null when the server is not online. */
+    val onlinePlayers: Int? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val showEulaDialog: Boolean = false
@@ -41,7 +48,8 @@ private data class TunnelUiInfo(
     val endpoint: PublicEndpoint?,
     val status: TunnelStatus,
     val claimUrl: String?,
-    val latencyMs: Long?
+    val latencyMs: Long?,
+    val remoteReachable: Boolean?
 )
 
 @HiltViewModel
@@ -56,6 +64,15 @@ class ServerDetailViewModel @Inject constructor(
 
     private val _transient = kotlinx.coroutines.flow.MutableStateFlow(ServerDetailTransient())
 
+    /** Re-reads the LAN address every few seconds so a Wi-Fi change shows up. */
+    private val localAddressFlow: kotlinx.coroutines.flow.Flow<String?> =
+        kotlinx.coroutines.flow.flow {
+            while (true) {
+                emit(com.minehost.app.networking.LocalNetwork.detect().firstOrNull())
+                kotlinx.coroutines.delay(5_000L)
+            }
+        }.flowOn(kotlinx.coroutines.Dispatchers.IO)
+
     val uiState: StateFlow<ServerDetailUiState> = combine(
         combine(
             serverRepository.getServerFlowById(serverId),
@@ -68,11 +85,14 @@ class ServerDetailViewModel @Inject constructor(
             tunnelManager.publicEndpoint,
             tunnelManager.tunnelStatus,
             tunnelManager.claimUrl,
-            tunnelManager.latencyMs
-        ) { endpoint, tunnelStat, claim, ping ->
-            TunnelUiInfo(endpoint, tunnelStat, claim, ping)
-        }
-    ) { (server, activeId, status), tunnelInfo ->
+            tunnelManager.latencyMs,
+            tunnelManager.remoteReachable
+        ) { endpoint, tunnelStat, claim, ping, reachable ->
+            TunnelUiInfo(endpoint, tunnelStat, claim, ping, reachable)
+        },
+        serverController.onlinePlayers,
+        localAddressFlow
+    ) { (server, activeId, status), tunnelInfo, players, lanAddress ->
         val isThisActive = activeId == serverId
         val effectiveStatus = if (isThisActive) status else (server?.status ?: ServerStatus.STOPPED)
         val effectiveEndpoint = if (isThisActive) tunnelInfo.endpoint ?: server?.publicEndpoint else server?.publicEndpoint
@@ -85,6 +105,9 @@ class ServerDetailViewModel @Inject constructor(
             tunnelStatus = if (isThisActive) tunnelInfo.status else TunnelStatus.DISCONNECTED,
             claimUrl = if (isThisActive) tunnelInfo.claimUrl else null,
             latencyMs = if (isThisActive) tunnelInfo.latencyMs else null,
+            remoteReachable = if (isThisActive) tunnelInfo.remoteReachable else null,
+            onlinePlayers = if (isThisActive && status == ServerStatus.ONLINE) players.size else null,
+            localAddress = lanAddress,
             isLoading = false
         )
     }.combine(_transient) { ui, transient ->

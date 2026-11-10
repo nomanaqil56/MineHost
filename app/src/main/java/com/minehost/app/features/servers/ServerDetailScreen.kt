@@ -241,6 +241,9 @@ fun ServerDetailScreen(
                 localPort = server.localPort,
                 tunnelStatus = uiState.tunnelStatus,
                 claimUrl = uiState.claimUrl,
+                localAddress = uiState.localAddress,
+                remoteReachable = uiState.remoteReachable,
+                isServerRunning = uiState.isRunning,
                 context = context
             )
 
@@ -253,13 +256,14 @@ fun ServerDetailScreen(
             ) {
                 MetricCard(
                     title = "Players",
-                    value = "0 / ${server.maxPlayers}",
+                    value = "${uiState.onlinePlayers?.toString() ?: "--"} / ${server.maxPlayers}",
                     icon = Icons.Default.Group,
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
                     title = "Ping",
-                    value = uiState.latencyMs?.let { "${it}ms" } ?: "--",
+                    value = uiState.latencyMs?.let { "${it}ms" }
+                        ?: if (uiState.remoteReachable == false) "Unreachable" else "--",
                     icon = Icons.Default.Speed,
                     modifier = Modifier.weight(1f)
                 )
@@ -321,6 +325,9 @@ fun ConnectionCard(
     localPort: Int,
     tunnelStatus: com.minehost.app.core.common.TunnelStatus,
     claimUrl: String?,
+    localAddress: String?,
+    remoteReachable: Boolean?,
+    isServerRunning: Boolean,
     context: Context
 ) {
     Card(
@@ -353,6 +360,28 @@ fun ConnectionCard(
             }
 
             Spacer(modifier = Modifier.height(10.dp))
+
+            // Same-network address: works only for devices on the same Wi-Fi, not the internet.
+            Text(
+                text = when {
+                    localAddress != null -> "Same Wi-Fi: $localAddress:$localPort"
+                    else -> "Same Wi-Fi: no local network connection found"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (localAddress != null) TextPrimary else StatusYellow
+            )
+            if (endpoint != null && isServerRunning) {
+                Text(
+                    text = when (remoteReachable) {
+                        true -> "Internet check: server answered through the public address"
+                        false -> "Internet check: NOT reachable through the public address"
+                        null -> "Internet check: testing..."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (remoteReachable == false) StatusRed else TextSecondary
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (claimUrl != null) {
                 Box(

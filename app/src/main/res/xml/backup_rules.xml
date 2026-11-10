@@ -2,5 +2,6 @@
 <full-backup-content>
     <exclude domain="file" path="minehost/servers/" />
     <exclude domain="file" path="minehost/engines/" />
+    <exclude domain="file" path="minehost/tunnels/" />
 </full-backup-content>
 

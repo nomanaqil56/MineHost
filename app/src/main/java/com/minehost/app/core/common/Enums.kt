@@ -40,12 +40,19 @@ enum class MinecraftEdition {
         }
 }
 
+/**
+ * Lifecycle of the tunnel agent. CONNECTED means the agent reported a public endpoint; it does NOT
+ * by itself prove the endpoint is reachable from the internet (see TunnelHealth.remoteReachable).
+ */
 enum class TunnelStatus {
     DISCONNECTED,
-    CONNECTING,
+    INSTALLING,
+    AUTHENTICATING,
+    STARTING,
     CONNECTED,
     RECONNECTING,
-    ERROR
+    ERROR,
+    STOPPING
 }
 
 enum class NetworkProtocol {

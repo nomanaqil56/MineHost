@@ -27,6 +27,31 @@ android {
         }
     }
 
+    // Release signing is read from environment variables or local.properties (never committed):
+    //   MINEHOST_KEYSTORE_FILE, MINEHOST_KEYSTORE_PASSWORD, MINEHOST_KEY_ALIAS, MINEHOST_KEY_PASSWORD
+    val localProps = java.util.Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    fun signingValue(name: String): String? = System.getenv(name) ?: localProps.getProperty(name)
+
+    val releaseKeystorePath = signingValue("MINEHOST_KEYSTORE_FILE")
+    val hasReleaseSigning = releaseKeystorePath != null &&
+        file(releaseKeystorePath).exists() &&
+        listOf("MINEHOST_KEYSTORE_PASSWORD", "MINEHOST_KEY_ALIAS", "MINEHOST_KEY_PASSWORD")
+            .all { signingValue(it) != null }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = signingValue("MINEHOST_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("MINEHOST_KEY_ALIAS")
+                keyPassword = signingValue("MINEHOST_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -35,7 +60,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            // Never fall back to the debug key: without a release key the APK is left UNSIGNED
+            // (not installable), which is the honest result.
+            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else null
+            if (!hasReleaseSigning) {
+                logger.warn("MineHost: no release signing key configured; the release build will be UNSIGNED.")
+            }
         }
         debug {
             isMinifyEnabled = false
