@@ -1,90 +1,133 @@
-# MineHost: Production Readiness
+# MineHost — Production Readiness Audit
 
-_Audit date: 2026-11-09. Based on reading the source of the `main` branch (commit `915ff66`) and the changes listed below._
+**Audit date:** 2026-11-10  
+**Source reviewed:** `main` repository tree as inspected on 2026-11-10.  
+**Verdict: NOT PRODUCTION READY.**
 
-## Verdict
+This document deliberately distinguishes source code, pure-logic tests, Android builds, physical-device tests and real multiplayer tests. Code existing in the repository is not evidence that it works on an Android device.
 
-**NOT READY: CRITICAL BLOCKERS REMAIN.**
+## Executive summary
 
-MineHost has a well-organised app shell (UI, database, services, backups), but **no Minecraft server has ever been shown to run through it**, and several blockers mean it cannot run one today. Nothing here has been built or run on a device in this audit (see "What was and was not verified").
+The project has a substantial Android application foundation: Kotlin/Compose UI, Room/Hilt, server-engine abstractions, runtime/download management, process supervision, local-network helpers, backup/restore safeguards, thermal/wake-lock services and a Playit tunnel adapter.
 
-## Blockers (why a real server cannot start today)
+However, the central product promise has not yet been demonstrated end to end. The latest repository test notes report 40 pure-Kotlin tests passing outside Gradle, but also state that Android-dependent code has not been compiled in that environment and no physical device or real Minecraft client has been tested.
 
-| # | Blocker | Evidence | Needed to resolve |
-|---|---|---|---|
-| 1 | **No PHP runtime exists.** The Bedrock engine runs `libphp.so` from `nativeLibraryDir`, but the repo has no `app/src/main/jniLibs/` directory and no code that obtains a PHP binary. `getPhpExecutable()` returns `null`, so Bedrock start fails with a clear error. | `RuntimeManager.getPhpExecutable()`, `BedrockEngine.start()`, no `jniLibs/` | An Android-compatible ARM64 PHP build (as `lib*.so` in `jniLibs`, or another validated execution method), tested on a device. |
-| 2 | **No Java runtime exists.** `JavaEngine` needs `libjava.so`; none is bundled. | `JavaEngine.start()`, no `jniLibs/` | An ARM64 JRE that runs on Android Bionic, or a PRoot userspace. Java is therefore **BLOCKED**. |
-| 3 | **Android 10+ W^X.** Binaries downloaded into `filesDir` (the Playit agent, a downloaded PHP) cannot be executed on targetSdk 29+. Only files extracted from the APK's `jniLibs` can. | `RuntimeManager.downloadPlayitAgent()` writes to `filesDir` and calls `setExecutable` | Package binaries in `jniLibs` or use an approved loader. Not testable without a device. |
-| 4 | **Playit agent download URL is almost certainly wrong.** The app requests `playit-cli-linux-aarch64` / `playit-cli-linux-x86_64`. The official Linux asset naming is `playit-linux-*` (e.g. `playit-linux-amd64`, per playit.gg/support/run-on-linux). The correct arm64 asset name was not confirmed. | `RuntimeManager.downloadPlayitAgent()` | Confirm the real asset name and whether it runs on Bionic. |
-| 5 | **Downloads are not integrity-checked.** SHA-256 is _computed_ and stored but never compared with a trusted value; PocketMine and the Playit agent use `releases/latest`. | `RuntimeManager.downloadFileWithProgress()` | Pin versions and verify against published checksums or signatures. |
-| 6 | **No physical-device or real-client test has been done**, so every end-to-end claim is unproven. | n/a | Run the Bedrock acceptance test in the brief (Part 5.5). |
+The current source still contains a Playit-specific provider. MineHost-owned public relay infrastructure, its control plane, direct NAT traversal and international gameplay tests are not implemented. Java runtime execution and Geyser cross-play are not verified.
 
-## Changes made in this audit (not yet built or run)
+Do not describe MineHost as production-grade or claim that it already provides seamless worldwide hosting.
 
-| File | Previous problem | Change | Verification |
-|---|---|---|---|
-| `server/ServerProcess.kt` | After a 60 s port probe, **any live process was reported ONLINE** (`if (isAlive) listener.onStarted()`). The Bedrock "probe" treated "cannot bind the UDP port" as "server ready", which is also true for any other app using that port. A deliberate stop was reported as a **crash** (signal exit code). | Readiness now requires a real protocol response (RakNet pong / Java Server List Ping). If the process is alive but silent for the timeout (default 180 s), startup is reported as an **error** and the process is killed. A requested stop is reported as a clean exit. | Logic unit-tested in `ReadinessProbeTest` (not run here). Needs a real server to prove. |
-| `server/ReadinessProbe.kt` (new) | n/a | RakNet unconnected ping/pong and Java Server List Ping implementations plus VarInt helpers. | `ReadinessProbeTest`: hand-built packets plus loopback fake responders (not run here). Fake responders do **not** prove a real PocketMine/Paper server answers. |
-| `server/ServerEngineRegistry.kt`, `ServerController.kt`, `CreateServerScreen.kt` | `CROSSPLAY` silently mapped to the **Bedrock-only** engine, so "cross-play" servers were not cross-play. | Cross-play now returns "unsupported" with an explanation, and the option on the create screen is disabled and labelled unavailable. | Code review only. |
-| `server/ServerController.kt` | The result of `engine.configure()` was ignored, so a failed config write still started the server. | A failed configuration now aborts startup with an error. | Code review only. |
-| `world/WorldBackupManager.kt` | **Restore deleted the live world first**, then extracted straight into it. A failed or corrupt extraction left the user with no world and no automatic rollback. No checksum check before restore. | Restore now: verifies the archive checksum, extracts to a temp directory, checks it is non-empty, makes a safety snapshot (aborting if that fails), swaps by rename with rollback, and only then deletes the old world. | `ZipUtilsAndValidationTest` covers checksum/tamper detection (not run here). The swap logic is **untested**. |
-| `core/util/ZipUtils.kt` | No way to verify an archive against its recorded checksum. | Added `computeContentChecksum` matching how backups are hashed. | `ZipUtilsAndValidationTest` (not run here). |
-| `features/worlds/BackupsViewModel.kt` | Restore was allowed while the server was running. | Restore is refused while that server is starting, running or stopping. | Code review only. |
+## Evidence and verification levels
 
-## Feature status (source-verified; none device-verified)
-
-| Feature | Actual status | Notes |
+| Verification level | Current evidence | Status |
 |---|---|---|
-| App shell, navigation, Compose UI, Room, Hilt | IMPLEMENTED BUT UNVERIFIED | Not built in this audit. |
-| Bedrock engine (PocketMine-MP) | **BLOCKED** | Real code, but no PHP runtime (blocker 1). Fake shell loops and `\|\| true` checks from older versions are already gone. |
-| Java engine (Paper) | **BLOCKED** | No JRE (blocker 2). |
-| EULA consent | **NOT IMPLEMENTED** | `eula.txt` is written as `eula=false` (the server will refuse to start rather than silently accepting). There is no consent screen or stored consent. |
-| Cross-play (Paper + Geyser) | **NOT IMPLEMENTED** | Only a Geyser config generator exists. Now correctly reported as unsupported. |
-| Playit tunnel | PARTIALLY IMPLEMENTED, **BROKEN download** | Real process launch and output parsing, but blockers 3 and 4. It reports CONNECTED when its output regex matches a hostname, not after an end-to-end check. |
-| Connection monitoring | PARTIALLY IMPLEMENTED | Uses a TCP connect, which is **wrong for Bedrock (UDP)**. Not protocol-aware. |
-| Tunnel state model | PARTIALLY IMPLEMENTED | One status enum; agent/auth/tunnel/local/remote health are not separated. |
-| Backups: create | IMPLEMENTED BUT UNVERIFIED | Backing up while the server runs can capture an inconsistent world (no `save-off`/`save-all`). |
-| Backups: restore | IMPROVED, UNVERIFIED | See changes above. |
-| Players screen | IMPLEMENTED BUT UNVERIFIED | Sends console commands and updates the local DB regardless of whether the server accepted them. Whether the list reflects real joins was not traced. |
-| Diagnostics | PARTIALLY IMPLEMENTED | Install flags and device info are real; download failures are swallowed (results ignored) so the user sees nothing on error. |
-| Foreground service / wake lock / thermal | IMPLEMENTED BUT UNVERIFIED | `specialUse\|dataSync` types declared; Android 14+ behaviour untested. |
-| Release signing | **BROKEN for production** | Release build uses the **debug** signing config (`app/build.gradle.kts`). |
-| Credential storage | NOT IMPLEMENTED | `security-crypto` is a dependency but nothing stores Playit credentials securely. |
+| Source inspection | App, engine, runtime, network, storage and service code present | Inspected |
+| Pure Kotlin tests | Repository notes report 40/40 run with kotlinc/JUnit outside Gradle | Reported; not independently reproduced in this audit |
+| Gradle Android build | Latest notes say Android-dependent code was not compiled in that environment | NOT VERIFIED |
+| Android instrumented tests | No device run recorded | NOT VERIFIED |
+| Physical Android device | No device acceptance run recorded | NOT VERIFIED |
+| Real Minecraft client | No local or remote client join recorded | NOT VERIFIED |
+| Public tunnel | No live provider claim and external join recorded | NOT VERIFIED |
+| International gameplay | No cross-country play test recorded | NOT VERIFIED |
+| Play Store compliance | No final policy/legal audit recorded | NOT VERIFIED |
 
-## What was and was not verified
+## Critical blockers
 
-- **Done:** read the source of the server, networking, world, service, build and test files; verified each audit finding against it; checked the Playit asset naming against playit.gg.
-- **Not done:** no Gradle build, no unit-test run, no emulator, no physical device, no Minecraft client, no tunnel. This audit environment has no Android SDK and no network for Gradle. **Treat all edits above as unbuilt.** The previously documented "assembleDebug passes / 8 of 8 tests pass" claims were not reproduced here.
-- All real-Minecraft tests (local Bedrock/Java join, external join, persistence, cross-play) are **NOT TESTED**.
+### 1. Bedrock PHP runtime and executable launch path
 
-## Remaining work, in priority order
+The Bedrock engine expects a PHP executable from `RuntimeManager.getPhpExecutable()`. The repository tree has no `app/src/main/jniLibs/` directory and no committed Android PHP runtime artifact. The code searches for `libphp.so` in `nativeLibraryDir` or a PHP executable in private app storage.
 
-1. Build the project and run the unit tests (including the new ones) to confirm the edits compile and pass.
-2. Resolve blocker 1 (PHP on Android) and run the Bedrock acceptance test from the original brief on a physical device with a real Bedrock client.
-3. Pin and verify downloads (blocker 5); fix the Playit URL and execution model (blockers 3, 4).
-4. EULA consent screen plus persisted consent (needs a Room migration).
-5. Protocol-aware tunnel/connection health with separate agent/tunnel/local/remote states; secure credential storage.
-6. Safe backups of a live server (`save-off`/`save-all`); surface download errors in Diagnostics.
-7. Real release signing via environment variables or local properties.
-8. Java runtime investigation, then Geyser cross-play.
+A file named `libphp.so` is not automatically a valid command-line executable. A shared object may need a dedicated launcher, compatible ELF interpreter and Android/Bionic dependencies. A binary in app-writable storage may also be blocked by Android execution policy. This must be proven with a real ARM64 build and physical-device process launch; do not treat a successful download or file-exists check as runtime readiness.
 
+**Required:** select a maintained Bedrock engine and compatible runtime/launcher; verify provenance and checksums; run it on supported Android versions; prove start, protocol readiness, command input, graceful stop and persistence.
 
-## Update (later in the same audit): status after further changes
+### 2. Java ARM64 runtime
 
-Still **NOT READY**. Blockers 1 to 3 (PHP, Java, executing binaries on Android 10+) are unchanged. All items below are **implemented but uncompiled and untested on a device** unless a unit test is named.
+`JavaEngine` expects `libjava.so` in the native library directory and invokes it as the Java executable. No JRE/JVM runtime is present in the repository tree. A JVM shared library is not necessarily the `bin/java` launcher and requires its complete runtime layout and compatible libc.
 
-| Area | Now |
-|---|---|
-| Download integrity (blocker 5) | `RuntimeManager` resolves real release assets and verifies published SHA-256 when one exists. Asset names were not confirmed by a run. |
-| EULA | Consent dialog, stored consent (Room migration 1 to 2), Java never starts without it. |
-| Tunnel state model | Separate states and health facts, protocol-aware probes (UDP/TCP), supervised restart with backoff, redacted logs. Playit output formats are assumed (`TunnelSupportTest`). |
-| Players | Online list from parsed join/leave lines (`PlayerTrackerTest`, formats assumed); commands need an ONLINE server and a successful send. |
-| Server detail | Shows LAN address and an internet-check line; no hard-coded player count. |
-| Diagnostics | Download failures are shown; concurrent downloads blocked. |
-| Backups | Live backups pause world saving (`save-off`/`save-all`). |
-| Release signing | Reads env vars or `local.properties`; the release build is unsigned (not debug-signed) if absent. |
-| Stale state | On app start, servers recorded ONLINE/STARTING are marked CRASHED. |
-| Service/backup rules | `specialUse` type, `START_NOT_STICKY`; tunnel dir excluded from backups. |
-| Credential storage | Still **NOT IMPLEMENTED**: the Playit agent keeps its secret in an app-private, owner-only directory; no Keystore encryption. |
+**Required:** validate a complete ARM64 JVM strategy on Android (including launcher, libraries, modules, libc and process execution). Until then, Java hosting is BLOCKED.
 
-Not done: dependency/license inventory, security and performance reviews beyond this table, any build or device run. Test status is in `docs/TESTING.md`.
+### 3. Android execution policy and process model
+
+Downloaded executable files under app-private writable directories cannot be assumed executable on modern Android. `setExecutable(true)` alone is not proof that the kernel/SELinux policy will allow execution. The same concern applies to the downloaded Playit agent.
+
+**Required:** document and test a supported packaging/launcher strategy on each supported Android API level. Never ship an execution path based only on a desktop Linux binary or file permission bit.
+
+### 4. Connectivity does not meet the product independence goal
+
+The source contains `PlayitTunnelProvider`, and `TunnelManager` is wired to a single provider. This is a useful integration/test adapter, but it is a third-party managed tunnel and does not meet the final MineHost independence requirement.
+
+Not implemented in the repository:
+- MineHost-owned control plane and registration API.
+- MineHost-operated TCP/UDP relay server.
+- Android host-side client for MineHost relay protocol.
+- Relay authentication, authorization, quotas and abuse controls.
+- Direct public path selection and NAT traversal.
+- Relay region selection based on measured end-to-end quality.
+- International real-client acceptance tests.
+
+**Required:** preserve a provider abstraction, but build and operate MineHost's own control and data planes. Playit must not be a mandatory production dependency. Local LAN hosting must work with the backend unavailable.
+
+### 5. Bedrock protocol and engine compatibility
+
+The current source includes RakNet-oriented readiness probing and a PocketMine adapter with a small, old-looking advertised version list. Bedrock transport and protocol support are version-dependent and evolve. A generic UDP port check or an old RakNet probe cannot establish compatibility with every current Bedrock client/server.
+
+**Required:** choose the exact engine and version, verify its supported client protocol and transport, implement the matching readiness/health probe, and test with real current clients. Keep the supported-version matrix explicit.
+
+### 6. Cross-play is not operational
+
+A Geyser configuration generator exists, but the Java runtime and Geyser execution path are not proven. The application must not advertise cross-play as available until Paper, Java runtime, Geyser, Floodgate and the Bedrock-facing transport all pass real-client tests.
+
+### 7. No end-to-end device evidence
+
+There is no recorded evidence of a real server starting through MineHost, a second device joining on LAN, a world surviving restart, or a remote player joining through a public relay.
+
+**Required:** follow `docs/DEVICE_TESTING.md` and record device model, Android version, ABI, runtime/engine versions, client version, network type, logs and outcome.
+
+## Important source-level risks to verify/fix
+
+These are code-review findings, not device-confirmed failures:
+
+- `ServerController.stopServer()` currently returns success when `activeProcessHandle` is null. If a stop is requested while the server is still STARTING and the process handle has not yet been assigned, the request may do nothing while reporting success. The lifecycle needs an explicit cancellable start job/state transition.
+- `RuntimeManager.getPlayitExecutable()` can return a binary under app-private tunnel storage and calls `setExecutable(true)`; this path needs a real Android execution test.
+- `RuntimeManager.getPhpExecutable()` and `JavaEngine` use shared-object-style names as process paths. Validate actual ELF launchability rather than file presence.
+- Live backup uses a fixed settle delay after save commands; it does not have a server-side acknowledgement that the flush completed. Large worlds need a stronger completion strategy or a clearly documented best-effort status.
+- Player tracking and Playit output parsing depend on expected log formats. Capture and test against real engine/agent output.
+- Credential handling for tunnel secrets needs an explicit Android Keystore-backed design and redaction review.
+- The manifest declares foreground-service types and the service uses `specialUse` on newer Android. Verify required declarations, Play policy eligibility and target-API behaviour before release.
+- Release signing now avoids the debug key and reads owner-supplied configuration. A production key still needs to be created, stored securely and used in a release build.
+- The build guide references a GitHub Actions workflow, but no `.github/workflows/` file was present in the inspected repository tree. Add CI or remove that instruction.
+- The inspected root tree did not contain a `LICENSE` file even though README previously claimed Apache-2.0. Confirm the intended project licence and add the corresponding licence text before distribution.
+
+## Positive source changes already present
+
+The latest code/docs describe several useful safeguards:
+- Real protocol readiness probes instead of treating any live process or open port as ONLINE.
+- Explicit EULA consent and a Room migration.
+- Server configuration failures abort startup.
+- Backup restore verifies checksum, extracts to a temporary directory and attempts rollback-safe swapping.
+- Console commands reject control characters.
+- Tunnel status distinguishes claim/authentication, endpoint assignment and reachability.
+- Diagnostics surface download failures and prevent concurrent installs.
+- Release builds do not silently fall back to debug signing.
+- Stale ONLINE/STARTING state is reconciled after app restart.
+- Pure-Kotlin tests cover readiness framing, command sanitization, archive validation, restore swapping, tunnel helpers, player parsing and LAN address selection.
+
+These are meaningful improvements, but they do not resolve the runtime, Android build, device or network blockers.
+
+## Release gate
+
+MineHost must not be called production-ready until all of the following have evidence:
+
+1. Reproducible Gradle release build, unit tests, lint and CI.
+2. A real Bedrock engine starts and accepts a compatible real client on a physical ARM64 Android device.
+3. World persistence, backup and restore pass on a real world.
+4. Screen-off and sustained-load tests pass on documented supported devices.
+5. Java hosting passes with a real Android-compatible JVM and Java client, if Java is advertised.
+6. Geyser cross-play passes with real Java and Bedrock clients, if cross-play is advertised.
+7. Wi-Fi and cellular tests pass, including a carrier/home CGNAT case.
+8. MineHost-operated relay path passes real external and international gameplay tests without a managed third-party tunnel.
+9. Direct/relay path latency, jitter, packet loss, reconnect behaviour and relay bandwidth cost are measured.
+10. Security, dependency licence, privacy, Minecraft branding and Google Play policy reviews are complete.
+11. Production signing, monitoring, support and rollback/recovery procedures are ready.
+
+See [MINEHOST_MASTER_ROADMAP.md](../MINEHOST_MASTER_ROADMAP.md) for the phased plan and acceptance criteria. See [DEVICE_TESTING.md](DEVICE_TESTING.md) for the physical-device test procedure.
