@@ -1,95 +1,104 @@
-# MineHost — Local World Storage & Backup Management
+# MineHost — Storage & Backup Management
 
-## 1. Storage Architecture & Privacy
+This document describes the current app-private storage implementation. It is not a claim that every backup path has passed physical-device testing.
 
-MineHost strictly adheres to the principle of **local data ownership**:
-- **Zero Cloud Storage:** World files, player inventories, and logs remain on the host's physical device.
-- **Durable Storage Path:** Located in `context.filesDir/minehost/`, immune to cache clearing or temp cleaning by the OS.
-- **Scoped Storage Access Framework (SAF):** User world import/export operations use Android's `ActivityResultContracts.OpenDocument` and `CreateDocument` to interact safely with external storage or SD cards without requiring broad `MANAGE_EXTERNAL_STORAGE` permissions on Android 11+.
+## 1. Storage principles
 
----
+- Minecraft server processes and authoritative world data stay on the Android host.
+- Server/world files remain in app-private storage unless the user explicitly exports them.
+- Room stores metadata and indexes; it is not the authoritative world store.
+- Cloud app backup excludes the `minehost/servers/` directory. Device-to-device transfer rules may include MineHost data, depending on Android/OEM behaviour.
+- The user can explicitly export a backup; exported archives are not encrypted by the current implementation.
 
-## 2. Directory Layout
+## 2. Current directory layout
 
-```
-/data/data/com.minehost.app/files/minehost/
-│
-├── servers/
-│   └── <server_uuid>/
-│       ├── server.json             # Application metadata (name, port, engine, settings)
-│       ├── server.properties       # Standard Minecraft engine properties
-│       │
-│       ├── worlds/                 # World files
-│       │   └── world/              # Active world save
-│       │       ├── level.dat       # NBT world header
-│       │       ├── db/             # Bedrock LevelDB database OR
-│       │       └── region/         # Java Anvil .mca region files
-│       │
-│       ├── plugins/                # Plugins / Addons
-│       ├── logs/                   # Server execution and console logs
-│       └── backups/                # Local compressed backup archives (.zip)
-│
-├── engines/
-│   ├── bedrock/
-│   │   └── pmmp/PocketMine-MP.phar
-│   └── java/
-│       └── paper/paper-1.20.4.jar
-│
-└── backups_global/                 # Restorable multi-server archive index
+The app-private root is `files/minehost/`:
+
+```text
+files/minehost/
+  servers/<server-id>/
+    server.properties
+    pocketmine.yml
+    nethernet.key                 # created by Axolotl-PM after first start
+    worlds/<world-name>/          # authoritative world data
+    plugins/                      # engine/plugin data when applicable
+    backups/
+      <backup-id>.zip
+      <backup-id>.json            # sidecar manifest, not inside the ZIP
+  engines/
+    bedrock/PocketMine-MP.phar    # Axolotl-PM PHAR asset filename
+    java/<paper-jar>              # only after a compatible JVM is implemented
+  tunnels/                        # experimental provider artifacts; not production network
+  runtime_manifest.json
 ```
 
----
+The PHP executable is packaged in the APK under `jniLibs/arm64-v8a/libphp.so` and extracted to Android's native library directory. It is not downloaded to writable app storage at runtime. The current PHP bootstrap pins an Axolotl-PM PHP 8.4 Android ARM64 build containing ext-webrtc. The Java runtime is not yet validated.
 
-## 3. World Backup & Snapshot Management
+Server logs and metadata are also indexed in Room. Do not assume the file tree above contains every database-managed record.
 
-### 3.1 Consistent Snapshot Protocol
-Copying active world files (LevelDB `.ldb` or Anvil `.mca`) while the server process is writing risks corrupting chunk index tables. MineHost enforces the following backup protocol:
+## 3. Backup archive contents
 
-1. **Online Backup:**
-   - Dispatches `save-off` (or engine equivalent) to the server console.
-   - Dispatches `save-all flush` to ensure all cached chunks are committed to disk.
-   - Waits for console confirmation (`Save completed` or `Flushed world data`).
-   - Recursively reads and compresses the world directory into a timestamped `.zip` archive.
-   - Dispatches `save-on` to resume normal autosaves.
-2. **Offline Backup:**
-   - Automatically executed before engine upgrades, world imports, or world restorations.
-   - Directly packages the quiescent world folder.
+A backup ZIP contains:
+- the selected world directory tree;
+- optionally `__minehost/nethernet.key` if the server identity key exists.
 
-### 3.2 Backup Metadata & Recovery
-Each backup archive contains a companion `backup_manifest.json`:
-```json
-{
-  "backupId": "backup_20261106_143000",
-  "serverId": "srv_a1b2c3d4",
-  "serverName": "Survival Realm",
-  "edition": "BEDROCK",
-  "engine": "bedrock-pocketmine-v5",
-  "minecraftVersion": "1.20.80",
-  "worldName": "world",
-  "createdAt": "2026-11-06T14:30:00Z",
-  "sizeBytes": 48291040,
-  "fileCount": 184,
-  "checksumSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-}
-```
+The NetherNet key is a private server identity credential. It is included so restore/migration can preserve the identity clients have pinned. **Treat any exported backup containing this key as sensitive; do not post it publicly or send it to untrusted people.** The current archive format is not password-encrypted.
 
-### 3.3 Restoration Safety Guard
-Before restoring any backup archive over an active server:
-1. Validates the integrity and checksum of the backup archive.
-2. Verifies available free storage (requires at least 2.5x the unpacked backup size).
-3. Automatically generates a pre-restore recovery snapshot of the existing world (`pre_restore_<timestamp>.zip`).
-4. Replaces the target world folder cleanly and updates database metadata.
+The sidecar `<backup-id>.json` manifest records:
+- backup ID;
+- server ID and name;
+- world name;
+- creation timestamp;
+- ZIP size;
+- content SHA-256 checksum;
+- optional note;
+- whether the NetherNet identity key was included.
 
----
+The SHA-256 is calculated over uncompressed file contents in ZIP entry order (including the identity key), not over the compressed ZIP byte stream.
 
-## 4. World Import & Export
+## 4. Backup creation safety
 
-- **Import Formats:**
-  - Bedrock: `.mcworld` (ZIP archive containing `level.dat` and `db/`), standard ZIP archives.
-  - Java: ZIP archives containing `level.dat` and `region/`.
-- **Validation Engine:** `WorldValidation.kt` checks for:
-  - Magic bytes and valid GZIP/NBT header in `level.dat`.
-  - Format compatibility (warns if a Java world is imported into a Bedrock server).
-  - Storage quota verification prior to extraction.
-- **Exporting:** Packages the full world structure into standard `.mcworld` or `.zip` and prompts the user with the Android System Share Sheet or file picker.
+When the target server is stopped, the manager snapshots the world directly.
 
+When the target server is online, MineHost:
+1. sends `save-off`;
+2. sends `save-all` for Axolotl-PM or `save-all flush` for Paper;
+3. sends `list` as a console barrier;
+4. waits for the server's `players online` output, which is processed after the save command;
+5. creates the ZIP while autosaving is paused;
+6. sends `save-on` in a `finally` block.
+
+If commands cannot be sent or the console barrier is not observed within 15 seconds, backup creation aborts instead of silently copying a potentially mid-write world. This is stronger than a fixed delay but still requires real-device testing against supported engine versions.
+
+The ZIP is written to a unique temporary file and renamed into place only after compression completes. The manifest is also written to a temporary file and renamed after successful serialization. Failed creation cleans up partial artifacts.
+
+## 5. Restore safety
+
+Restore is refused while the target server process is active.
+
+The restore workflow:
+1. verifies the recorded content checksum before changing the live world;
+2. checks free storage using a conservative heuristic (currently twice the compressed archive size; this is not a guarantee for highly compressible worlds);
+3. extracts to a temporary directory with ZIP path-traversal checks;
+4. stages the optional NetherNet identity key outside the world directory;
+5. creates a pre-restore safety snapshot of the current world;
+6. uses the world-swap helper with rollback;
+7. commits the restored identity key only as part of the guarded restore sequence and restores the previous key if the world swap fails.
+
+The pre-restore safety archive is retained locally for recovery and is not automatically uploaded anywhere.
+
+## 6. Export/import
+
+- Explicit export uses Android's Storage Access Framework (SAF).
+- Import validates archive structure/checksum before replacing world data.
+- Do not assume a backup is portable across arbitrary engine versions; world formats and plugin data may be version-specific.
+- A world export that includes `nethernet.key` also carries the private server identity. Users should be warned before sharing/exporting such an archive.
+- Cross-device restore should be tested on a second physical device before being advertised as supported.
+
+## 7. Remaining storage work
+
+- Add optional password-based encryption for exported backups containing server identity keys.
+- Test large worlds, interrupted backup, low-storage, process death, corrupt ZIPs and rollback on physical devices.
+- Verify file permissions for `nethernet.key` after restore.
+- Add a visible warning when an export includes the private identity key.
+- Verify migration between Axolotl-PM releases and between Bedrock/Java world formats.

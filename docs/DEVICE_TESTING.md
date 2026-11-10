@@ -28,18 +28,18 @@ For every run, record:
 
 This is currently a known blocker.
 
-1. Confirm the app reports whether the exact PHP/Java runtime is installed.
-2. Confirm a missing runtime produces an actionable error.
-3. Do not label an engine installed because only its PHAR/JAR exists.
-4. Once a candidate runtime is available, verify its ABI, dynamic dependencies, version, licence and trusted checksum/signature.
-5. Run its version/self-test command on-device and record output.
+1. Confirm the packaged PHP 8.4 ARM64 binary runs from Android's extracted nativeLibraryDir.
+2. Run `libphp.so -v` and `libphp.so -m`; require the exact `webrtc` module entry.
+3. Confirm a missing runtime/module produces an actionable error.
+4. Do not label an engine installed because only its PHAR exists.
+5. Record ABI, binary digest, engine version, dependency/licence inventory and device output.
 
 ## 2. Bedrock local acceptance (after a valid engine/runtime exists)
 
-1. Install the pinned Bedrock engine and compatible runtime.
-2. Create a new server and start it.
-3. Require a real protocol response before displaying ONLINE.
-4. Join from a second Bedrock client on the same Wi-Fi.
+1. Install Axolotl-PM 5.51.1 and the pinned PHP 8.4 ARM64 runtime with ext-webrtc.
+2. Create a Bedrock 1.26.60 server with `transport.name: nethernet` and start it.
+3. Require a successful NetherNet `GET /v1/join` signalling probe before displaying signalling-ready.
+4. Join from a second Bedrock 1.26.60 client on the same Wi-Fi and prove the UDP WebRTC ICE/DTLS/SCTP gameplay path.
 5. Generate/load a world, place and break blocks, chat, and disconnect/reconnect.
 6. Stop gracefully, restart, and confirm the changes persist.
 7. Test backup, corrupt-archive rejection and safe restore on a disposable world.

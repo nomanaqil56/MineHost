@@ -22,14 +22,14 @@ MineHost is an Android application project intended to run Minecraft server soft
 - Clean Architecture / MVVM structure
 - Room persistence and Hilt dependency injection
 - Server-engine abstraction and runtime manager
-- Bedrock and Java engine integration work (runtime execution is not yet proven on physical Android devices)
+- Axolotl-PM Bedrock integration targeting NetherNet 1.26.60; Paper/Java remains blocked on a validated Android JVM
 - Tunnel-provider abstraction; the current Playit adapter is an experimental integration, not the intended permanent dependency
 - Local networking and connection diagnostics
 - World backup, restore, import/export utilities
 - Foreground service, wake-lock and thermal-monitoring components
 - Unit-test sources and a Python verification harness
 
-The Android PHP runtime bootstrap is build-time only and still requires physical-device validation. These are source-code capabilities, not a claim that every feature has passed end-to-end testing.
+The Android PHP 8.4 ARM64 runtime bootstrap is build-time only and includes the ext-webrtc module required by Axolotl-PM NetherNet. APK packaging, physical-device execution, and a real Bedrock client join still require validation. These are source-code capabilities, not a claim that every feature has passed end-to-end testing.
 
 ## Build from source
 
@@ -45,6 +45,7 @@ The Bedrock runtime is prepared at build time from a pinned Android ARM64 PHP-Bi
 git clone https://github.com/nomanaqil56/MineHost.git
 cd MineHost
 bash tools/prepare_android_php_runtime.sh
+chmod +x gradlew
 ./gradlew assembleDebug
 ./gradlew testDebugUnitTest
 ```
