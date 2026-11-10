@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -29,7 +31,7 @@ android {
 
     // Release signing is read from environment variables or local.properties (never committed):
     //   MINEHOST_KEYSTORE_FILE, MINEHOST_KEYSTORE_PASSWORD, MINEHOST_KEY_ALIAS, MINEHOST_KEY_PASSWORD
-    val localProps = java.util.Properties().apply {
+    val localProps = Properties().apply {
         val f = rootProject.file("local.properties")
         if (f.exists()) f.inputStream().use { load(it) }
     }
