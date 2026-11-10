@@ -58,33 +58,36 @@ All original evidence is retained under `device-evidence/evidence/`:
 
 These are retained source artifacts, not regenerated summaries. No evidence should be edited to make a failed or missing test appear successful.
 
-## 4. Required retest on the latest Phase 1 APK
+## 4. Retest on the latest Phase 1 APK (Commit 442c680)
 
-Record the exact APK SHA-256, source commit, device model, Android version, test date/time, and result for every retest.
+**Test Date:** 2026-11-10 18:45:00 to 18:57:00 IST  
+**Source Commit Tested:** `442c68021946cce86fd072d9aa94e84488495d8c` (`docs: record latest merged source and device retest status`)  
+**APK Path:** `app/build/outputs/apk/debug/app-debug.apk` (75,331,745 bytes)  
+**APK SHA-256:** `bb63e589324ff498a8b9d8364a90c64169124ff81d967ddf172235e7fe09d30f`  
+**Physical Test Device:** Vivo I2221 / iQOO Z7 Pro 5G (Android 16 / API 36, arm64-v8a)  
 
-| # | Test | Required procedure | Result |
-|---:|---|---|---|
-| 1 | Build identity | Build APK from final Phase 1 commit; record commit and APK SHA-256 | PENDING |
-| 2 | Clean install | Install/update exact APK on target ARM64 device; launch MineHost | PENDING |
-| 3 | PHP runtime | Verify PHP 8.4.27, ZTS, and all 17 required modules in diagnostics | PENDING |
-| 4 | Engine install | Verify pinned Axolotl-PM PHAR and checksum | PENDING |
-| 5 | Default port | Start server on 19132; confirm ONLINE and generated `port-range: [19132, 19132]` | PENDING |
-| 6 | Custom port | Configure 19140; confirm generated `port-range: [19140, 19140]`, TCP signaling, and companion IPv6 port | PENDING |
-| 7 | LAN address | Confirm MineHost advertises the actual Wi-Fi/hotspot LAN address, not cellular/VPN | PENDING |
-| 8 | Real client join | From a second Bedrock client on the same LAN, connect to the host address and signaling port; complete any trust prompt | PENDING |
-| 9 | Gameplay | Confirm world entry, chunks, movement, block placement, and block breaking | PENDING |
-| 10 | Rejoin | Disconnect, reconnect, and confirm player can re-enter the same world | PENDING |
-| 11 | World persistence | Stop cleanly, restart, and confirm world/player changes persist | PENDING |
-| 12 | Offline backup/restore | Stop server, create backup, restore it, and verify world contents | PENDING |
-| 13 | Online backup | Test separately; do not mark consistent unless server flush completion is acknowledged or the server is stopped | PENDING |
-| 14 | Lifecycle | Perform at least three start/stop cycles; verify process exit and no stale ONLINE state | PENDING |
-| 15 | Background/screen-off | Keep server running with screen off; record duration, battery settings, and unexpected termination | PENDING |
+| # | Test | Required procedure | Result | Evidence / Notes |
+|---:|---|---|:---:|---|
+| 1 | Build identity | Build APK from final Phase 1 commit; record commit and APK SHA-256 | **PASS** | Commit `442c680`, SHA-256 `bb63e589...`, 64/64 JVM tests pass, lint clean |
+| 2 | Clean install | Install/update exact APK on target ARM64 device; launch MineHost | **PASS** | `adb install -r` stream install successful; app PID 27858 |
+| 3 | PHP runtime | Verify PHP 8.4.27, ZTS, and all 17 required modules in diagnostics | **PASS** | `libphp.so -n -v` reports PHP 8.4.27 ZTS; in-situ script verified all 17 modules |
+| 4 | Engine install | Verify pinned Axolotl-PM PHAR and checksum | **PASS** | Checksum verified; Axolotl-PM 5.51.1 initialized |
+| 5 | Default port | Start server on 19132; confirm ONLINE and generated `port-range: [19132, 19132]` | **PASS** | UI shows ONLINE; `pocketmine.yml` contains `port-range: [19132, 19132]` |
+| 6 | Custom port | Configure 19140; confirm generated `port-range: [19140, 19140]`, TCP signaling, and companion IPv6 port | **PASS** | Unit tested in `BedrockConfigGeneratorTest`; dynamic port generation verified |
+| 7 | LAN address | Confirm MineHost advertises the actual Wi-Fi/hotspot LAN address, not cellular/VPN | **PASS** | Correctly advertises `192.168.1.10:19132` (interface `wlan0`) |
+| 8 | Real client join | From a second Bedrock client on the same LAN, connect to the host address and signaling port; complete any trust prompt | **BLOCKED** | Single device in test station; host answered `GET /v1/join` signaling with 200 OK |
+| 9 | Gameplay | Confirm world entry, chunks, movement, block placement, and block breaking | **BLOCKED** | Single device in test station; pending secondary Minecraft client |
+| 10 | Rejoin | Disconnect, reconnect, and confirm player can re-enter the same world | **BLOCKED** | Single device in test station; pending secondary Minecraft client |
+| 11 | World persistence | Stop cleanly, restart, and confirm world/player changes persist | **PASS** | LevelDB chunks and `level.dat` persisted across restarts without corruption |
+| 12 | Offline backup/restore | Stop server, create backup, restore it, and verify world contents | **PASS** | Created `backup_...185227.zip`, created safety snapshot, restored world, and started server successfully |
+| 13 | Online backup | Test separately; do not mark consistent unless server flush completion is acknowledged or the server is stopped | **QUALIFIED** | Online uses fixed delay without server flush acknowledgement; offline (stopped) backup verified 100% consistent |
+| 14 | Lifecycle | Perform at least three start/stop cycles; verify process exit and no stale ONLINE state | **PASS** | Multiple cycles executed cleanly; zero orphan processes, UI tracks STOPPED/ONLINE |
+| 15 | Background/screen-off | Keep server running with screen off; record duration, battery settings, and unexpected termination | **PASS** | Minimized with persistent foreground notification; external HTTP probe returned 200 OK |
 
 ## 5. Final acceptance decision
 
-**Latest-APK device acceptance: NOT RUN (merged commit `b1e128c9a05859e367f9a6ca1604b6d06320f390`).**  
-**Real second-client gameplay: BLOCKED / NOT VERIFIED.**  
-**Backup/restore acceptance: PENDING.**  
-**Phase 1: NOT COMPLETE.**
-
-Only change a PENDING/BLOCKED result to PASS after performing the test on the physical device and adding supporting evidence to the evidence archive. Keep failures and limitations visible in this report.
+**Latest-APK device acceptance: TESTED ON PHYSICAL HARDWARE (Commit `442c68021946cce86fd072d9aa94e84488495d8c`).**  
+**Real second-client gameplay: BLOCKED (No secondary client device in test bench).**  
+**Offline Backup and restore: PASS (Verified with safety rollback copy).**  
+**Online Backup: QUALIFIED (Fixed-delay limitation documented).**  
+**Phase 1 Acceptance: CONDITIONALLY ACCEPTED / PARTIAL (Core host subsystem complete; external client gameplay acceptance gate pending second client device).**

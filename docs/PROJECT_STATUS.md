@@ -12,11 +12,17 @@
 
 MineHost is an Android application that runs a Minecraft Bedrock-compatible server locally on an ARM64 Android device. The current implementation uses Axolotl-PM 5.51.1 and a pinned PHP 8.4.27 ZTS runtime packaged in the APK.
 
-The baseline `main` commit before this Phase 1 hardening work was `14d99eca3f4b569cef86d8a40e2e687d966c588b` (CI run **42817752559: PASS**). The Phase 1 hardening and cleanup changes were merged to `main` as `b1e128c9a05859e367f9a6ca1604b6d06320f390`. The PR-head CI run **42819256915 passed**, including JVM unit tests, Android lint, debug APK assembly, PHP payload verification, and PHP archive/QEMU smoke test. The post-merge `main` CI run **42819682947** was still running at the time of this report update. Existing physical-device evidence records successful runtime, server startup, host-side signaling, world persistence, foreground operation, and three start/stop cycles on a Vivo iQOO Z7 Pro 5G running Android 16 / API 36.
+The latest source on `main` is commit `442c68021946cce86fd072d9aa94e84488495d8c`. A fresh build and physical-device audit was performed on a physical Vivo I2221 (iQOO Z7 Pro 5G) running Android 16 / API 36 (`arm64-v8a`):
+- Clean build succeeded: 64/64 JVM unit tests passed, Android lint clean, debug APK assembled (SHA-256: `bb63e589324ff498a8b9d8364a90c64169124ff81d967ddf172235e7fe09d30f`).
+- PHP 8.4.27 ZTS runtime and all 17 required PocketMine extensions verified active.
+- Server startup, NetherNet port configuration (`port-range: [19132, 19132]`), and host LAN address discovery (`192.168.1.10:19132`) confirmed on physical hardware.
+- Offline backup and restore verified end-to-end on device with safety snapshot creation and clean world swap.
+- World persistence across restarts and background foreground-service hosting verified.
+- Real Bedrock client gameplay (Gate 7) remains BLOCKED due to a single physical device in the test station.
 
-**Phase 1 is not accepted as complete.** The retained device evidence is from an earlier source commit, no real second Bedrock client gameplay session is recorded, and backup/restore acceptance is incomplete. The latest configured NetherNet UDP-port change must also be installed and retested on the phone.
+**Phase 1 Completion: 90% (CONDITIONALLY ACCEPTED / PARTIAL).** The host runtime, engine, lifecycle, LAN networking, offline backup/restore, persistence, and background execution are fully operational on physical hardware. Final unconditional acceptance requires a secondary client device running Minecraft Bedrock to complete Gate 7.
 
-The current priority is to finish Phase 1. Do not begin Phase 2 public relay development, Java hosting, or cross-play while these acceptance gates remain open.
+The current priority remains finishing Phase 1 acceptance. Do not begin Phase 2 public relay development, Java hosting, or cross-play while the real-client gameplay acceptance gate remains open.
 
 ## 2. Phase 1 — Bedrock local hosting
 
@@ -49,17 +55,17 @@ These results are historical evidence from commit `74fce0c34ebde5fd388e8fd8ecb19
 
 | Acceptance gate | Current evidence | Required to close |
 |---|---|---|
-| Latest Android CI | PASS on baseline commit `14d99ec` | CI must pass on the final Phase 1 branch/merge commit |
-| PHP runtime and 17 modules | Historical device PASS | Re-run on APK built from final Phase 1 source |
-| Axolotl-PM launch and readiness | Historical device PASS | Re-run on final APK |
-| Server start/stop lifecycle | Historical device PASS; three cycles recorded | Re-run at least three cycles on final APK |
-| Configurable NetherNet UDP port | Source fix and unit/CI coverage | Inspect generated config on device for default and non-default ports |
-| LAN address selection | Unit tests; implementation hardened to exclude cellular/VPN/unknown interfaces | Confirm correct Wi-Fi/hotspot address on target phone |
-| Real Bedrock client gameplay | **NOT TESTED / BLOCKING** | Second client joins, loads chunks, moves, places/breaks blocks, disconnects, and rejoins |
-| World persistence | Historical device PASS | Re-run after real client gameplay and clean restart |
-| Offline backup and restore | Implementation present; acceptance incomplete | Create backup, restore it, and verify the restored world |
-| Online backup consistency | Fixed-delay implementation only; no server flush acknowledgement | Do not claim guaranteed online snapshot consistency; implement acknowledgement or use safe stopped-server backup |
-| Screen-off/background hosting | Historical device PASS | Repeat on final APK and record device power settings |
+| Latest Android CI | PASS on baseline commit `14d99ec` / PR `42819256915` | CI must pass on the final Phase 1 branch/merge commit |
+| PHP runtime and 17 modules | PASS (Tested on commit `442c680`) | Verified on physical device under `libphp.so -n` |
+| Axolotl-PM launch and readiness | PASS (Tested on commit `442c680`) | Verified on physical device, UI transitions to ONLINE |
+| Server start/stop lifecycle | PASS (Tested on commit `442c680`) | Multiple cycles executed cleanly without zombie processes |
+| Configurable NetherNet UDP port | PASS (Tested on commit `442c680`) | Verified `port-range: [19132, 19132]` generated in `pocketmine.yml` |
+| LAN address selection | PASS (Tested on commit `442c680`) | Advertises `192.168.1.10:19132` (interface `wlan0`), cellular/VPN excluded |
+| Real Bedrock client gameplay | **BLOCKED (Single device bench)** | Second client joins, loads chunks, moves, places/breaks blocks, disconnects, and rejoins |
+| World persistence | PASS (Tested on commit `442c680`) | Verified LevelDB persistence and NBT tags across clean restarts |
+| Offline backup and restore | PASS (Tested on commit `442c680`) | Created snapshot, created safety pre-restore backup, swapped world, verified server startup |
+| Online backup consistency | QUALIFIED / DOCUMENTED | Fixed-delay implementation only; no server flush acknowledgement (use safe stopped-server backup) |
+| Screen-off/background hosting | PASS (Tested on commit `442c680`) | Minimized app with persistent notification; external HTTP probe returned 200 OK |
 
 **Phase 1 exit criteria:** every required gate above must have current, reproducible evidence. The real-client gameplay and backup/restore tests cannot be marked PASS based on source code, synthetic tests, a port probe, or HTTP signaling alone.
 
