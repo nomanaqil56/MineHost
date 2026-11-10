@@ -1,77 +1,63 @@
-# MineHost 🎮📱
+# MineHost
 
-> **Native Android Minecraft Server Hosting Platform**  
-> Turn your Android smartphone or tablet into a high-performance, dedicated Minecraft server machine.
+> **Phone-powered Minecraft hosting. Your device. Your world. Your network.**
 
----
+MineHost is an Android application project intended to let a user run a Minecraft server on their own Android device and invite players over local or public networks. The host phone—not a MineHost cloud game server—does the actual game-server work.
 
-## 🌟 Overview
+## Project status
 
-**MineHost** is a complete, production-grade native Android application that hosts real Minecraft servers directly on your mobile device.
+**Active development — not production-ready.**
 
-Unlike third-party dashboard apps that merely connect to cloud hosting providers, **MineHost runs the server process locally on the Android device hardware**. Your phone is the host machine, your device storage holds your worlds, and incoming connections from friends around the world are bridged seamlessly via encrypted low-latency reverse tunnels.
+The repository contains an Android application foundation, server-engine abstractions, world/backup code, and networking-provider groundwork. However, the latest source audit identified unresolved runtime and end-to-end verification blockers. No real Minecraft server session has yet been demonstrated on a physical Android device in the current audit.
 
-### Core Features
+Do not interpret the planned feature list as a claim that every feature currently works. See:
+- [Production readiness audit](docs/PRODUCTION_READINESS.md)
+- [Master roadmap](docs/MINEHOST_MASTER_ROADMAP.md)
+- [Testing status](docs/TESTING.md)
+- [Device test guide](docs/DEVICE_TESTING.md)
+- [Known issues](docs/KNOWN_ISSUES.md)
 
-- ⚡ **Genuine Local Server Execution:** Runs Minecraft server engines (PocketMine-MP, PowerNukkitX, PaperMC) directly on Android ARM64.
-- 🌍 **Worldwide Multiplayer:** Automatic reverse tunneling via Playit.gg — players join from any country without port forwarding or router configuration.
-- 🔄 **Cross-Play Ready:** Integrated GeyserMC bridge allows Bedrock players (iOS, Android, Windows, Consoles) and Java players (PC, Mac) to play together on the same server.
-- 💾 **100% Local World Ownership:** World data never leaves your device. Features automated snapshots, `.mcworld` import/export, and safe recovery guards.
-- 📱 **Background Hosting with Foreground Service:** Keeps the server alive while you minimize the app, lock your screen, or play Minecraft on the same phone.
-- 💻 **Live Terminal Console:** Monospace log streaming, color-coded log levels, live player tracking, and server command administration (`say`, `kick`, `gamemode`, `save-all`).
-- 🎨 **Dark Gaming UI:** Designed in Jetpack Compose and Material 3 with a custom, sleek server-management aesthetic.
+## Product principles
 
----
+- The Minecraft server process and world run locally on the user's Android device.
+- Local hosting and LAN multiplayer are intended to remain free.
+- Support Wi-Fi and mobile data.
+- Prefer direct connections; use MineHost-operated relays when direct reachability is not possible.
+- Do not require a managed third-party tunnel provider as a permanent production dependency.
+- Keep worlds and server data under the user's control and exportable.
+- Treat Java, Bedrock, and cross-play as separate compatibility commitments and advertise each only after real-client verification.
+- Optimize and measure network latency separately from server TPS/MSPT and Android thermal performance.
+- Never claim zero lag, universal device support, or uninterrupted connectivity.
 
-## 🏗️ Architecture
+MineHost can own and operate its coordination and relay software, while still relying on ordinary internet transit, data-centre connectivity, DNS registrars, Android, and upstream open-source projects. "Independent" means no mandatory third-party managed game-hosting or tunnel service—not independence from the internet itself.
 
-MineHost is architected in Kotlin following **Clean Architecture** and modern Android standards:
-- **Presentation:** Jetpack Compose, Material 3, Navigation Compose, Kotlin StateFlow.
-- **Domain:** Pure business logic, `ServerEngine` abstraction, `TunnelProvider` interface, and lifecycle state machines.
-- **Data:** Room Database (SQLite), Jetpack DataStore, and structured private file I/O (`/files/minehost/`).
-- **Platform Services:** Android `ForegroundService` (`specialUse|dataSync`), `WakeLockManager`, and `ProcessBuilder` execution.
+## Technology foundation
 
-For detailed architecture diagrams and subsystem specifications, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- Kotlin and Jetpack Compose
+- Clean Architecture / MVVM
+- Room, DataStore, Hilt, Kotlin coroutines
+- Android foreground service and process supervision
+- Server-engine and tunnel-provider abstractions
 
----
+The final Bedrock engine and Android-compatible PHP runtime, Java engine and Android-compatible JVM, and production networking stack remain subject to feasibility and physical-device validation. Existing Playit integration is a temporary provider adapter, not the intended permanent connectivity dependency.
 
-## 🚀 Getting Started
+## Build from source
 
-### Prerequisites
-- Android 9.0+ (API 28+), recommended Android 12+ (API 31+).
-- ARM64 device (Snapdragon 7xx/8xx, Dimensity 800+, or equivalent).
-- 4GB+ RAM (6GB - 8GB recommended for Java / Cross-play).
-- 2GB+ free internal storage.
+Requirements: Android Studio/Android SDK, JDK 17, and a supported Android ARM64 test device for runtime validation.
 
-### Building from Source
 ```bash
-# Clone the repository
 git clone https://github.com/nomanaqil56/MineHost.git
 cd MineHost
-
-# Build the Debug APK using Gradle
 ./gradlew assembleDebug
-
-# Install on a connected Android device
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+./gradlew testDebugUnitTest
 ```
-For complete build instructions, see [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md).
 
----
+A successful APK build does **not** prove that a Minecraft engine or public tunnel works. Follow the [device testing guide](docs/DEVICE_TESTING.md) for real-device acceptance tests.
 
-## 📚 Documentation
+## Contributing and development
 
-- [Technical Research & Feasibility](docs/TECHNICAL_RESEARCH.md)
-- [System Architecture](docs/ARCHITECTURE.md)
-- [Supported Server Engines](docs/SERVER_ENGINES.md)
-- [Networking & Tunnel Architecture](docs/NETWORKING.md)
-- [Storage & Backup Management](docs/STORAGE.md)
-- [Testing & Quality Assurance](docs/TESTING.md)
-- [Development Progress](docs/DEVELOPMENT_PROGRESS.md)
-- [Known Issues & Limitations](docs/KNOWN_ISSUES.md)
+Read [docs/MINEHOST_MASTER_ROADMAP.md](docs/MINEHOST_MASTER_ROADMAP.md) before changing architecture or adding features. Update progress and testing evidence with each meaningful change. Preserve working UI and code; prefer small, testable changes over broad rewrites.
 
----
+## Licensing and trademarks
 
-## 📄 License
-This project is open-source under the Apache 2.0 License.
-Minecraft is a registered trademark of Mojang AB / Microsoft. MineHost is not affiliated with Mojang AB or Microsoft.
+See the repository's LICENSE file for MineHost's licence. Minecraft is a trademark of Mojang/Microsoft. MineHost is an independent third-party project and is not affiliated with, endorsed by, or associated with Mojang or Microsoft. Review current Minecraft usage guidelines before public distribution or monetization.
