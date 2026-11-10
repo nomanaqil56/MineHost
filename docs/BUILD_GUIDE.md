@@ -10,7 +10,7 @@ This guide covers building the Android application. **A successful APK build doe
 - Git.
 - Android ARM64 physical device and ADB for end-to-end testing.
 
-The project targets Android 16 (API 36) and currently uses Gradle Wrapper 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.21, Compose BOM 2026.04.01, KSP 2.3.9, Room 2.8.5, Hilt 2.57.2 and JDK 17. Use the checked-in wrapper rather than a globally installed Gradle. This stack has passed the GitHub Actions unit-test, lint and debug-APK workflow on branch `work/production-readiness`.
+The project targets Android 16 (API 36) and currently uses Gradle Wrapper 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.21, Compose BOM 2026.04.01, KSP 2.3.9, Room 2.8.5, Hilt 2.57.2 and JDK 17. Use the checked-in wrapper rather than a globally installed Gradle. The API 36 stack passed unit tests, lint and debug APK assembly in CI run 42754538024. The expanded workflow also verifies release lint, unsigned release APK and App Bundle; check the latest branch run for its result.
 
 ## 2. Build and test locally
 
@@ -29,6 +29,8 @@ chmod +x ./gradlew
 ./gradlew testDebugUnitTest
 ./gradlew lintDebug
 ./gradlew assembleDebug
+./gradlew lintRelease
+./gradlew assembleRelease bundleRelease
 ```
 
 Debug APK output:
@@ -37,7 +39,7 @@ Debug APK output:
 
 ## 3. Continuous integration
 
-The repository includes `.github/workflows/android-ci.yml`. Run [CI workflow 42753556848](https://github.com/nomanaqil56/MineHost/actions/runs/42753556848): unit tests passed, Android lint passed, debug APK assembled and uploaded as `minehost-debug-apk`. This is an Android build verification only; it does not prove runtime launch or gameplay.
+The repository includes `.github/workflows/android-ci.yml`. The API 36 debug baseline [run 42754538024](https://github.com/nomanaqil56/MineHost/actions/runs/42754538024) passed unit tests, Android lint and debug APK assembly. The expanded workflow additionally runs release lint, assembles the unsigned release APK and Android App Bundle, and uploads both debug and release artifacts. Check the latest branch run before relying on the expanded release result. This is build verification only; it does not prove runtime launch or gameplay.
 
 CI does not replace physical-device or real Minecraft-client testing.
 
