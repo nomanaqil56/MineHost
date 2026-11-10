@@ -24,15 +24,15 @@
 | :--- | :--- | :--- | :--- |
 | **Android Clean Architecture Foundation** | **IMPLEMENTED** | AUTOMATED TESTED | MVVM, Room Database (5 DAOs/entities), Hilt DI, Navigation Compose |
 | **UI Design System & Screens** | **IMPLEMENTED** | AUTOMATED TESTED | Jetpack Compose Material 3 dark gaming aesthetic, server wizard, console, diagnostics |
-| **Runtime Manager (Downloads & Hashes)** | **IMPLEMENTED** | AUTOMATED TESTED | Streaming downloads with SHA-256 validation, atomic replace for PocketMine, Paper & Playit |
-| **Bedrock PocketMine-MP Engine** | **IMPLEMENTED** | AUTOMATED TESTED | Native process execution, `server.properties` and `pocketmine.yml` generation, stdin command piping |
+| **Runtime Manager (Downloads & Hashes)** | **PARTIALLY IMPLEMENTED** | SOURCE REVIEWED | Release metadata, digest checks and staging exist; PHP/JVM runtime provisioning and Android launch are not complete. |
+| **Bedrock Axolotl-PM Engine** | **BLOCKED** | SOURCE ONLY | Axolotl-PM 5.51.1 PHAR source is pinned; Android ARM64 PHP 8.4 candidate is selected but not packaged or launched. |
 | **Bedrock Physical Device Gameplay** | **NOT IMPLEMENTED** | PENDING HARDWARE | Requires physical Android device test (Phase 16) |
 | **World Storage & File Layout** | **IMPLEMENTED** | AUTOMATED TESTED | App-private storage `/files/minehost/servers/<id>/worlds/`, tested against restart persistence |
 | **World Atomic Backup & Restore** | **IMPLEMENTED** | AUTOMATED TESTED | ZIP snapshotting, SHA-256 manifest calculation, safety pre-restore rollback snapshot |
 | **World Validation (Zip Slip & Formats)** | **IMPLEMENTED** | AUTOMATED TESTED | Safe extraction with canonical path validation guarding against Zip Slip traversal |
-| **Playit.gg Agent Integration** | **IMPLEMENTED** | AUTOMATED TESTED | Real agent execution (`playit-cli`), claim URL detection, stdout endpoint parser (no fake endpoints) |
+| **Playit optional test adapter** | **PARTIALLY IMPLEMENTED** | NOT DEVICE TESTED | Release lookup and process adapter code exist; Android executable policy, Bionic compatibility and external join remain unverified. Not the final network design. |
 | **Playit Worldwide External Join** | **NOT IMPLEMENTED** | PENDING NETWORK | Requires live claim and external player join across public internet |
-| **Java PaperMC Engine** | **IMPLEMENTED** | AUTOMATED TESTED | PaperMC v2 API downloader, configuration generator, eula consent guard, JVM memory checks |
+| **Java PaperMC Engine** | **BLOCKED** | SOURCE ONLY | Paper downloader/configuration and EULA guard exist; complete Android ARM64 JVM and executable launcher are missing. |
 | **Java ARM64 Runtime Execution** | **BLOCKED** | PENDING RUNTIME | Requires desktop JRE 17/21 distribution for Android bionic/musl |
 | **Cross-Play (GeyserMC Bridge)** | **PARTIALLY IMPLEMENTED** | NOT IMPLEMENTED | Configuration generator written; runtime bridge execution pending Java runtime milestone |
 | **Android Foreground Service & WakeLock** | **IMPLEMENTED** | AUTOMATED TESTED | `specialUse|dataSync` FGS, partial CPU wake lock, high-performance Wi-Fi lock |
@@ -70,13 +70,18 @@ No emulator, physical Android device, native runtime launch, Minecraft client jo
 
 ---
 
-## Next Milestone: Physical Device Bedrock Testing
-Target: Follow Part 16 sequence on physical Android ARM64 device:
-1. Install `app-debug.apk` via ADB or manual install.
-2. Run initial setup and download PocketMine-MP in Diagnostics.
-3. Start Bedrock server on port 19132.
-4. Connect Bedrock client over local Wi-Fi to test world generation, block placement, and restart persistence.
+## Next Milestone: Android Bedrock Runtime Packaging
+
+1. Inspect the pinned Axolotl-PM PHP 8.4 Android ARM64 archive and verify its ELF type, interpreter and extension set.
+2. Choose a packaging/loader strategy that is permitted by Android's executable policy.
+3. Package or embed the runtime and prove `php -v`, required extensions and Axolotl-PM PHAR startup.
+4. Only then install the app on a physical Android ARM64 device and perform local Bedrock join, world save and restart persistence tests.
 
 
-## Latest session
-Added readiness probes, safe restore, EULA consent, tunnel state model, player tracking, LAN address, diagnostics errors, signing config, stale-state reconcile (commits up to 7063430 on main). 40 pure-Kotlin tests run and pass outside Gradle. Android code was not compiled; nothing was run on a device. See `docs/PRODUCTION_READINESS.md` and `docs/TESTING.md`.
+## Latest session (2026-11-10)
+- Added an Android CI workflow and repaired the Unix Gradle wrapper script.
+- CI exposed and fixed a Kotlin DSL `Properties` import and a missing Room migration import. The latest CI run is still pending verification.
+- Tightened PHP/Java/Playit runtime detection so shared-library names are not accepted as CLI executables.
+- Switched the Bedrock source to Axolotl-PM 5.51.1 / Bedrock 1.26.60 and pinned the PHAR release.
+- Selected the matching Axolotl-PM PHP 8.4 Android ARM64 archive; its SHA-256 and packaging constraints are documented in [Decision 0001](decisions/0001-bedrock-engine-and-php-runtime.md).
+- No physical-device server launch or real Minecraft client join has been verified.
