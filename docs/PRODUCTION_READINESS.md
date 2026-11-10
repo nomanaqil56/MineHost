@@ -1,6 +1,6 @@
 # MineHost: Production Readiness
 
-_Audit date: 2026-11-09. Based on reading the source of the `main` branch (commit `915ff66`) and the changes listed below._
+_Original audit: 2026-11-09. Updated for the main branch on 2026-11-10; older findings below are historical where superseded by the current-main correction note._
 
 ## Verdict
 
@@ -8,15 +8,30 @@ _Audit date: 2026-11-09. Based on reading the source of the `main` branch (commi
 
 MineHost has a well-organised app shell (UI, database, services, backups), but **no Minecraft server has ever been shown to run through it**, and several blockers mean it cannot run one today. Nothing here has been built or run on a device in this audit (see "What was and was not verified").
 
+## Current main-branch correction (2026-11-10)
+
+The original audit below identified several false-positive runtime checks. Follow-up commits on `main` have hardened those checks:
+
+- `RuntimeManager.getPhpExecutable()` no longer treats `libphp.so` as a PHP CLI command. It accepts only an executable candidate under the managed PHP runtime directory.
+- `RuntimeManager.getJavaExecutable()` now requires an actual `bin/java`-style CLI launcher. `libjava.so` alone is no longer accepted.
+- `BedrockEngine` and `JavaEngine` now return explicit runtime-blocked errors instead of attempting to execute those shared libraries.
+- Playit detection no longer treats `libplayit.so` as a standalone agent executable.
+- The README now describes these features as goals/scaffolding, not working production capabilities.
+- An Android CI workflow has been added for unit tests, lint and debug APK assembly.
+
+**Verification status:** these latest source and workflow changes have not yet been confirmed by a successful CI run in this session. No PHP/Java runtime has been added, no Android device has been tested, and no real Minecraft client has joined. MineHost remains **NOT PRODUCTION READY**.
+
+
+
 ## Blockers (why a real server cannot start today)
 
 | # | Blocker | Evidence | Needed to resolve |
 |---|---|---|---|
-| 1 | **No PHP runtime exists.** The Bedrock engine runs `libphp.so` from `nativeLibraryDir`, but the repo has no `app/src/main/jniLibs/` directory and no code that obtains a PHP binary. `getPhpExecutable()` returns `null`, so Bedrock start fails with a clear error. | `RuntimeManager.getPhpExecutable()`, `BedrockEngine.start()`, no `jniLibs/` | An Android-compatible ARM64 PHP build (as `lib*.so` in `jniLibs`, or another validated execution method), tested on a device. |
-| 2 | **No Java runtime exists.** `JavaEngine` needs `libjava.so`; none is bundled. | `JavaEngine.start()`, no `jniLibs/` | An ARM64 JRE that runs on Android Bionic, or a PRoot userspace. Java is therefore **BLOCKED**. |
-| 3 | **Android 10+ W^X.** Binaries downloaded into `filesDir` (the Playit agent, a downloaded PHP) cannot be executed on targetSdk 29+. Only files extracted from the APK's `jniLibs` can. | `RuntimeManager.downloadPlayitAgent()` writes to `filesDir` and calls `setExecutable` | Package binaries in `jniLibs` or use an approved loader. Not testable without a device. |
-| 4 | **Playit agent download URL is almost certainly wrong.** The app requests `playit-cli-linux-aarch64` / `playit-cli-linux-x86_64`. The official Linux asset naming is `playit-linux-*` (e.g. `playit-linux-amd64`, per playit.gg/support/run-on-linux). The correct arm64 asset name was not confirmed. | `RuntimeManager.downloadPlayitAgent()` | Confirm the real asset name and whether it runs on Bionic. |
-| 5 | **Downloads are not integrity-checked.** SHA-256 is _computed_ and stored but never compared with a trusted value; PocketMine and the Playit agent use `releases/latest`. | `RuntimeManager.downloadFileWithProgress()` | Pin versions and verify against published checksums or signatures. |
+| 1 | **No PHP CLI runtime is available.** The current code accepts only executable PHP CLI candidates under the managed runtime directory; no validated Android ARM64 PHP CLI runtime/launcher is bundled. | `RuntimeManager.getPhpExecutable()`, `BedrockEngine.start()` | Select a maintained Bedrock engine/runtime combination and prove CLI launch, dependencies, and process policy on a physical ARM64 device. |
+| 2 | **No Java CLI runtime is available.** A complete Android-compatible ARM64 JVM and executable `bin/java` launcher are not present. A shared library alone is not accepted. | `RuntimeManager.getJavaExecutable()`, `JavaEngine.start()` | Validate a complete JVM distribution and process-launch strategy on Android. Java is therefore **BLOCKED**. |
+| 3 | **Android executable policy is unresolved.** Setting the executable bit does not prove Android/SELinux will permit launching a binary from app-private writable storage. | Runtime candidates are stored under app-private runtime directories | Choose a supported packaging/loader approach and verify actual process launch on each supported Android API level. |
+| 4 | **Playit Android execution remains unverified.** The current downloader resolves release assets from metadata and attempts an execution check, but Android/Bionic compatibility and W^X policy have not been proven on a device. | `RuntimeManager.downloadPlayitAgent()` | Validate the actual ARM64 release asset and launch path; keep Playit optional and temporary, not the final MineHost network. |
+| 5 | **Download supply-chain policy needs a final audit.** The current implementation resolves release metadata and compares a published SHA-256 digest when available; version pinning, signature/provenance policy and fallback behaviour still need review. | `RuntimeManager.downloadFileWithProgress()` | Define supported versions and require trusted integrity metadata before promoting runtime assets. |
 | 6 | **No physical-device or real-client test has been done**, so every end-to-end claim is unproven. | n/a | Run the Bedrock acceptance test in the brief (Part 5.5). |
 
 ## Changes made in this audit (not yet built or run)
