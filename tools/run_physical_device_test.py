@@ -210,9 +210,14 @@ def main():
     report.record("PHP 8.4 CLI Direct Binary Execution", php_v_ok, f"Output: {v_out.splitlines()[0] if v_out else v_err}")
 
     code, m_out, _ = run_device_shell(f"{php_path} -n -m")
-    required_mods = ["pmmpthread", "leveldb", "yaml", "igbinary", "chunkutils2", "crypto", "openssl", "sockets", "zip", "zlib", "gmp"]
-    missing = [m for m in required_mods if m not in m_out]
-    report.record("Required PocketMine PHP Extensions Verification", len(missing) == 0, f"Verified 11/11 core modules; missing={missing}")
+    m_out_lower = m_out.lower()
+    required_mods = [
+        "curl", "gmp", "igbinary", "leveldb", "mbstring", "openssl", "phar",
+        "sockets", "yaml", "zip", "zlib", "chunkutils2", "crypto", "encoding",
+        "morton", "pmmpthread", "webrtc"
+    ]
+    missing = [m for m in required_mods if m not in m_out_lower]
+    report.record("Required PocketMine PHP Extensions Verification", len(missing) == 0, f"Verified {len(required_mods) - len(missing)}/{len(required_mods)} core modules; missing={missing}")
 
     # --------------------------------------------------------------------------
     # 6. PocketMine-MP Engine Deployment & Integrity Check
@@ -363,7 +368,9 @@ network:
     report_text = report.generate_txt()
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(report_text)
-    print(f"\nReport written to {REPORT_FILE}")
+    with open("PHYSICAL_DEVICE_TEST_REPORT.txt", "w", encoding="utf-8") as f:
+        f.write(report_text)
+    print(f"\nReport written to {REPORT_FILE} and PHYSICAL_DEVICE_TEST_REPORT.txt")
 
     # Copy to artifact directory if present
     artifact_dir = os.environ.get("MINEHOST_TEST_ARTIFACT_DIR", "")
