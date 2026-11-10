@@ -1,176 +1,79 @@
-# MineHost — System Architecture Specification
+# MineHost — Architecture
 
-## 1. Architectural Overview
+> This describes the current application layers and the target product architecture. The MineHost-owned global network and native server-runtime integrations are not implemented yet.
 
-MineHost is built according to **Clean Architecture** principles and the modern Android development stack:
-- **Presentation:** Jetpack Compose, Material 3, Navigation Compose, unidirectional data flow (UDF) with Kotlin StateFlow.
-- **Domain:** Pure business logic, Use Cases, Engine interfaces, Tunnel abstractions, and Server state machine.
-- **Data:** Repository pattern, Room Database for server metadata and logs, Jetpack DataStore for preferences, and direct file I/O for Minecraft world directories and configurations.
-- **Platform Services:** Android Foreground Service, WakeLock management, Thermal Status monitoring, and process supervision via `ProcessBuilder`.
+## 1. Android application layers
+
+- **Presentation:** Jetpack Compose, Material 3, Navigation Compose, StateFlow.
+- **Domain:** server lifecycle, engine interfaces, tunnel/provider abstractions, use cases.
+- **Data:** Room server metadata, DataStore preferences, repositories, app-private world/configuration files.
+- **Platform:** foreground service, notification controls, wake-lock/thermal monitoring, Android network observation.
+- **Execution:** server engines are abstracted behind ServerEngine. Current process-based adapters use ManagedServerProcess; a future in-process native engine may require a separate handle implementation.
+
+## 2. High-level components
 
 ```mermaid
 flowchart TD
-    subgraph UI ["Presentation Layer (Jetpack Compose)"]
-        Dashboard["Dashboard Screen"]
-        ServerDetail["Server Detail Screen"]
-        Console["Live Console Screen"]
-        CreateServer["Create Server Wizard"]
-        Settings["Server Settings Screen"]
-        Players["Player Management"]
-        WorldsBackups["World & Backup Manager"]
-    end
-
-    subgraph Domain ["Domain Layer"]
-        ServerController["Server Controller"]
-        ServerManager["Server Manager"]
-        TunnelManager["Tunnel Manager"]
-        WorldManager["World Manager"]
-        BackupManager["Backup Manager"]
-        PlayerManager["Player Manager"]
-    end
-
-    subgraph Data ["Data & Storage Layer"]
-        ServerRepo["Server Repository"]
-        RoomDB[("Room Database (SQLite)")]
-        DataStore["User Preferences (DataStore)"]
-        LocalFS["Local File System (/files/minehost)"]
-    end
-
-    subgraph Execution ["Platform & Process Execution"]
-        ForegroundService["Server Foreground Service"]
-        WakeLockMgr["WakeLock & Thermal Manager"]
-        EngineProcess["Server Engine Process (ProcessBuilder)"]
-        TunnelClient["Tunnel Client Process (Playit CLI)"]
-    end
-
-    UI --> Domain
-    Domain --> Data
-    Domain --> Execution
-    Execution --> LocalFS
-    Data --> RoomDB
-    Data --> DataStore
-    Data --> LocalFS
+  UI[Compose UI] --> Domain[Server / World / Network Domain]
+  Domain --> Data[Room / DataStore / Local Files]
+  Domain --> Lifecycle[Foreground Service / Lifecycle Manager]
+  Lifecycle --> Engine[Engine Adapter]
+  Engine --> Runtime[Verified Android Runtime]
+  Runtime --> World[Local World Files]
+  Domain --> Connectivity[Connectivity Manager]
+  Connectivity --> Control[MineHost Control Plane]
+  Connectivity --> Direct[Direct LAN / Public Path]
+  Connectivity --> Relay[MineHost-operated Relay]
+  Player[Normal Minecraft Client] --> Direct
+  Player --> Relay
+  Relay --> Host[Android Host Tunnel]
+  Host --> Engine
 ```
 
----
+The cloud control plane is not the game server. The Android phone remains the host and source of truth for the world.
 
-## 2. Subsystem Breakdown
+## 3. Server lifecycle
 
-### 2.1 Server Engine Abstraction Layer
-MineHost does not bind directly to any specific server software. It abstracts all engines behind `ServerEngine`:
+A process being alive or a port being bound is not sufficient to mark a server online. The lifecycle must be:
+- NOT_CREATED -> INSTALLING -> STOPPED
+- STOPPED -> STARTING -> ONLINE only after a protocol-appropriate readiness response
+- STARTING -> ERROR on timeout, missing runtime, invalid configuration, or bind failure
+- ONLINE -> STOPPING -> STOPPED on a requested graceful stop
+- ONLINE -> CRASHED only on an unexpected process exit
+- CRASHED/ERROR -> STOPPED after explicit recovery/reconciliation
 
-```mermaid
-classDiagram
-    class ServerEngine {
-        <<interface>>
-        +id: String
-        +edition: MinecraftEdition
-        +name: String
-        +version: String
-        +isInstalled(): Boolean
-        +install(listener: InstallListener): Job
-        +configure(config: ServerConfiguration): Unit
-        +start(workDir: File, listener: ProcessListener): ProcessHandle
-        +stop(timeoutSeconds: Int): Boolean
-        +sendCommand(command: String): Unit
-        +getStatus(): ServerStatus
-    }
-    class BedrockEngine {
-        +pocketMineFlavor: PocketMineAdapter
-        +powerNukkitFlavor: PowerNukkitAdapter
-    }
-    class JavaEngine {
-        +paperFlavor: PaperAdapter
-        +vanillaFlavor: VanillaAdapter
-    }
-    class CrossPlayEngine {
-        +geyserAdapter: GeyserAdapter
-        +floodgateAdapter: FloodgateAdapter
-    }
+Each status shown in the UI must correspond to a measured process/protocol/network fact. A tunnel process running is not proof that a public Minecraft endpoint is reachable.
 
-    ServerEngine <|.. BedrockEngine
-    ServerEngine <|.. JavaEngine
-    ServerEngine <|.. CrossPlayEngine
-```
+## 4. Engine abstraction
 
-### 2.2 Server Lifecycle State Machine
-A server instance transitions through strict observable states:
+The ServerEngine interface should hide engine-specific install, configure, start, stop, command, and readiness behavior. Do not assume all engines are child processes: native Go/Rust engines may need an in-process library and an engine-specific lifecycle handle.
 
-```mermaid
-stateDiagram-v2
-    [*] --> NOT_CREATED
-    NOT_CREATED --> INSTALLING: Create Server
-    INSTALLING --> STOPPED: Installation Complete
-    INSTALLING --> ERROR: Download/Config Failed
-    
-    STOPPED --> STARTING: Start Server
-    STARTING --> ONLINE: Readiness Port Check Passed
-    STARTING --> ERROR: Startup Failed / Port In Use
-    
-    ONLINE --> STOPPING: Stop Requested
-    STOPPING --> STOPPED: Graceful Exit
-    STOPPING --> CRASHED: Shutdown Timeout / SIGKILL
-    
-    ONLINE --> CRASHED: Process Exited Unexpectedly
-    CRASHED --> STOPPED: Acknowledge / Recover
-    ERROR --> STOPPED: Reset
-```
+No current engine is certified for production. See [Server Engine Status](SERVER_ENGINES.md) and [Engine Evaluation](ENGINE_EVALUATION.md).
 
-### 2.3 Networking & Tunnel Architecture
-External players connect across the internet without router configuration:
+## 5. Networking planes
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Player as External Player (Bedrock / Java)
-    participant Relay as Public Relay (Anycast Edge)
-    participant Client as Playit Tunnel Client (Android)
-    participant Server as Local Minecraft Server (Android)
-    
-    Note over Client,Server: Android Device Local Execution
-    Client->>Relay: Establish control tunnel (UDP/TLS)
-    Relay-->>Client: Assign public endpoint (e.g. host.joinmc.link:19132)
-    Client->>Server: Local binding verification (127.0.0.1:19132)
-    
-    Player->>Relay: Connect to host.joinmc.link:19132 (UDP RakNet)
-    Relay->>Client: Forward packet through encrypted tunnel
-    Client->>Server: Forward packet to local port 19132
-    Server-->>Client: Server response packet
-    Client-->>Relay: Tunnel response packet
-    Relay-->>Player: Forward response to player
-```
+- **Control plane:** host registration, authentication, session negotiation, endpoint allocation, relay selection, telemetry.
+- **Data plane:** direct LAN/public traffic where reachable; MineHost-operated protocol-aware relay only when needed.
+- **Java:** TCP forwarding.
+- **Bedrock:** version-specific transport handling; validate required TCP/UDP behavior with real clients.
 
----
+Playit remains an experimental provider adapter only and is not the target production dependency. See [Networking](NETWORKING.md).
 
-## 3. Storage Architecture
+## 6. Storage
 
-```
-files/minehost/
-├── servers/
-│   └── <server_uuid>/
-│       ├── server.json             # Server metadata & settings
-│       ├── server.properties       # Minecraft vanilla server configuration
-│       ├── worlds/                 # Active world save directory
-│       │   └── default/
-│       ├── plugins/                # Engine plugins / extensions
-│       ├── logs/                   # Log history & crash reports
-│       └── backups/                # Local compressed world snapshots (.zip)
-├── engines/
-│   ├── bedrock/                    # Bedrock engine binaries / phar files
-│   └── java/                       # Java server JARs
-├── runtimes/
-│   └── jre/                        # Portable Java Runtime Environment
-└── tunnels/
-    └── playit/                     # Tunnel agent configuration & identity cache
-```
+- Server metadata: Room.
+- Preferences: DataStore.
+- Worlds, engine data, configuration and backups: app-private files.
+- Export/import: explicit user action with integrity validation.
+- Backup restore: safe save/pause, checksum validation, temporary extraction, path validation, safety snapshot and rollback-safe replacement.
 
----
+Do not upload worlds without explicit user opt-in.
 
-## 4. Security & Isolation Model
+## 7. Security and privacy
 
-1. **Local World Integrity:** All worlds and configurations are stored in private app storage (`context.filesDir`).
-2. **Native Execution:** Executables adhere to Android API 29+ W^X policies by executing from `context.applicationInfo.nativeLibraryDir`.
-3. **No Root Requirement:** Operates entirely within standard unprivileged Android user space.
-4. **Console Shell Protection:** Command console strictly passes input to Minecraft server standard input; operating system shell commands (`/bin/sh`, PowerShell, cmd) are blocked.
-5. **Relay Token Protection:** Playit authentication secret keys and sensitive tokens are encrypted using Android Keystore / EncryptedSharedPreferences.
-
+- No root requirement.
+- No arbitrary shell command execution through the Minecraft console.
+- Authenticate and encrypt host-to-relay/control-plane traffic.
+- Keep credentials out of logs and source control.
+- Pin and verify runtime/engine assets.
+- Review Google Play dynamic-code policy and all third-party licences.
