@@ -39,7 +39,7 @@ MineHost can own and operate its coordination and relay software, while still re
 - Android foreground service and process supervision
 - Server-engine and tunnel-provider abstractions
 
-The final Bedrock engine and Android-compatible PHP runtime, Java engine and Android-compatible JVM, and production networking stack remain subject to feasibility and physical-device validation. Existing Playit integration is a temporary provider adapter, not the intended permanent connectivity dependency.
+The final Bedrock engine and Android-compatible PHP runtime, Java engine and Android-compatible JVM, and production networking stack remain subject to feasibility and physical-device validation. The legacy Playit adapter remains unbound source code; the app currently binds an unavailable MineHost provider and does not start a third-party tunnel.
 
 ## Build from source
 
