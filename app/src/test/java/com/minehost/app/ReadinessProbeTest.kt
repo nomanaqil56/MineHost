@@ -208,7 +208,7 @@ class ReadinessProbeTest {
                     server.accept().use { socket ->
                         socket.getInputStream().bufferedReader().readLine()
                         socket.getOutputStream().write(
-                            "HTTP/1.1 404 Not Found\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n".toByteArray()
+                            "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray()
                         )
                         socket.getOutputStream().flush()
                     }
