@@ -1,6 +1,6 @@
 # MineHost Networking Architecture
 
-> **Target architecture, not a claim of current functionality.** The MineHost-owned global network described here is not implemented yet. Current code contains an experimental Playit provider; it must not be mistaken for MineHost-owned connectivity.
+> **Target architecture, not a claim of current functionality.** The MineHost-owned global network described here is not implemented yet. Legacy Playit provider code remains in the repository but is unbound; the app uses an explicit unavailable provider and does not start a third-party tunnel.
 
 ## 1. Goals
 
