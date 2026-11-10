@@ -72,11 +72,11 @@ class ServerController @Inject constructor(
         val server = serverRepository.getServerById(serverId)
             ?: return@withLock Resource.Error("Server with ID $serverId not found")
 
-        if (_serverStatus.value.isRunning) {
+        if (_serverStatus.value.isRunning || activeProcessHandle?.isAlive == true) {
             return@withLock Resource.Error("Another server instance is already running")
         }
 
-        return try {
+        try {
             _activeServerId.value = serverId
             _serverStatus.value = ServerStatus.STARTING
             serverRepository.updateStatus(serverId, ServerStatus.STARTING)
@@ -213,7 +213,21 @@ class ServerController @Inject constructor(
                 return@withLock Resource.Error("Server start failed: $error")
             }
 
-            activeProcessHandle = launchResult.getOrNull()
+            val processHandle = launchResult.getOrNull()
+            if (processHandle == null) {
+                handleServerStopped(serverId, ServerStatus.ERROR)
+                return@withLock Resource.Error("Server engine returned success without a process handle.")
+            }
+            activeProcessHandle = processHandle
+            if (!processHandle.isAlive) {
+                val finalStatus = if (_serverStatus.value == ServerStatus.ERROR) {
+                    ServerStatus.ERROR
+                } else {
+                    ServerStatus.CRASHED
+                }
+                handleServerStopped(serverId, finalStatus)
+                return@withLock Resource.Error("Server process exited immediately after launch. Check the server console and runtime.")
+            }
             Resource.Success(Unit)
         } catch (e: Exception) {
             AppLogger.e("ServerController", "Exception starting server: ${e.message}", e)
