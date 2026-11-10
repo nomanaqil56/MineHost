@@ -20,9 +20,12 @@ import javax.inject.Singleton
 private const val TAG = "ConnectionMonitor"
 
 /**
- * Checks the tunnel the way a Minecraft client would: with a real Minecraft protocol request sent to
- * the PUBLIC endpoint (RakNet ping for Bedrock/UDP, Server List Ping for Java/TCP). A plain TCP
- * connect, which this class used to use, cannot tell whether a UDP game server is reachable.
+ * Checks the public endpoint with a protocol-aware request:
+ * - Bedrock: NetherNet HTTP(S) GET /v1/join (or legacy RakNet ping).
+ * - Java: Server List Ping.
+ *
+ * For NetherNet, this measures signalling reachability/RTT only. It does NOT prove that the
+ * WebRTC UDP/ICE gameplay channel is reachable or report in-game ping; a real client join is required.
  *
  * It also probes the server on localhost, so "the server is down" and "the tunnel is down" are
  * reported separately.
@@ -33,7 +36,7 @@ class ConnectionMonitor @Inject constructor() {
     private var monitorJob: Job? = null
 
     private val _latencyMs = MutableStateFlow<Long?>(null)
-    /** Round-trip time through the public endpoint; null when not reachable or not checked yet. */
+    /** Signalling/protocol probe RTT, not necessarily Minecraft gameplay ping. */
     val latencyMs: StateFlow<Long?> = _latencyMs.asStateFlow()
 
     private val _remoteReachable = MutableStateFlow<Boolean?>(null)
@@ -41,7 +44,7 @@ class ConnectionMonitor @Inject constructor() {
     val remoteReachable: StateFlow<Boolean?> = _remoteReachable.asStateFlow()
 
     private val _localServerHealthy = MutableStateFlow<Boolean?>(null)
-    /** Whether the Minecraft server answers on localhost; null = not checked yet. */
+    /** Whether the local protocol signalling/status probe answers; null = not checked yet. */
     val localServerHealthy: StateFlow<Boolean?> = _localServerHealthy.asStateFlow()
 
     fun startMonitoring(endpoint: PublicEndpoint, localPort: Int, protocol: NetworkProtocol) {
