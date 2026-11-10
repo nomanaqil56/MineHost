@@ -69,7 +69,7 @@ for candidate in "${PHP_CANDIDATES[@]}"; do
   REQUIRED_MODULES=(curl gmp igbinary leveldb mbstring openssl phar sockets yaml zip zlib chunkutils2 crypto encoding morton pmmpthread webrtc)
   MISSING=()
   for module in "${REQUIRED_MODULES[@]}"; do
-    if ! grep -Eiq "^\${module}$" <<< "$MODULE_OUTPUT"; then
+    if ! grep -Fxiq "$module" <<< "$MODULE_OUTPUT"; then
       MISSING+=("$module")
     fi
   done
