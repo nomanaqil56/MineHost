@@ -23,7 +23,7 @@ class BedrockEngine @Inject constructor(
     private val runtimeManager: RuntimeManager
 ) : ServerEngine {
 
-    override val id: String = "bedrock-axolotl-pm-v5"
+    override val id: String = "bedrock-pocketmine-v5" // Stable persisted ID; engine implementation is Axolotl-PM.
     override val name: String = "Axolotl-PM (Bedrock)"
     override val edition: MinecraftEdition = MinecraftEdition.BEDROCK
     override val defaultVersion: String = "1.26.60"
