@@ -204,10 +204,13 @@ class PlayitTunnelProvider @Inject constructor(
             _status.value = TunnelStatus.ERROR
             return Result.failure(IllegalStateException("The Playit agent exited during startup. See the tunnel log in Diagnostics."))
         }
-        // Still alive but no endpoint yet: leave it running (it may be waiting on the network) but do not claim success.
-        return Result.failure(
-            TimeoutException("Playit did not report a public endpoint within ${ENDPOINT_TIMEOUT_MS / 1000}s. Check the network connection and claim status.")
-        )
+        // A live process is not proof that a tunnel is configured. Avoid leaving the UI
+        // stuck on STARTING when the agent never announces a public endpoint.
+        val message = "Playit agent is running but has not announced a public endpoint after ${ENDPOINT_TIMEOUT_MS / 1000}s. " +
+            "Check Diagnostics logs, complete agent claiming, and confirm a Bedrock/NetherNet UDP tunnel exists in the Playit dashboard."
+        _status.value = TunnelStatus.ERROR
+        log("[Playit] ERROR: $message")
+        return Result.failure(TimeoutException(message))
     }
 
     // ------------------------------------------------------------------ supervision
