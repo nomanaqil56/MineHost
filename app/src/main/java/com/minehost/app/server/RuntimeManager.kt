@@ -108,7 +108,8 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Verifies that Bedrock PocketMine-MP and its PHP runtime are actually installed on disk.
+     * Verifies that the Axolotl-PM PHAR and its PHP CLI candidate are present on disk.
+     * This is a presence check only; it does not prove Android will permit process launch.
      */
     fun isBedrockPocketMineInstalled(): Boolean {
         val phar = File(baseEnginesDir, "bedrock/PocketMine-MP.phar")
@@ -127,7 +128,10 @@ class RuntimeManager @Inject constructor(
      * the caller must handle that failure and a physical-device launch test is required.
      */
     fun getPhpExecutable(): File? {
+        // Axolotl-PM PHP-Binaries archive layout: bin/php7/bin/php.
+        // The archive is extracted under the managed "php" runtime root.
         val candidates = listOf(
+            File(baseRuntimesDir, "php/bin/php7/bin/php"),
             File(baseRuntimesDir, "php/bin/php"),
             File(baseRuntimesDir, "php/php")
         )

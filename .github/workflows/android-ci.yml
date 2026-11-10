@@ -53,7 +53,12 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-      - name: Inspect pinned PHP 8.4 Android ARM64 archive
+      - name: Install QEMU ARM64 user emulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes qemu-user
+
+      - name: Inspect and smoke-test pinned PHP 8.4 Android ARM64 archive
         run: bash scripts/inspect-android-php-runtime.sh "$RUNNER_TEMP/php-runtime"
       - name: Upload runtime inspection report
         uses: actions/upload-artifact@v4

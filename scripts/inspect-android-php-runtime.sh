@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Structural inspection only: this does NOT prove Android can execute the binary.
+# Verifies the pinned Android ARM64 PHP archive and runs its static AArch64 CLI under QEMU.
+# QEMU success is a userspace smoke test, NOT proof of Android SELinux/W^X execution.
 set -Eeuo pipefail
 RELEASE_TAG="pm5-php-8.4-latest"
 ASSET_NAME="PHP-8.4-Android-arm64-PM5.tar.gz"
@@ -16,7 +17,7 @@ echo "$EXPECTED_SHA256  $ARCHIVE" | sha256sum --check -
 mkdir -p "$EXTRACT_DIR"
 tar -xzf "$ARCHIVE" -C "$EXTRACT_DIR"
 {
-  echo "MineHost Android PHP runtime structural inspection"
+  echo "MineHost Android PHP runtime inspection"
   echo "Release: $RELEASE_TAG"
   echo "Asset: $ASSET_NAME"
   echo "Expected SHA-256: $EXPECTED_SHA256"
@@ -33,6 +34,12 @@ if (("${#PHP_CANDIDATES[@]}" == 0)); then
   cat "$REPORT"
   exit 1
 fi
+QEMU_BIN="$(command -v qemu-aarch64 || command -v qemu-aarch64-static || true)"
+if [[ -z "$QEMU_BIN" ]]; then
+  echo "ERROR: qemu-aarch64 is required for the ARM64 userspace smoke test." | tee -a "$REPORT"
+  cat "$REPORT"
+  exit 1
+fi
 for candidate in "${PHP_CANDIDATES[@]}"; do
   {
     echo
@@ -42,21 +49,46 @@ for candidate in "${PHP_CANDIDATES[@]}"; do
     echo "ELF header:"
     readelf -h "$candidate" | grep -E 'Class:|Data:|Type:|Machine:'
     echo "Program interpreter (if dynamically linked):"
-    readelf -l "$candidate" | grep -F 'Requesting program interpreter' || echo "No PT_INTERP segment reported (possibly static)."
+    readelf -l "$candidate" | grep -F 'Requesting program interpreter' || echo "No PT_INTERP segment reported (static ELF)."
   } | tee -a "$REPORT"
   if ! readelf -h "$candidate" | grep -q 'Machine:.*AArch64'; then
     echo "ERROR: PHP candidate is not AArch64." | tee -a "$REPORT"
     cat "$REPORT"
     exit 1
   fi
+  if readelf -l "$candidate" | grep -q 'Requesting program interpreter'; then
+    echo "ERROR: expected a static Android cross-compiled CLI, but a PT_INTERP segment exists." | tee -a "$REPORT"
+    cat "$REPORT"
+    exit 1
+  fi
+  echo "QEMU PHP version output:" | tee -a "$REPORT"
+  "$QEMU_BIN" "$candidate" -n -v 2>&1 | tee -a "$REPORT"
+  echo "QEMU PHP module list:" | tee -a "$REPORT"
+  MODULE_OUTPUT="$("$QEMU_BIN" "$candidate" -n -m 2>&1)"
+  printf '%s\n' "$MODULE_OUTPUT" | tee -a "$REPORT"
+  REQUIRED_MODULES=(curl gmp igbinary leveldb mbstring openssl phar sockets yaml zip zlib chunkutils2 crypto encoding morton pmmpthread)
+  MISSING=()
+  for module in "${REQUIRED_MODULES[@]}"; do
+    if ! grep -Eiq "^\${module}$" <<< "$MODULE_OUTPUT"; then
+      MISSING+=("$module")
+    fi
+  done
+  if (("${#MISSING[@]}" > 0)); then
+    echo "ERROR: required PocketMine/Axolotl PHP modules missing under QEMU: ${MISSING[*]}" | tee -a "$REPORT"
+    cat "$REPORT"
+    exit 1
+  fi
+  echo "Required PHP module smoke check: PASS" | tee -a "$REPORT"
+  echo "PHP version constant:" | tee -a "$REPORT"
+  "$QEMU_BIN" "$candidate" -n -r 'echo PHP_VERSION, PHP_EOL;' 2>&1 | tee -a "$REPORT"
 done
 {
   echo
-  echo "Potential WebRTC / runtime extension files:"
-  find "$EXTRACT_DIR" -type f \( -iname '*webrtc*' -o -iname '*sockets*' -o -iname '*openssl*' -o -iname '*curl*' \) -printf '%P\n' | sort || true
+  echo "Potential extension and support files:"
+  find "$EXTRACT_DIR" -type f | sed "s#^$EXTRACT_DIR/##" | sort
   echo
-  echo "IMPORTANT: this job verifies download integrity, archive structure, and ELF architecture only."
-  echo "It does NOT execute the Android binary, prove Bionic/musl loader compatibility, verify PHP extensions at runtime,"
-  echo "or establish that Android permits process launch from MineHost's packaged or app-private locations."
+  echo "RESULT: checksum, AArch64 static ELF checks, and QEMU CLI/module smoke tests passed."
+  echo "LIMITATION: QEMU does not reproduce Android app SELinux policy, noexec mounts, linker namespace, or foreground-service behavior."
+  echo "A physical Android ARM64 device test is still mandatory before marking the PHP runtime runnable."
 } | tee -a "$REPORT"
 echo "Inspection report: $REPORT"

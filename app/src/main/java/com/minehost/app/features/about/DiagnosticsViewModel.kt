@@ -43,9 +43,9 @@ data class DiagnosticsUiState(
     val isDownloading: Boolean = false,
     /** Why the last download/install failed, or null. Never swallowed. */
     val downloadError: String? = null,
-    /** libphp.so (or another PHP) found. Without it a Bedrock server cannot start. */
+    /** A managed PHP CLI candidate exists; actual process launch is still a separate check. */
     val isPhpRuntimeAvailable: Boolean = false,
-    /** libjava.so found. Without it a Java server cannot start. */
+    /** A managed Java CLI candidate exists; actual process launch is still a separate check. */
     val isJavaRuntimeAvailable: Boolean = false
 )
 
@@ -99,7 +99,7 @@ class DiagnosticsViewModel @Inject constructor(
             isDownloading = downloading,
             downloadError = download.error,
             isPhpRuntimeAvailable = runtimeManager.getPhpExecutable() != null,
-            isJavaRuntimeAvailable = java.io.File(context.applicationInfo.nativeLibraryDir, "libjava.so").exists()
+            isJavaRuntimeAvailable = runtimeManager.getJavaExecutable() != null
         )
     }.stateIn(
         scope = viewModelScope,
