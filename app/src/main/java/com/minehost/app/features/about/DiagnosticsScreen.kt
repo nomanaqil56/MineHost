@@ -151,11 +151,10 @@ fun DiagnosticsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    ComponentStatusRow(
-                        title = "Playit Anycast Agent (playit-cli)",
-                        installed = state.isPlayitInstalled,
-                        onDownload = { viewModel.downloadPlayitAgent() },
-                        enabled = !state.isDownloading
+                    Text(
+                        text = "Public connectivity: MineHost's own control plane and relay network are not available in this build. No third-party tunnel provider is required or started.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
