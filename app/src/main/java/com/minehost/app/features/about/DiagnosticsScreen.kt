@@ -143,7 +143,7 @@ fun DiagnosticsScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     ComponentStatusRow(
-                        title = "Bedrock Engine (PocketMine-MP)",
+                        title = "Bedrock Engine (Axolotl-PM)",
                         installed = state.isPocketMineInstalled,
                         onDownload = { viewModel.downloadPocketMine() },
                         enabled = !state.isDownloading
@@ -169,8 +169,8 @@ fun DiagnosticsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
                     DiagRow(
-                        label = "PHP runtime (required for Bedrock)",
-                        value = if (state.isPhpRuntimeAvailable) "Found" else "Missing: Bedrock cannot start",
+                        label = "Bundled PHP 8.4 ARM64 CLI",
+                        value = if (state.isPhpRuntimeAvailable) "Packaged in APK" else "Missing from this APK",
                         isGood = state.isPhpRuntimeAvailable
                     )
                     DiagRow(

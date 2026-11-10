@@ -21,13 +21,15 @@ The runtime inspection job has now established from the release archive that:
 
 This is a meaningful improvement over checking the archive structure alone. QEMU is an ARM64 userspace smoke test, not an Android device. It does not emulate app SELinux policy, Android's executable-memory restrictions, noexec mounts, or the device's process supervision behavior.
 
-## Runtime layout correction
+## APK packaging strategy
 
-The PHP CLI path in the archive is `bin/php7/bin/php`. When this archive is extracted into MineHost's managed `runtimes/php` directory, the expected CLI path is:
+The binary is not downloaded after installation. The Gradle build downloads the pinned archive, verifies its SHA-256, extracts only the CLI, verifies its ELF64 little-endian AArch64 executable header, and embeds it as:
 
-`<filesDir>/minehost/runtimes/php/bin/php7/bin/php`
+`lib/arm64-v8a/libphp.so`
 
-Runtime discovery now checks this exact path first. It still requires a regular file with the executable bit set. Presence alone does not prove that Android will launch it.
+Android extracts this packaged native-library asset into `ApplicationInfo.nativeLibraryDir`. MineHost only accepts the exact packaged path and checks ELF class, endianness, executable type, AArch64 machine ID, file size and executable permission. The binary's `.so` suffix is a packaging convention; the pinned file is a static CLI executable, not a shared library.
+
+The bundled `php.ini` is included as a normal APK asset and copied to app-private data at server start. MineHost invokes PHP with an explicit `-c` path. This keeps executable code inside the APK and avoids trying to execute a downloaded binary from writable app storage.
 
 ## Required physical-device acceptance
 
@@ -38,4 +40,4 @@ Runtime discovery now checks this exact path first. It still requires a regular 
 5. Verify save, stop, restart, and world persistence.
 6. Only after those checks pass should Diagnostics mark the runtime as runnable or the Bedrock engine be described as working.
 
-**Current status:** archive integrity, static AArch64 ELF shape, and QEMU PHP CLI/module smoke tests are CI-verifiable. Android process launch, actual server launch, and a real client join remain unverified.
+**Current status:** archive integrity, static AArch64 ELF shape, PHP 8.4.27 CLI execution, required module loading (including `webrtc`), and bundled `php.ini` loading have passed under QEMU in CI. The Gradle build now packages the CLI and configuration into the APK at build time. Android process launch, actual server launch, and a real client join remain unverified.

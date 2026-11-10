@@ -37,7 +37,7 @@ class BedrockEngine @Inject constructor(
 
     override suspend fun install(onProgress: (Float, String) -> Unit): Result<Unit> {
         AppLogger.i("BedrockEngine", "Installing Axolotl-PM Bedrock engine...")
-        if (!runtimeManager.isSupportedArchitecture()) {
+        if (!runtimeManager.isBedrockArchitectureSupported()) {
             return Result.failure(
                 UnsupportedOperationException(
                     "Device architecture (${runtimeManager.getDeviceArchitecture()}) is not supported. MineHost requires a 64-bit ARM device (arm64-v8a)."
@@ -65,7 +65,7 @@ class BedrockEngine @Inject constructor(
         val phar = runtimeManager.getPocketMinePhar()
 
         if (phpBinary == null || !phpBinary.isFile || !phpBinary.canExecute()) {
-            val errorMsg = "A runnable Android ARM64 PHP CLI executable was not found. A libphp.so shared library is not a CLI launcher. Bedrock hosting remains unavailable until a compatible PHP runtime and Android process-launch path are installed."
+            val errorMsg = "The APK does not contain a valid packaged Android ARM64 PHP CLI. Reinstall an ARM64 MineHost build that includes the bundled Bedrock runtime."
             AppLogger.e("BedrockEngine", errorMsg)
             listener.onError(errorMsg)
             return Result.failure(FileNotFoundException(errorMsg))
@@ -78,8 +78,25 @@ class BedrockEngine @Inject constructor(
             return Result.failure(FileNotFoundException(errorMsg))
         }
 
+        val phpIni = runtimeManager.preparePhpIni().getOrElse {
+            val errorMsg = "Could not prepare the bundled PHP configuration: ${it.message}"
+            AppLogger.e("BedrockEngine", errorMsg, it)
+            listener.onError(errorMsg)
+            return Result.failure(it)
+        }
+
+        val phpCheck = runtimeManager.verifyExecutable(phpBinary, "-v")
+        if (phpCheck.isFailure) {
+            val errorMsg = "The packaged PHP CLI failed its Android launch check: ${phpCheck.exceptionOrNull()?.message}"
+            AppLogger.e("BedrockEngine", errorMsg, phpCheck.exceptionOrNull())
+            listener.onError(errorMsg)
+            return Result.failure(phpCheck.exceptionOrNull() ?: IllegalStateException(errorMsg))
+        }
+
         val command = listOf(
             phpBinary.absolutePath,
+            "-c",
+            phpIni.absolutePath,
             phar.absolutePath,
             "--no-wizard",
             "--enable-ansi=false",

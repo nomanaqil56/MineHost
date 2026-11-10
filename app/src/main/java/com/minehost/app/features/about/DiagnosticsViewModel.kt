@@ -43,7 +43,7 @@ data class DiagnosticsUiState(
     val isDownloading: Boolean = false,
     /** Why the last download/install failed, or null. Never swallowed. */
     val downloadError: String? = null,
-    /** A managed PHP CLI candidate exists; actual process launch is still a separate check. */
+    /** The APK contains the pinned PHP CLI; launch is verified immediately before server start. */
     val isPhpRuntimeAvailable: Boolean = false,
     /** A managed Java CLI candidate exists; actual process launch is still a separate check. */
     val isJavaRuntimeAvailable: Boolean = false

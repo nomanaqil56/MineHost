@@ -25,6 +25,7 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.DataInputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -119,23 +120,53 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Finds an actual PHP CLI executable in the managed runtime layout.
-     *
-     * A JNI shared library such as libphp.so is not a command-line executable and
-     * must never be passed to ProcessBuilder as if it were one. A candidate path
-     * is accepted only when it is a regular file with its executable bit set.
-     * Android's executable-memory / SELinux policy can still reject process launch;
-     * the caller must handle that failure and a physical-device launch test is required.
+     * Bedrock's PHP CLI is bundled in the APK as a static AArch64 ELF executable
+     * named libphp.so and extracted by Android into nativeLibraryDir. It is not
+     * a shared library: the build verifies ET_EXEC, AArch64 and the pinned digest.
+     * Never accept a PHP executable from writable app data on Android 10+.
      */
     fun getPhpExecutable(): File? {
-        // Axolotl-PM PHP-Binaries archive layout: bin/php7/bin/php.
-        // The archive is extracted under the managed "php" runtime root.
-        val candidates = listOf(
-            File(baseRuntimesDir, "php/bin/php7/bin/php"),
-            File(baseRuntimesDir, "php/bin/php"),
-            File(baseRuntimesDir, "php/php")
-        )
-        return candidates.firstOrNull { it.isFile && it.canExecute() }
+        if (!isBedrockArchitectureSupported()) return null
+        val packagedPhp = File(context.applicationInfo.nativeLibraryDir, "libphp.so")
+        return packagedPhp.takeIf { isPackagedArm64PhpExecutable(it) }
+    }
+
+    /** The currently pinned Bedrock PHP runtime is built for arm64-v8a only. */
+    fun isBedrockArchitectureSupported(): Boolean {
+        return Build.SUPPORTED_ABIS.any { it == "arm64-v8a" || it.contains("aarch64") }
+    }
+
+    private fun isPackagedArm64PhpExecutable(file: File): Boolean {
+        if (!file.isFile || !file.canExecute() || file.length() < 5L * 1024L * 1024L) return false
+        return runCatching {
+            val header = ByteArray(20)
+            DataInputStream(file.inputStream()).use { it.readFully(header) }
+            val elfType = (header[16].toInt() and 0xff) or ((header[17].toInt() and 0xff) shl 8)
+            val elfMachine = (header[18].toInt() and 0xff) or ((header[19].toInt() and 0xff) shl 8)
+            header[0] == 0x7f.toByte() &&
+                header[1] == 'E'.code.toByte() &&
+                header[2] == 'L'.code.toByte() &&
+                header[3] == 'F'.code.toByte() &&
+                header[4] == 2.toByte() &&
+                header[5] == 1.toByte() &&
+                elfType == 2 && elfMachine == 183
+        }.getOrDefault(false)
+    }
+
+    /** Copies the small, non-executable PHP configuration from APK assets to app data. */
+    fun preparePhpIni(): Result<File> = runCatching {
+        val target = File(baseRuntimesDir, "php/php.ini")
+        target.parentFile?.mkdirs()
+        val temporary = File(target.parentFile, "php.ini.part")
+        context.assets.open("php/php.ini").use { input ->
+            FileOutputStream(temporary).use { output -> input.copyTo(output) }
+        }
+        try {
+            Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: Exception) {
+            Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+        target
     }
 
     /** Returns true only when a complete Java launcher candidate is present. */
@@ -340,8 +371,8 @@ class RuntimeManager @Inject constructor(
     // ------------------------------------------------------------------ executability
 
     /**
-     * Proves a binary can really be launched on this device by running it once. Any exit code counts as
-     * "launched"; failures to launch are translated into an actionable explanation.
+     * Proves a binary can be launched and completes its smoke command successfully.
+     * A successful process start with a non-zero exit code is not considered healthy.
      */
     fun verifyExecutable(binary: File, vararg args: String, timeoutSeconds: Long = 10): Result<String> {
         return try {
@@ -352,18 +383,24 @@ class RuntimeManager @Inject constructor(
                 process.destroyForcibly()
                 Result.failure(IOException("${binary.name} started but did not exit within ${timeoutSeconds}s."))
             } else {
-                Result.success(process.inputStream.bufferedReader().readText().take(300))
+                val output = process.inputStream.bufferedReader().readText().take(300)
+                val exitCode = process.exitValue()
+                if (exitCode == 0) {
+                    Result.success(output)
+                } else {
+                    Result.failure(IOException("${binary.name} exited with code $exitCode: $output"))
+                }
             }
         } catch (e: IOException) {
             val msg = e.message.orEmpty()
             val explanation = when {
                 "error=13" in msg || "Permission denied" in msg ->
-                    "Android refused to execute ${binary.name} from app storage (Android 10+ blocks running downloaded executables). " +
-                        "It must be packaged inside the app's native library folder instead."
+                    "Android refused to execute the packaged ${binary.name} from nativeLibraryDir. " +
+                        "This device's SELinux or executable-file policy may block this launch path."
                 "error=8" in msg || "Exec format" in msg ->
                     "${binary.name} was built for a different CPU architecture than this device."
                 "error=2" in msg || "No such file" in msg ->
-                    "${binary.name} cannot start: it or its dynamic loader is missing. It is probably a desktop Linux (glibc) build, which cannot run on Android."
+                    "${binary.name} cannot start: the executable or a required runtime component is unavailable on this Android device."
                 else -> "${binary.name} could not be launched: $msg"
             }
             Result.failure(IOException(explanation, e))

@@ -18,11 +18,12 @@ The original audit below identified several false-positive runtime checks. Follo
 - Playit detection no longer treats `libplayit.so` as a standalone agent executable.
 - The README now describes these features as goals/scaffolding, not working production capabilities.
 - Bedrock release source now targets Axolotl-PM 5.51.1 for Bedrock 1.26.60. The original PMMP upstream was archived; see [Decision 0001](decisions/0001-bedrock-engine-and-php-runtime.md).
-- The matching Axolotl PHP-Binaries Android ARM64 PHP 8.4 archive has been identified and its published SHA-256 recorded, but the archive has not yet been inspected, packaged, or launched by MineHost.
+- The matching Axolotl PHP-Binaries Android ARM64 PHP 8.4 archive is SHA-256 verified and has passed a QEMU ARM64 smoke test: PHP 8.4.27 ZTS, required PocketMine/Axolotl extensions (including `webrtc`), and bundled `php.ini` load successfully.
+- Gradle now downloads and verifies that archive at build time, packages the static CLI in the APK's `arm64-v8a` native-library directory, and packages `php.ini` as an asset. The installed app does not download native executable code.
 - The Axolotl-PM PHAR downloader is pinned to release 5.51.1 rather than an unqualified latest release.
 - An Android CI workflow has been added for unit tests, lint and debug APK assembly.
 
-**Verification status:** these latest source and workflow changes have not yet been confirmed by a successful CI run in this session. No PHP/Java runtime has been added, no Android device has been tested, and no real Minecraft client has joined. MineHost remains **NOT PRODUCTION READY**.
+**Verification status:** the PHP archive inspection and QEMU CLI/module/configuration smoke test have passed in CI. The APK packaging integration is committed but must pass the next Android Gradle CI run. No physical Android process launch, Bedrock server start, or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
 
 
 
@@ -30,9 +31,9 @@ The original audit below identified several false-positive runtime checks. Follo
 
 | # | Blocker | Evidence | Needed to resolve |
 |---|---|---|---|
-| 1 | **No PHP CLI runtime is available.** The current code accepts only executable PHP CLI candidates under the managed runtime directory; no validated Android ARM64 PHP CLI runtime/launcher is bundled. | `RuntimeManager.getPhpExecutable()`, `BedrockEngine.start()` | Select a maintained Bedrock engine/runtime combination and prove CLI launch, dependencies, and process policy on a physical ARM64 device. |
+| 1 | **PHP CLI is packaged but not device-verified.** The pinned static ARM64 PHP CLI is bundled into the APK at build time and passes QEMU smoke tests; Android may still reject its launch on a particular OS/OEM build. | `app/build.gradle.kts`, `RuntimeManager.getPhpExecutable()`, `BedrockEngine.start()` | Install on a physical ARM64 device, prove `php -v`, launch Axolotl-PM, and join with a real Bedrock client. |
 | 2 | **No Java CLI runtime is available.** A complete Android-compatible ARM64 JVM and executable `bin/java` launcher are not present. A shared library alone is not accepted. | `RuntimeManager.getJavaExecutable()`, `JavaEngine.start()` | Validate a complete JVM distribution and process-launch strategy on Android. Java is therefore **BLOCKED**. |
-| 3 | **Android executable policy is unresolved.** Setting the executable bit does not prove Android/SELinux will permit launching a binary from app-private writable storage. | Runtime candidates are stored under app-private runtime directories | Choose a supported packaging/loader approach and verify actual process launch on each supported Android API level. |
+| 3 | **Android native-library execution path is not yet device-verified.** The PHP CLI is now embedded in the APK's extracted native-library directory rather than downloaded to writable app storage. | `jniLibs/arm64-v8a/libphp.so`, `nativeLibraryDir` | Verify `execve` succeeds on supported Android API levels and OEM devices. |
 | 4 | **Playit Android execution remains unverified.** The current downloader resolves release assets from metadata and attempts an execution check, but Android/Bionic compatibility and W^X policy have not been proven on a device. | `RuntimeManager.downloadPlayitAgent()` | Validate the actual ARM64 release asset and launch path; keep Playit optional and temporary, not the final MineHost network. |
 | 5 | **Download supply-chain policy needs a final audit.** The current implementation resolves release metadata and compares a published SHA-256 digest when available; version pinning, signature/provenance policy and fallback behaviour still need review. | `RuntimeManager.downloadFileWithProgress()` | Define supported versions and require trusted integrity metadata before promoting runtime assets. |
 | 6 | **No physical-device or real-client test has been done**, so every end-to-end claim is unproven. | n/a | Run the Bedrock acceptance test in the brief (Part 5.5). |
@@ -54,7 +55,7 @@ The original audit below identified several false-positive runtime checks. Follo
 | Feature | Actual status | Notes |
 |---|---|---|
 | App shell, navigation, Compose UI, Room, Hilt | IMPLEMENTED BUT UNVERIFIED | Not built in this audit. |
-| Bedrock engine (PocketMine-MP) | **BLOCKED** | Real code, but no PHP runtime (blocker 1). Fake shell loops and `\|\| true` checks from older versions are already gone. |
+| Bedrock engine (Axolotl-PM) | **BLOCKED PENDING DEVICE TEST** | Static PHP 8.4 CLI is packaged in ARM64 APK builds and passes QEMU module checks; the PHAR must still be installed and the process launched on a real device. |
 | Java engine (Paper) | **BLOCKED** | No JRE (blocker 2). |
 | EULA consent | IMPLEMENTED BUT UNVERIFIED | Consent UI and persisted consent were added; verify migration and user flow on device. |
 | Cross-play (Paper + Geyser) | **NOT IMPLEMENTED** | Only a Geyser config generator exists. Now correctly reported as unsupported. |
@@ -72,7 +73,8 @@ The original audit below identified several false-positive runtime checks. Follo
 ## What was and was not verified
 
 - **Done:** read the source of the server, networking, world, service, build and test files; verified each audit finding against it; checked the Playit asset naming against playit.gg.
-- **Not done:** no Gradle build, no unit-test run, no emulator, no physical device, no Minecraft client, no tunnel. This audit environment has no Android SDK and no network for Gradle. **Treat all edits above as unbuilt.** The previously documented "assembleDebug passes / 8 of 8 tests pass" claims were not reproduced here.
+- **CI verified:** the pinned Android PHP archive checksum, static AArch64 ELF shape, PHP 8.4.27 execution under QEMU, required module list (including `webrtc`), and bundled `php.ini` loading.
+- **Still not verified:** physical Android launch, real Axolotl-PM process readiness, Bedrock LAN client join, persistence, Java runtime, cross-play and external connectivity.
 - All real-Minecraft tests (local Bedrock/Java join, external join, persistence, cross-play) are **NOT TESTED**.
 
 ## Remaining work, in priority order
