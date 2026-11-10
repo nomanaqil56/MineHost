@@ -30,6 +30,7 @@ import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.net.DatagramSocket
 import java.net.ServerSocket
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -67,6 +68,8 @@ class ServerController @Inject constructor(
 
     private var activeProcessHandle: ServerProcessHandle? = null
     private var activeEngine: ServerEngine? = null
+    /** Distinguishes process generations, including restarts of the same server ID. */
+    private var activeSessionToken: String? = null
 
     suspend fun startServer(serverId: String): Resource<Unit> = lifecycleMutex.withLock {
         val server = serverRepository.getServerById(serverId)
@@ -76,8 +79,10 @@ class ServerController @Inject constructor(
             return@withLock Resource.Error("Another server instance is already running")
         }
 
+        val sessionToken = UUID.randomUUID().toString()
         try {
             _activeServerId.value = serverId
+            activeSessionToken = sessionToken
             _serverStatus.value = ServerStatus.STARTING
             serverRepository.updateStatus(serverId, ServerStatus.STARTING)
             log(serverId, "[MineHost] Preparing to start ${server.name} (${server.edition})...")
@@ -91,7 +96,7 @@ class ServerController @Inject constructor(
             if (engine == null) {
                 val unsupportedMsg = "Cross-play (Java + Bedrock) is not supported yet: it requires Paper and Geyser running together, which MineHost does not implement. Create a Bedrock or Java server instead."
                 log(serverId, "[ERROR] $unsupportedMsg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                 return@withLock Resource.Error(unsupportedMsg)
             }
             activeEngine = engine
@@ -99,14 +104,14 @@ class ServerController @Inject constructor(
             if (!engine.isInstalled()) {
                 val notInstalledMsg = "Server engine '${engine.name}' is not installed on this device. Please download and install it via Diagnostics or Setup."
                 log(serverId, "[ERROR] $notInstalledMsg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                 return@withLock Resource.Error(notInstalledMsg)
             }
 
             if (server.edition == MinecraftEdition.JAVA && !server.eulaAccepted) {
                 val eulaMsg = "You must accept the Minecraft EULA (https://aka.ms/MinecraftEULA) before starting a Java server."
                 log(serverId, "[ERROR] $eulaMsg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                 return@withLock Resource.Error(eulaMsg)
             }
 
@@ -115,7 +120,7 @@ class ServerController @Inject constructor(
             if (isPortInUse(server.localPort, isUdp)) {
                 val portConflictMsg = "Port ${server.localPort} (${if (isUdp) "UDP" else "TCP"}) is already bound by another service on this device. Please select a different port in server settings."
                 log(serverId, "[ERROR] $portConflictMsg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                 return@withLock Resource.Error(portConflictMsg)
             }
 
@@ -149,7 +154,7 @@ class ServerController @Inject constructor(
                 val configError = configureResult.exceptionOrNull()?.message ?: "unknown error"
                 val msg = "Could not write server configuration files: $configError"
                 log(serverId, "[ERROR] $msg")
-                handleServerStopped(serverId, ServerStatus.ERROR)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                 return@withLock Resource.Error(msg)
             }
 
@@ -175,7 +180,7 @@ class ServerController @Inject constructor(
                     scope.launch {
                         // A late readiness callback must not resurrect a server that is stopping
                         // or overwrite the state of a different server instance.
-                        if (_activeServerId.value != serverId || _serverStatus.value != ServerStatus.STARTING) {
+                        if (_activeServerId.value != serverId || activeSessionToken != sessionToken || _serverStatus.value != ServerStatus.STARTING) {
                             AppLogger.w("ServerController", "Ignoring stale onStarted callback for $serverId")
                             return@launch
                         }
@@ -192,7 +197,7 @@ class ServerController @Inject constructor(
                             log(serverId, "[MineHost] Initiating worldwide reverse tunnel...")
                             val tunnelResult = tunnelManager.startTunnel(server.localPort, server.edition.defaultProtocol)
                             tunnelResult.onSuccess { endpoint ->
-                                if (_activeServerId.value == serverId && _serverStatus.value == ServerStatus.ONLINE) {
+                                if (_activeServerId.value == serverId && activeSessionToken == sessionToken && _serverStatus.value == ServerStatus.ONLINE) {
                                     serverRepository.updatePublicEndpoint(serverId, endpoint)
                                     log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
                                 } else {
@@ -209,14 +214,14 @@ class ServerController @Inject constructor(
                 override fun onStopped(exitCode: Int) {
                     scope.launch {
                         AppLogger.i("ServerController", "Server process exited with code: $exitCode")
-                        handleServerStopped(serverId, if (exitCode != 0) ServerStatus.CRASHED else ServerStatus.STOPPED)
+                        handleServerStopped(serverId, if (exitCode != 0) ServerStatus.CRASHED else ServerStatus.STOPPED, sessionToken)
                     }
                 }
 
                 override fun onError(error: String) {
                     scope.launch {
                         log(serverId, "[ERROR] $error")
-                        handleServerStopped(serverId, ServerStatus.ERROR)
+                        handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                     }
                 }
             }
@@ -224,13 +229,13 @@ class ServerController @Inject constructor(
             val launchResult = engine.start(serverDir, serverConfig, processListener)
             if (launchResult.isFailure) {
                 val error = launchResult.exceptionOrNull()?.message ?: "Unknown process launch failure"
-                handleServerStopped(serverId, ServerStatus.ERROR)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                 return@withLock Resource.Error("Server start failed: $error")
             }
 
             val processHandle = launchResult.getOrNull()
             if (processHandle == null) {
-                handleServerStopped(serverId, ServerStatus.ERROR)
+                handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
                 return@withLock Resource.Error("Server engine returned success without a process handle.")
             }
             activeProcessHandle = processHandle
@@ -240,13 +245,15 @@ class ServerController @Inject constructor(
                 } else {
                     ServerStatus.CRASHED
                 }
-                handleServerStopped(serverId, finalStatus)
+                activeProcessHandle = null
+                activeEngine = null
+                handleServerStopped(serverId, finalStatus, sessionToken)
                 return@withLock Resource.Error("Server process exited immediately after launch. Check the server console and runtime.")
             }
             Resource.Success(Unit)
         } catch (e: Exception) {
             AppLogger.e("ServerController", "Exception starting server: ${e.message}", e)
-            handleServerStopped(serverId, ServerStatus.ERROR)
+            handleServerStopped(serverId, ServerStatus.ERROR, sessionToken)
             Resource.Error("Failed to start server: ${e.message}", e)
         }
     }
@@ -256,12 +263,13 @@ class ServerController @Inject constructor(
         if (activeId != null && activeId != serverId) {
             return@withLock Resource.Error("Server '$activeId' is currently active; cannot stop '$serverId'.")
         }
+        val sessionToken = activeSessionToken
         val handle = activeProcessHandle
         if (handle == null) {
             if (activeId == serverId && _serverStatus.value.isRunning) {
                 // Do not claim success when the state machine says a process is active but
                 // no process handle exists. Reconcile the stale state instead.
-                handleServerStopped(serverId, ServerStatus.CRASHED)
+                handleServerStopped(serverId, ServerStatus.CRASHED, sessionToken)
                 return@withLock Resource.Error("The server was marked active but its process handle is missing. State was recovered; start it again.")
             }
             return@withLock Resource.Success(Unit)
@@ -283,7 +291,7 @@ class ServerController @Inject constructor(
             log(serverId, "[MineHost] Server process was forcibly stopped after timeout.")
         }
 
-        handleServerStopped(serverId, ServerStatus.STOPPED)
+        handleServerStopped(serverId, ServerStatus.STOPPED, sessionToken)
         return@withLock Resource.Success(Unit)
     }
 
@@ -351,17 +359,22 @@ class ServerController @Inject constructor(
         }
     }
 
-    private suspend fun handleServerStopped(serverId: String, finalStatus: ServerStatus) {
-        // Always persist the terminal state for the server that emitted the callback, but only
-        // clear singleton runtime state if it is still the active server. A delayed callback
-        // from an older process must not tear down a newer server's handle or wake locks.
-        serverRepository.updateStatus(serverId, finalStatus)
-        serverRepository.updatePublicEndpoint(serverId, null)
+    private suspend fun handleServerStopped(
+        serverId: String,
+        finalStatus: ServerStatus,
+        sessionToken: String? = null
+    ) {
+        // A process-generation token prevents a late callback from a previous run (including
+        // a restart of the same server ID) from clearing the new process or its wake locks.
+        if (sessionToken != null && activeSessionToken != sessionToken) return
         if (_activeServerId.value != serverId) return
 
+        serverRepository.updateStatus(serverId, finalStatus)
+        serverRepository.updatePublicEndpoint(serverId, null)
         _serverStatus.value = finalStatus
         activeProcessHandle = null
         activeEngine = null
+        activeSessionToken = null
         _activeServerId.value = null
         playerTracker.reset()
         _onlinePlayers.value = emptySet()
