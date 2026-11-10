@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.net.URL
+import java.io.DataInputStream
 import java.security.MessageDigest
 
 plugins {
@@ -197,7 +198,7 @@ val prepareBundledPhpRuntime by tasks.registering {
         }
 
         val elfHeader = ByteArray(20)
-        java.io.DataInputStream(packagedPhp.inputStream()).use { it.readFully(elfHeader) }
+        DataInputStream(packagedPhp.inputStream()).use { it.readFully(elfHeader) }
         val elfType = (elfHeader[16].toInt() and 0xff) or ((elfHeader[17].toInt() and 0xff) shl 8)
         val elfMachine = (elfHeader[18].toInt() and 0xff) or ((elfHeader[19].toInt() and 0xff) shl 8)
         val isElf64LittleEndian = elfHeader[0] == 0x7f.toByte() &&
