@@ -79,13 +79,6 @@ class BedrockEngine @Inject constructor(
             return Result.failure(FileNotFoundException(errorMsg))
         }
 
-        val phpIni = runtimeManager.preparePhpIni().getOrElse {
-            val errorMsg = "Could not prepare the bundled PHP configuration: ${it.message}"
-            AppLogger.e("BedrockEngine", errorMsg, it)
-            listener.onError(errorMsg)
-            return Result.failure(it)
-        }
-
         val pharIntegrity = runtimeManager.verifyPocketMinePhar(phar)
         if (pharIntegrity.isFailure) {
             val errorMsg = pharIntegrity.exceptionOrNull()?.message ?: "Axolotl-PM PHAR integrity verification failed."
@@ -94,7 +87,9 @@ class BedrockEngine @Inject constructor(
             return Result.failure(pharIntegrity.exceptionOrNull() ?: IllegalStateException(errorMsg))
         }
 
-        val phpCheck = runtimeManager.verifyExecutable(phpBinary, "-v")
+        val phpCheck = runtimeManager.verifyExecutable(
+            phpBinary, BedrockRuntimeContract.PHP_NO_INI_FLAG, "-v"
+        )
         if (phpCheck.isFailure) {
             val errorMsg = "The packaged PHP CLI failed its Android launch check: ${phpCheck.exceptionOrNull()?.message}"
             AppLogger.e("BedrockEngine", errorMsg, phpCheck.exceptionOrNull())
@@ -102,8 +97,12 @@ class BedrockEngine @Inject constructor(
             return Result.failure(phpCheck.exceptionOrNull() ?: IllegalStateException(errorMsg))
         }
 
-        // Validate extensions using the same ini file that will be used by the server.
-        val moduleCheck = runtimeManager.verifyExecutable(phpBinary, "-c", phpIni.absolutePath, "-m")
+        // Use the compiled-in module set in the exact no-ini mode used by the server.
+        // The upstream php.ini references external modules that are not packaged with
+        // this static Android CLI and caused false missing-extension failures on device.
+        val moduleCheck = runtimeManager.verifyExecutable(
+            phpBinary, BedrockRuntimeContract.PHP_NO_INI_FLAG, "-m"
+        )
         if (moduleCheck.isFailure) {
             val errorMsg = "PHP could not load the bundled configuration or enumerate extensions: ${moduleCheck.exceptionOrNull()?.message}"
             AppLogger.e("BedrockEngine", errorMsg, moduleCheck.exceptionOrNull())
@@ -118,15 +117,8 @@ class BedrockEngine @Inject constructor(
             return Result.failure(IllegalStateException(errorMsg))
         }
 
-        val command = listOf(
-            phpBinary.absolutePath,
-            "-c",
-            phpIni.absolutePath,
-            phar.absolutePath,
-            "--no-wizard",
-            "--enable-ansi=false",
-            "--data=${serverDir.absolutePath}"
-        )
+        val command = listOf(phpBinary.absolutePath) +
+            BedrockRuntimeContract.serverArguments(phar.absolutePath, serverDir.absolutePath)
 
         val env = mutableMapOf(
             "LD_LIBRARY_PATH" to context.applicationInfo.nativeLibraryDir,

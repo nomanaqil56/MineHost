@@ -1,43 +1,42 @@
-# Android PHP Runtime Inspection Gate
+# Android PHP Runtime Verification
 
-MineHost targets Axolotl-PM 5.51.1 and the matching PHP 8.4 Android ARM64 runtime release asset.
+MineHost pins the Axolotl-PM Android ARM64 PHP 8.4 CLI archive and Axolotl-PM 5.51.1 PHAR.
 
-## Pinned input
+## Pinned inputs
 
-- Repository: `axolotl-pm/PHP-Binaries`
-- Release tag: `pm5-php-8.4-latest`
-- Asset: `PHP-8.4-Android-arm64-PM5.tar.gz`
-- Expected SHA-256: `45b462ff5e290ee06d34eced589c325d27a2743185acab53acab291b0188e181`
+- PHP repository: `axolotl-pm/PHP-Binaries`
+- PHP release: `pm5-php-8.4-latest`
+- PHP asset: `PHP-8.4-Android-arm64-PM5.tar.gz`
+- PHP SHA-256: `45b462ff5e290ee06d34eced589c325d27a2743185acab53acab291b0188e181`
+- CLI path: `bin/php7/bin/php`
+- PHP version: 8.4.27 ZTS, static AArch64 executable
+- Axolotl-PM PHAR: 5.51.1, SHA-256 `bcfbd0deff349c2b25b1688299a7d54f1fc8a080d2f95e19884f8e341319021a`
 
-## Verified by CI
+## Physical-device finding and correction (2026-11-10)
 
-The runtime inspection job has now established from the release archive that:
+The first Vivo Android 16 test reached BedrockEngine startup but reported `sockets`, `yaml`, `zip`, `zlib`, and `webrtc` missing. The app had invoked PHP with the upstream `php.ini` (`-c`). The same static binary's modules had passed the CI check under `-n`, which disables external ini loading and exposes modules compiled into the binary.
 
-- The asset checksum matches the release's published SHA-256.
-- The PHP CLI is at `bin/php7/bin/php` inside the archive.
-- It is an AArch64 ELF executable with executable mode set.
-- It has no `PT_INTERP` segment and is reported by `file` as statically linked. The CLI reports PHP 8.4.27 (ZTS), and its compiled module list includes the PocketMine/Axolotl extensions such as `chunkutils2`, `crypto`, `encoding`, `leveldb`, `morton`, `pmmpthread`, `webrtc`, and `yaml`.
-- The CI job executes the ARM64 CLI under QEMU, checks PHP 8.4's version, validates the PHP modules required by Axolotl-PM 5.51.1 (including `webrtc`), and exercises the bundled `php.ini` when present.
+**Fix:** MineHost now uses `php -n` for version validation, module validation, and the actual Axolotl-PM server process. The upstream ini is no longer copied or packaged. This makes the check and server invocation identical and avoids loading external extension modules that are not shipped with the static CLI.
 
-This is a meaningful improvement over checking the archive structure alone. QEMU is an ARM64 userspace smoke test, not an Android device. It does not emulate app SELinux policy, Android's executable-memory restrictions, noexec mounts, or the device's process supervision behavior.
+## CI checks
 
-## APK packaging strategy
+The runtime inspection script verifies:
+1. Pinned archive checksum and AArch64 static ELF shape.
+2. PHP version and all 17 required modules using `php -n`.
+3. The pinned Axolotl-PM PHAR checksum.
+4. PHAR version execution using the same `php -n` mode as the app.
 
-The binary is not downloaded after installation. The Gradle build downloads the pinned archive, verifies its SHA-256, extracts only the CLI, verifies its ELF64 little-endian AArch64 executable header, and embeds it as:
+APK CI verifies `lib/arm64-v8a/libphp.so` is present and rejects an external PHP ini asset.
 
-`lib/arm64-v8a/libphp.so`
+QEMU does not emulate Android process policy, MineHost's foreground service, ServerController, LAN networking, or a real Minecraft client. These still require physical-device testing.
 
-Android extracts this packaged native-library asset into `ApplicationInfo.nativeLibraryDir`. MineHost only accepts the exact packaged path and checks ELF class, endianness, executable type, AArch64 machine ID, file size and executable permission. The binary's `.so` suffix is a packaging convention; the pinned file is a static CLI executable, not a shared library.
+## Acceptance test after corrected APK
 
-The bundled `php.ini` is included as a normal APK asset and copied to app-private data at server start. MineHost invokes PHP with an explicit `-c` path. This keeps executable code inside the APK and avoids trying to execute a downloaded binary from writable app storage.
+1. Install on ARM64 Android 9+.
+2. Start a Bedrock server from MineHost's UI.
+3. Confirm no missing-module error.
+4. Confirm Axolotl-PM reaches RakNet-ready state on UDP 19132.
+5. Join from a second Bedrock client over LAN.
+6. Stop/restart and verify world and player persistence.
 
-## Required physical-device acceptance
-
-1. Install the debug APK on a 64-bit ARM Android device.
-2. Verify the binary can be launched from the exact packaging/location chosen by MineHost (not merely from a shell app).
-3. Run `php -v`, `php -m`, and a PHP script that loads the Axolotl-PM PHAR.
-4. Launch Axolotl-PM 5.51.1 from MineHost, confirm its RakNet protocol-ready response, then join from a real Bedrock client over LAN.
-5. Verify save, stop, restart, and world persistence.
-6. Only after those checks pass should Diagnostics mark the runtime as runnable or the Bedrock engine be described as working.
-
-**Current status:** archive integrity, static AArch64 ELF shape, PHP 8.4.27 CLI execution, required module loading (including `webrtc`), and bundled `php.ini` loading have passed under QEMU in CI. The Gradle build now packages the CLI and configuration into the APK at build time. Android process launch, actual server launch, and a real client join remain unverified.
+**Status:** source fix is pending CI verification and device retest. MineHost is not yet production-ready.

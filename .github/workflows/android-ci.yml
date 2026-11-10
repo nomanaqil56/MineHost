@@ -45,11 +45,14 @@ jobs:
           set -euo pipefail
           apk="app/build/outputs/apk/debug/app-debug.apk"
           unzip -Z1 "$apk" | grep -Fx "lib/arm64-v8a/libphp.so"
-          unzip -Z1 "$apk" | grep -Fx "assets/php/php.ini"
           php_size="$(unzip -l "$apk" "lib/arm64-v8a/libphp.so" | awk 'NR==4 {print $1}')"
           test -n "$php_size"
           test "$php_size" -ge 5242880
-          echo "Verified packaged ARM64 PHP CLI (${php_size} bytes) and php.ini."
+          if unzip -Z1 "$apk" | grep -q '^assets/php/'; then
+            echo "Unexpected external PHP configuration found in APK; MineHost must use compiled-in modules with -n."
+            exit 1
+          fi
+          echo "Verified packaged ARM64 PHP CLI (${php_size} bytes); no external php.ini is packaged."
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:

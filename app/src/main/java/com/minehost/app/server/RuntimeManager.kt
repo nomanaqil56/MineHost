@@ -27,8 +27,6 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.DataInputStream
 import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -151,22 +149,6 @@ class RuntimeManager @Inject constructor(
                 header[5] == 1.toByte() &&
                 elfType == 2 && elfMachine == 183
         }.getOrDefault(false)
-    }
-
-    /** Copies the small, non-executable PHP configuration from APK assets to app data. */
-    fun preparePhpIni(): Result<File> = runCatching {
-        val target = File(baseRuntimesDir, "php/php.ini")
-        target.parentFile?.mkdirs()
-        val temporary = File(target.parentFile, "php.ini.part")
-        context.assets.open("php/php.ini").use { input ->
-            FileOutputStream(temporary).use { output -> input.copyTo(output) }
-        }
-        try {
-            Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-        } catch (_: Exception) {
-            Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }
-        target
     }
 
     /** Returns true only when a complete Java launcher candidate is present. */

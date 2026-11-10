@@ -24,11 +24,11 @@ import hashlib
 import struct
 from pathlib import Path
 
-ADB_PATH = r"D:\Coding\Projects\Personal Projects\MineHost\.tools\android-sdk\platform-tools\adb.exe"
-APK_PATH = r"D:\Coding\Projects\Personal Projects\MineHost\app\build\outputs\apk\debug\app-debug.apk"
+ADB_PATH = os.environ.get("ADB_PATH", "adb")
+APK_PATH = os.environ.get("APK_PATH", "app/build/outputs/apk/debug/app-debug.apk")
 PACKAGE_NAME = "com.minehost.app.debug"
-PHAR_PATH = r"D:\Coding\Projects\Personal Projects\MineHost\PocketMine-MP.phar"
-REPORT_FILE = "PHYSICAL_DEVICE_TEST_REPORT.txt"
+PHAR_PATH = os.environ.get("PHAR_PATH", "PocketMine-MP.phar")
+REPORT_FILE = "PHYSICAL_DEVICE_RUNTIME_SMOKE_REPORT.txt"
 
 RAKNET_MAGIC = b"\x00\xff\xff\x00\xfe\xfe\xfe\xfe\xfd\xfd\xfd\xfd\x12\x34\x56\x78"
 
@@ -90,9 +90,9 @@ class PhysicalDeviceTestReport:
         lines.append("=" * 80)
         lines.append("VERDICT:")
         if self.failed_tests == 0:
-            lines.append("The MineHost platform has been verified operational on physical ARM64 hardware.")
-            lines.append("All native binaries, engines, network sockets, world storage, and application")
-            lines.append("components executed with zero crashes or errors.")
+            lines.append("Direct PHP/PHAR and standalone Bedrock host smoke tests passed on physical ARM64 hardware.")
+            lines.append("This ADB harness does NOT exercise MineHost ServerController, the in-app Start button,")
+            lines.append("foreground-service lifecycle, or a real external Minecraft client join.")
         else:
             lines.append(f"Testing completed with {self.failed_tests} failure(s). Check logs above.")
         lines.append("=" * 80)
@@ -205,11 +205,11 @@ def main():
     # 5. Native PHP 8.4 CLI Execution & Extension Modules Audit
     # --------------------------------------------------------------------------
     report.add_section("5. Native PHP 8.4 Runtime Smoke & Module Audit")
-    code, v_out, v_err = run_device_shell(f"{php_path} -v")
+    code, v_out, v_err = run_device_shell(f"{php_path} -n -v")
     php_v_ok = (code == 0 and "PHP 8.4" in v_out)
     report.record("PHP 8.4 CLI Direct Binary Execution", php_v_ok, f"Output: {v_out.splitlines()[0] if v_out else v_err}")
 
-    code, m_out, _ = run_device_shell(f"{php_path} -m")
+    code, m_out, _ = run_device_shell(f"{php_path} -n -m")
     required_mods = ["pmmpthread", "leveldb", "yaml", "igbinary", "chunkutils2", "crypto", "openssl", "sockets", "zip", "zlib", "gmp"]
     missing = [m for m in required_mods if m not in m_out]
     report.record("Required PocketMine PHP Extensions Verification", len(missing) == 0, f"Verified 11/11 core modules; missing={missing}")
@@ -229,7 +229,7 @@ def main():
 
     # Test PHAR launch with TMPDIR
     code, pm_ver, _ = run_app_shell(
-        f"export TMPDIR=/data/user/0/{PACKAGE_NAME}/cache; {php_path} {dest_dir}/PocketMine-MP.phar --version"
+        f"export TMPDIR=/data/user/0/{PACKAGE_NAME}/cache; {php_path} -n {dest_dir}/PocketMine-MP.phar --version"
     )
     pm_ok = (code == 0 and "Axolotl-PM 5.51.1" in pm_ver)
     report.record("Axolotl-PM 5.51.1 PHAR Cache & Launch Verification", pm_ok, f"Output: {pm_ver.splitlines()[-1] if pm_ok else 'Failed'}")
@@ -293,7 +293,7 @@ network:
     # 8. Live RakNet UDP Protocol Probing on Port 19132
     # --------------------------------------------------------------------------
     report.add_section("8. Live RakNet UDP Binary Protocol Loopback Probe")
-    probe_local_path = r"D:\Coding\Projects\Personal Projects\MineHost\tools\probe_bedrock.php"
+    probe_local_path = str(Path(__file__).with_name("probe_bedrock.php"))
     run_adb(["push", probe_local_path, "/data/local/tmp/probe_bedrock.php"])
     run_app_shell(f"cp /data/local/tmp/probe_bedrock.php cache/probe_bedrock.php")
     
@@ -366,7 +366,7 @@ network:
     print(f"\nReport written to {REPORT_FILE}")
 
     # Copy to artifact directory if present
-    artifact_dir = r"C:\Users\noman\.gemini\antigravity\brain\0f514287-43a6-4c2f-81b8-ebcdf92a307f"
+    artifact_dir = os.environ.get("MINEHOST_TEST_ARTIFACT_DIR", "")
     if os.path.exists(artifact_dir):
         dest_artifact = os.path.join(artifact_dir, "PHYSICAL_DEVICE_TEST_REPORT.txt")
         with open(dest_artifact, "w", encoding="utf-8") as f:

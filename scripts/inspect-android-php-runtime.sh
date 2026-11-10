@@ -78,18 +78,21 @@ for candidate in "${PHP_CANDIDATES[@]}"; do
     cat "$REPORT"
     exit 1
   fi
-  echo "Required PHP module smoke check: PASS" | tee -a "$REPORT"
-  PHP_INI="$(dirname "$candidate")/php.ini"
-  if [[ -f "$PHP_INI" ]]; then
-    echo "Bundled php.ini smoke test ($PHP_INI):" | tee -a "$REPORT"
-    "$QEMU_BIN" "$candidate" -c "$PHP_INI" --ini 2>&1 | tee -a "$REPORT"
-    "$QEMU_BIN" "$candidate" -c "$PHP_INI" -m 2>&1 | tee -a "$REPORT"
-  else
-    echo "No bundled php.ini beside the CLI; using compiled-in defaults." | tee -a "$REPORT"
-  fi
-  echo "PHP version constant:" | tee -a "$REPORT"
+  echo "Required PHP module smoke check with production -n mode: PASS" | tee -a "$REPORT"
+  echo "PHP version constant with production -n mode:" | tee -a "$REPORT"
   "$QEMU_BIN" "$candidate" -n -r 'echo PHP_VERSION, PHP_EOL;' 2>&1 | tee -a "$REPORT"
 done
+
+# Verify the pinned Axolotl-PM PHAR with the same no-ini mode used by MineHost.
+PHAR_TAG="5.51.1"
+PHAR_SHA256="bcfbd0deff349c2b25b1688299a7d54f1fc8a080d2f95e19884f8e341319021a"
+PHAR_URL="https://github.com/axolotl-pm/PocketMine-MP/releases/download/${PHAR_TAG}/PocketMine-MP.phar"
+PHAR_FILE="$WORK_DIR/PocketMine-MP.phar"
+curl --fail --location --retry 3 --retry-delay 2 "$PHAR_URL" --output "$PHAR_FILE"
+echo "$PHAR_SHA256  $PHAR_FILE" | sha256sum --check -
+PHP_CANDIDATE="${PHP_CANDIDATES[0]}"
+echo "Pinned Axolotl-PM PHAR launch smoke test (-n):" | tee -a "$REPORT"
+"$QEMU_BIN" "$PHP_CANDIDATE" -n "$PHAR_FILE" --version 2>&1 | tee -a "$REPORT"
 {
   echo
   echo "Potential extension and support files:"

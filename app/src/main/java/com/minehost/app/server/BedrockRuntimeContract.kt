@@ -12,6 +12,21 @@ object BedrockRuntimeContract {
         "https://github.com/axolotl-pm/PocketMine-MP/releases/download/5.51.1/PocketMine-MP.phar"
     const val PHAR_PUBLISHED_DIGEST = "sha256:$PHAR_SHA256"
 
+    /**
+     * The pinned Android CLI has PocketMine extensions compiled in. The upstream
+     * php.ini attempts to load external modules not shipped with the static binary.
+     * Use -n consistently for validation and server startup.
+     */
+    const val PHP_NO_INI_FLAG = "-n"
+
+    fun serverArguments(pharPath: String, serverDir: String): List<String> = listOf(
+        PHP_NO_INI_FLAG,
+        pharPath,
+        "--no-wizard",
+        "--enable-ansi=false",
+        "--data=$serverDir"
+    )
+
     val REQUIRED_PHP_MODULES: Set<String> = setOf(
         "curl", "gmp", "igbinary", "leveldb", "mbstring", "openssl", "phar",
         "sockets", "yaml", "zip", "zlib", "chunkutils2", "crypto", "encoding",

@@ -26,6 +26,20 @@ class BedrockRuntimeContractTest {
     }
 
     @Test
+    fun serverLaunchUsesCompiledInModulesAndNeverLoadsExternalIni() {
+        val args = BedrockRuntimeContract.serverArguments(
+            pharPath = "/data/user/0/com.minehost/files/PocketMine-MP.phar",
+            serverDir = "/data/user/0/com.minehost/files/server"
+        )
+        assertEquals("-n", args.first())
+        assertEquals("/data/user/0/com.minehost/files/PocketMine-MP.phar", args[1])
+        assertEquals("--no-wizard", args[2])
+        assertEquals("--enable-ansi=false", args[3])
+        assertEquals("--data=/data/user/0/com.minehost/files/server", args[4])
+        assertEquals(5, args.size)
+    }
+
+    @Test
     fun phpModuleCheckFindsMissingRequiredExtensions() {
         val output = """
             [PHP Modules]

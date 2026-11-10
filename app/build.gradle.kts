@@ -118,7 +118,8 @@ android {
  * The PHP CLI is fetched at BUILD TIME, checksum-verified, and embedded in the APK's
  * arm64-v8a native-library directory. Android 10+ blocks execve() from writable app
  * data directories, and Play distribution must not fetch executable native code at
- * runtime. This keeps the installed app self-contained and policy-aligned.
+ * runtime. Required PocketMine extensions are compiled into this static CLI; MineHost
+ * uses PHP -n to avoid loading external modules referenced by the upstream php.ini.
  */
 val phpRuntimeReleaseTag = "pm5-php-8.4-latest"
 val phpRuntimeAssetName = "PHP-8.4-Android-arm64-PM5.tar.gz"
@@ -128,7 +129,6 @@ val phpRuntimeDownloadUrl =
 val phpRuntimeArchive = layout.buildDirectory.file("downloads/$phpRuntimeAssetName").get().asFile
 val phpRuntimeGeneratedRoot = layout.buildDirectory.dir("generated/minehost-php-runtime").get().asFile
 val phpRuntimeJniLibs = File(phpRuntimeGeneratedRoot, "jniLibs")
-val phpRuntimeAssets = File(phpRuntimeGeneratedRoot, "assets")
 
 fun sha256Hex(file: File): String {
     val digest = MessageDigest.getInstance("SHA-256")
@@ -185,7 +185,6 @@ val prepareBundledPhpRuntime by tasks.registering {
 
         val archiveTree = tarTree(resources.gzip(phpRuntimeArchive))
         val phpEntry = archiveTree.matching { include("bin/php7/bin/php") }.singleFile
-        val phpIniEntry = archiveTree.matching { include("bin/php7/bin/php.ini") }.singleFile
 
         val packagedPhp = File(phpRuntimeJniLibs, "arm64-v8a/libphp.so")
         packagedPhp.parentFile.mkdirs()
@@ -210,10 +209,6 @@ val prepareBundledPhpRuntime by tasks.registering {
             throw GradleException("Bundled PHP CLI is not an ELF64 little-endian AArch64 executable")
         }
 
-        val packagedPhpIni = File(phpRuntimeAssets, "php/php.ini")
-        packagedPhpIni.parentFile.mkdirs()
-        phpIniEntry.copyTo(packagedPhpIni, overwrite = true)
-
         logger.lifecycle(
             "Embedded PHP runtime: PHP 8.4 Android ARM64, SHA-256 verified, " +
                 "${packagedPhp.length()} bytes at ${packagedPhp.relativeTo(phpRuntimeGeneratedRoot)}"
@@ -222,7 +217,6 @@ val prepareBundledPhpRuntime by tasks.registering {
 }
 
 android.sourceSets.getByName("main").jniLibs.srcDir(phpRuntimeJniLibs)
-android.sourceSets.getByName("main").assets.srcDir(phpRuntimeAssets)
 tasks.named("preBuild").configure { dependsOn(prepareBundledPhpRuntime) }
 
 dependencies {

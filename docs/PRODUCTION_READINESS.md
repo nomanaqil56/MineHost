@@ -10,6 +10,9 @@ MineHost has a well-organised app shell (UI, database, services, backups), but *
 
 ## Current main-branch correction (2026-11-10)
 
+The first Vivo I2221 Android 16 device attempt exposed a PHP configuration mismatch: the app used the upstream php.ini via `-c`, while CI verified static CLI modules using `-n`. On-device PHP consequently reported sockets/yaml/zip/zlib/webrtc missing. The fix now uses `-n` for version checks, module validation and actual PHAR startup, and no longer packages the external ini. The previous committed `PHYSICAL_DEVICE_TEST_REPORT.txt` overstated what its separate manual ADB script proved and is withdrawn.
+
+
 The original audit below identified several false-positive runtime checks. Follow-up commits on `main` have hardened those checks:
 
 - `RuntimeManager.getPhpExecutable()` accepts only the pinned static ARM64 PHP CLI packaged by Gradle into `ApplicationInfo.nativeLibraryDir/libphp.so`; it rejects writable app-data candidates and validates the ELF header.
@@ -19,11 +22,11 @@ The original audit below identified several false-positive runtime checks. Follo
 - The README now describes these features as goals/scaffolding, not working production capabilities.
 - Bedrock release source now targets Axolotl-PM 5.51.1 for Bedrock 1.26.60. The original PMMP upstream was archived; see [Decision 0001](decisions/0001-bedrock-engine-and-php-runtime.md).
 - The matching Axolotl PHP-Binaries Android ARM64 PHP 8.4 archive is SHA-256 verified and has passed a QEMU ARM64 smoke test: PHP 8.4.27 ZTS, required PocketMine/Axolotl extensions (including `webrtc`), and bundled `php.ini` load successfully.
-- Gradle now downloads and verifies that archive at build time, packages the static CLI in the APK's `arm64-v8a` native-library directory, and packages `php.ini` as an asset. The installed app does not download native executable code.
+- Gradle downloads and verifies that archive at build time and packages the static CLI in the APK `arm64-v8a` native-library directory. MineHost uses `-n` consistently for the compiled-in modules; no external php.ini is packaged.
 - The Axolotl-PM PHAR downloader is pinned to release 5.51.1 and a hard-coded SHA-256; launch re-verifies the installed PHAR.
 - An Android CI workflow has been added for unit tests, lint and debug APK assembly.
 
-**Verification status (2026-11-10, latest run `42764731958`):** the pinned PHP archive checksum, AArch64 ELF shape, PHP 8.4.27 CLI, required modules and bundled configuration passed in the earlier successful QEMU ARM64 CI run `42764077291`. The latest run exposed a Kotlin compile error: `BedrockEngine.kt` referenced `BedrockRuntimeContract` without importing it; lint and APK assembly were skipped. This is being corrected on `main` before rerunning CI. The earlier successful run `42764077291` did pass unit tests, lint, APK assembly and APK-content assertions, but predates the newest PHAR-contract changes. No physical Android process launch, Bedrock server start, or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
+**Verification status (2026-11-10):** the first real-device attempt exposed the php.ini versus `-n` mismatch. Source now aligns module validation and server launch, and CI has been strengthened to exercise the exact no-ini mode and pinned PHAR. The corrected build still requires CI completion and another device test. No in-app server start or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
 
 
 
