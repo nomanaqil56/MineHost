@@ -96,11 +96,12 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Checks whether device CPU architecture is 64-bit ARM (arm64-v8a) or x86_64.
+     * The currently selected server runtimes are ARM64-only. Do not report x86_64
+     * emulators/devices as supported merely because they are 64-bit: no matching
+     * PHP/JVM runtime has been validated for that ABI.
      */
     fun isSupportedArchitecture(): Boolean {
-        val abis = Build.SUPPORTED_ABIS
-        return abis.any { it.contains("arm64") || it.contains("aarch64") || it.contains("x86_64") }
+        return Build.SUPPORTED_ABIS.any { it == "arm64-v8a" || it.equals("aarch64", ignoreCase = true) }
     }
 
     fun getDeviceArchitecture(): String {
@@ -120,18 +121,19 @@ class RuntimeManager @Inject constructor(
      * Finds the PHP executable either in nativeLibraryDir or in private app runtimes.
      */
     fun getPhpExecutable(): File? {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val inNativeLib = File(nativeDir, "libphp.so")
-        if (inNativeLib.exists()) return inNativeLib
+        // Android 10+ does not permit executing downloaded binaries from writable app-home
+        // directories. Runtime executables must be packaged for this ABI in the APK/AAB.
+        val packagedPhp = File(context.applicationInfo.nativeLibraryDir, "libphp.so")
+        return packagedPhp.takeIf { it.isFile && it.canExecute() }
+    }
 
-        val inRuntimes = File(baseRuntimesDir, "php/bin/php")
-        if (inRuntimes.exists() && inRuntimes.canExecute()) return inRuntimes
-
-        // Standalone binary in runtimes/php
-        val inPhpRoot = File(baseRuntimesDir, "php/php")
-        if (inPhpRoot.exists()) return inPhpRoot
-
-        return null
+    /**
+     * Finds the packaged ARM64 Java launcher. A Paper JAR alone is not an installed
+     * runnable server: the matching Android-compatible JVM must also be executable.
+     */
+    fun getJavaExecutable(): File? {
+        val java = File(context.applicationInfo.nativeLibraryDir, "libjava.so")
+        return java.takeIf { it.isFile && it.canExecute() }
     }
 
     /**
@@ -147,7 +149,7 @@ class RuntimeManager @Inject constructor(
      */
     fun isPaperJavaInstalled(): Boolean {
         val jar = File(baseEnginesDir, "java/paper.jar")
-        return jar.exists() && jar.length() > 1_000_000
+        return jar.exists() && jar.length() > 1_000_000 && getJavaExecutable() != null
     }
 
     fun getPaperJar(): File? {
@@ -160,22 +162,18 @@ class RuntimeManager @Inject constructor(
      */
     fun isPlayitAgentInstalled(): Boolean {
         val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return true
+        if (inNativeLib.isFile && inNativeLib.canExecute()) return true
 
         val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        return inTunnels.exists() && inTunnels.length() > 100_000
+        return inTunnels.isFile && inTunnels.length() > 100_000 && inTunnels.canExecute()
     }
 
     fun getPlayitExecutable(): File? {
         val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return inNativeLib
+        if (inNativeLib.isFile && inNativeLib.canExecute()) return inNativeLib
 
         val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        if (inTunnels.exists()) {
-            inTunnels.setExecutable(true)
-            return inTunnels
-        }
-        return null
+        return inTunnels.takeIf { it.isFile && it.canExecute() }
     }
 
     // ------------------------------------------------------------------ source resolution

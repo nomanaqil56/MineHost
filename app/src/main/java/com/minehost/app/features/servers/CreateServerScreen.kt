@@ -30,8 +30,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -220,7 +218,7 @@ fun StepMinecraftEdition(state: CreateServerFormState, viewModel: CreateServerVi
 
         EditionOptionCard(
             title = "Bedrock Edition",
-            subtitle = "Android, iOS, Windows, Consoles (PocketMine-MP engine, ultra-lightweight)",
+            subtitle = "Bedrock clients — server engine/runtime support is still being validated",
             selected = state.edition == MinecraftEdition.BEDROCK,
             onClick = { viewModel.updateEdition(MinecraftEdition.BEDROCK) }
         )
@@ -229,7 +227,7 @@ fun StepMinecraftEdition(state: CreateServerFormState, viewModel: CreateServerVi
 
         EditionOptionCard(
             title = "Java Edition",
-            subtitle = "PC, Mac, Linux (PaperMC engine, plugins, high optimization)",
+            subtitle = "Java clients — Android JVM support is still being validated",
             selected = state.edition == MinecraftEdition.JAVA,
             onClick = { viewModel.updateEdition(MinecraftEdition.JAVA) }
         )
@@ -340,24 +338,24 @@ fun StepGameplayConfiguration(state: CreateServerFormState, viewModel: CreateSer
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Auto tunnel switch
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(DarkSurface)
+                .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
+                .padding(14.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Worldwide Public Tunnel", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                Text(
-                    text = "Automatically create a public endpoint so players outside Wi-Fi can join",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-            }
-            Switch(
-                checked = state.autoStartTunnel,
-                onCheckedChange = { viewModel.updateAutoStartTunnel(it) },
-                colors = SwitchDefaults.colors(checkedThumbColor = PrimaryEmerald)
+            Text(
+                text = "Global Connectivity",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary
+            )
+            Text(
+                text = "MineHost's own public network is under development. This build supports local network hosting only; no third-party tunnel is started.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }
@@ -392,7 +390,7 @@ fun StepReviewAndCreate(state: CreateServerFormState) {
                 ReviewRow("Engine", state.engineId)
                 ReviewRow("Local Port", state.port.toString())
                 ReviewRow("Max Players", state.maxPlayers.toString())
-                ReviewRow("Worldwide Tunnel", if (state.autoStartTunnel) "Enabled (Playit.gg)" else "Disabled (LAN only)")
+                ReviewRow("Public Connectivity", "Not available yet (local network only)")
                 ReviewRow("Local World Storage", "/files/minehost/servers/")
             }
         }

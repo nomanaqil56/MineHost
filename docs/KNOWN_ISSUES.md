@@ -1,54 +1,34 @@
-# MineHost — Known Issues & Technical Limitations
+# MineHost — Known Issues and Release Blockers
 
-## 1. Android Platform Constraints
+This document is a concise index of unresolved issues. The detailed source audit and evidence are maintained in [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md); implementation priorities are in [MINEHOST_MASTER_ROADMAP.md](MINEHOST_MASTER_ROADMAP.md).
 
-### 1.1 Android 10+ (API 29+) W^X Restrictions
-- **Description:** Starting with Android 10, the operating system blocks executing executable binaries from application data directories (`/data/data/<package>/files`).
-- **Impact:** Binaries downloaded dynamically into `filesDir` cannot be executed directly via `Runtime.exec()` or `ProcessBuilder` without execute permissions.
-- **Mitigation:**
-  - Pre-packaged native binaries must be placed in `jniLibs/<abi>/lib<name>.so` and installed with `android:extractNativeLibs="true"`, placing them in `applicationInfo.nativeLibraryDir` with execute permissions.
-  - Dynamically updated components utilize `RuntimeManager` with appropriate file permission enforcement or validated userspace loaders.
+## Critical blockers
 
-### 1.2 Android ART vs Desktop Java Virtual Machine
-- **Description:** Android's native runtime is ART (Android Runtime), which only executes DEX bytecode. ART cannot directly execute standard Java `.class` or `.jar` files.
-- **Impact:** Desktop Java server software (PaperMC, Geyser) requires an actual ARM64 OpenJDK binary distribution (`bin/java` and `libjvm.so`) compiled for Android Bionic or Musl libc.
-- **Mitigation:** MineHost isolates Java server execution behind `JavaEngine` and focuses the immediate milestone on native Bedrock hosting via PocketMine-MP.
+1. **No proven Android PHP runtime.** PocketMine-MP cannot start until a compatible ARM64 PHP runtime is available and proven on a physical Android device. A normal desktop Linux binary or an executable downloaded into app-private storage is not an acceptable assumption.
+2. **No proven Android JVM.** PaperMC and Geyser cannot run until an Android-compatible ARM64 JVM strategy is implemented and validated.
+3. **No real server acceptance test.** No current audit evidence demonstrates a real Bedrock or Java server starting and accepting a real Minecraft client on physical hardware.
+4. **No MineHost-owned public networking.** Legacy Playit provider source remains unbound. MineHost control plane, direct-connect negotiation, and MineHost-operated TCP/UDP relays are not implemented.
+5. **No verified international join.** Public endpoint parsing or a tunnel process running does not prove a remote Minecraft client can join and play.
+6. **Cross-play is unavailable.** Geyser/Floodgate execution is blocked by the Java runtime and must remain disabled until real cross-play tests pass.
+7. **Release readiness is unproven.** Current release signing, target SDK, foreground-service policy, privacy, licensing, security, and Play distribution checks still require a complete release audit.
 
-### 1.3 Memory & Aggressive OEM Battery Killers
-- **Description:** Android vendors (Samsung, Xiaomi, Huawei, etc.) aggressively kill background processes even if a Foreground Service is running.
-- **Impact:** A server running in the background may be terminated if free RAM drops below the low-memory killer (LMK) threshold, especially if the host plays Minecraft on the same device.
-- **Mitigation:**
-  - MineHost integrates `ServerForegroundService` declaring `specialUse|dataSync`.
-  - Prompts users to exempt MineHost from battery optimization via `Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
-  - Recommended minimum RAM is 4GB for Bedrock only, 6GB+ if playing on the same device.
+## Platform and reliability risks
 
-### 1.4 Mojang Bedrock Dedicated Server (BDS) ARM64 Absence
-- **Description:** Mojang only distributes x86_64 binaries for the official Bedrock Dedicated Server. There are no ARM64 Linux or Android builds.
-- **Impact:** Running official BDS on Android ARM64 requires heavy x86 CPU translation (e.g. Box64), which severely impacts battery and performance.
-- **Mitigation:** MineHost uses native ARM64 Bedrock server software (PocketMine-MP).
+- Android OEM battery management and low-memory killing can terminate a server process.
+- Sustained server workloads can cause thermal throttling and battery wear.
+- Cellular networks commonly use CGNAT and may block inbound traffic.
+- Network changes can invalidate tunnel mappings and active client sessions.
+- Java TCP and Bedrock transports require different forwarding and reachability checks.
+- A relay improves reachability, not physical distance; it cannot guarantee low ping worldwide.
+- Relay bandwidth and transit costs must be measured before promising unlimited free relaying.
 
----
+## Policy and supply-chain risks
 
-## 2. Networking & Relay Constraints
+- Android restricts execution of dynamically downloaded native binaries; runtime distribution must be designed around current Android platform and Google Play rules.
+- Every bundled/downloaded runtime and server component needs version pinning, checksum/signature verification, licence review, and attribution notices.
+- Minecraft branding and distribution must follow current Mojang/Microsoft guidelines.
+- Do not silently accept the Minecraft EULA or redistribute Minecraft game assets.
 
-### 2.1 First-Time Playit Agent Claiming
-- **Description:** On first launch, the Playit agent generates a unique cryptographic secret and requires a one-time claim on `https://playit.gg/claim/<code`.
-- **Mitigation:** MineHost captures this URL directly from agent stdout and presents a one-click "Claim Agent on Playit.gg" button in the Server Detail screen.
+## Known-good claims policy
 
----
-
-## 5. Findings from the 2026-11-09 source audit
-
-See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) for the full list. Unresolved items:
-
-- **No PHP or Java runtime is bundled.** `libphp.so` / `libjava.so` are expected in `nativeLibraryDir` but the repository has no `jniLibs/`. Bedrock and Java servers cannot start until this is solved.
-- **W^X:** executables downloaded into `filesDir` (e.g. the Playit agent) cannot run on Android 10+.
-- **Playit agent URL** uses an asset name (`playit-cli-linux-<arch>`) that does not match the official `playit-linux-*` naming; the download likely fails.
-- **Downloads are not integrity-verified** against any trusted checksum, and use `releases/latest`.
-- **EULA consent UI is missing.** `eula.txt` is written as `eula=false`, so Java servers refuse to start until consent exists.
-- **Cross-play is not implemented** (now reported as unsupported instead of falling back to Bedrock-only).
-- **ConnectionMonitor uses a TCP connect**, which cannot monitor a UDP (Bedrock) tunnel.
-- **Backup creation while a server is running** is not made consistent (no `save-off`/`save-all`).
-- **Diagnostics swallows download failures**, so install errors are invisible to the user.
-- **Release builds are signed with the debug key.**
-- **Stopping while STARTING:** `stopServer` returns success without effect until the process handle exists.
+Do not describe a feature as working based only on a UI screen, configuration file, interface, or mocked test. Use the verification levels in the master roadmap and keep test evidence current.

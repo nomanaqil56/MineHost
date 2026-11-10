@@ -45,6 +45,15 @@ class BedrockEngine @Inject constructor(
             )
         }
 
+        if (runtimeManager.getPhpExecutable() == null) {
+            return Result.failure(
+                IllegalStateException(
+                    "Bedrock hosting is not installable on this build yet: a verified Android ARM64 PHP runtime is not bundled. " +
+                        "MineHost will not mark PocketMine as installed until the runtime is available."
+                )
+            )
+        }
+
         val result = runtimeManager.downloadPocketMinePhar(onProgress)
         return result.map { }
     }
@@ -65,7 +74,7 @@ class BedrockEngine @Inject constructor(
         val phar = runtimeManager.getPocketMinePhar()
 
         if (phpBinary == null || !phpBinary.exists()) {
-            val errorMsg = "PHP runtime binary (libphp.so) was not found in native libraries or app runtimes. Please install the Bedrock runtime from Diagnostics or Setup."
+            val errorMsg = "Packaged PHP runtime (libphp.so) was not found as an executable in the app's native library directory. A verified Android ARM64 PHP runtime must be bundled before Bedrock hosting can start."
             AppLogger.e("BedrockEngine", errorMsg)
             listener.onError(errorMsg)
             return Result.failure(FileNotFoundException(errorMsg))

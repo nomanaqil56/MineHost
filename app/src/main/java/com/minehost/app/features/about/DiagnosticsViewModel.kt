@@ -99,7 +99,7 @@ class DiagnosticsViewModel @Inject constructor(
             isDownloading = downloading,
             downloadError = download.error,
             isPhpRuntimeAvailable = runtimeManager.getPhpExecutable() != null,
-            isJavaRuntimeAvailable = java.io.File(context.applicationInfo.nativeLibraryDir, "libjava.so").exists()
+            isJavaRuntimeAvailable = runtimeManager.getJavaExecutable() != null
         )
     }.stateIn(
         scope = viewModelScope,

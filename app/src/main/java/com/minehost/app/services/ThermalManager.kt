@@ -33,17 +33,9 @@ class ThermalManager @Inject constructor(
     fun startListening() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
+            _thermalState.value = mapThermalStatus(powerManager.currentThermalStatus)
             listener = PowerManager.OnThermalStatusChangedListener { status ->
-                val state = when (status) {
-                    PowerManager.THERMAL_STATUS_NONE -> DeviceThermalState.NONE
-                    PowerManager.THERMAL_STATUS_LIGHT -> DeviceThermalState.LIGHT
-                    PowerManager.THERMAL_STATUS_MODERATE -> DeviceThermalState.MODERATE
-                    PowerManager.THERMAL_STATUS_SEVERE -> DeviceThermalState.SEVERE
-                    PowerManager.THERMAL_STATUS_CRITICAL -> DeviceThermalState.CRITICAL
-                    PowerManager.THERMAL_STATUS_EMERGENCY -> DeviceThermalState.EMERGENCY
-                    PowerManager.THERMAL_STATUS_SHUTDOWN -> DeviceThermalState.SHUTDOWN
-                    else -> DeviceThermalState.NONE
-                }
+                val state = mapThermalStatus(status)
                 _thermalState.value = state
                 if (state >= DeviceThermalState.SEVERE) {
                     AppLogger.w("ThermalManager", "High thermal status detected: $state")
@@ -51,6 +43,17 @@ class ThermalManager @Inject constructor(
             }
             powerManager.addThermalStatusListener(listener!!)
         }
+    }
+
+    private fun mapThermalStatus(status: Int): DeviceThermalState = when (status) {
+        PowerManager.THERMAL_STATUS_NONE -> DeviceThermalState.NONE
+        PowerManager.THERMAL_STATUS_LIGHT -> DeviceThermalState.LIGHT
+        PowerManager.THERMAL_STATUS_MODERATE -> DeviceThermalState.MODERATE
+        PowerManager.THERMAL_STATUS_SEVERE -> DeviceThermalState.SEVERE
+        PowerManager.THERMAL_STATUS_CRITICAL -> DeviceThermalState.CRITICAL
+        PowerManager.THERMAL_STATUS_EMERGENCY -> DeviceThermalState.EMERGENCY
+        PowerManager.THERMAL_STATUS_SHUTDOWN -> DeviceThermalState.SHUTDOWN
+        else -> DeviceThermalState.NONE
     }
 
     fun stopListening() {

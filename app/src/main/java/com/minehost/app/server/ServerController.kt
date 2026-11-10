@@ -93,7 +93,7 @@ class ServerController @Inject constructor(
             activeEngine = engine
 
             if (!engine.isInstalled()) {
-                val notInstalledMsg = "Server engine '${engine.name}' is not installed on this device. Please download and install it via Diagnostics or Setup."
+                val notInstalledMsg = "Server engine '${engine.name}' is not ready on this device. Check Diagnostics for missing runtime requirements; MineHost will not start an engine until its runtime and server files are available."
                 log(serverId, "[ERROR] $notInstalledMsg")
                 handleServerStopped(serverId, ServerStatus.ERROR)
                 return Resource.Error(notInstalledMsg)
@@ -173,16 +173,11 @@ class ServerController @Inject constructor(
                         serverRepository.updateStatus(serverId, ServerStatus.ONLINE)
                         log(serverId, "[MineHost] Server process confirmed ONLINE on port ${server.localPort}!")
 
-                        // 7. Connect tunnel if enabled
+                        // Public connectivity is intentionally disabled until MineHost's own
+                        // control plane and relay are implemented. Never silently fall back to a
+                        // third-party tunnel provider for an existing server profile.
                         if (server.autoStartTunnel) {
-                            log(serverId, "[MineHost] Initiating worldwide reverse tunnel...")
-                            val tunnelResult = tunnelManager.startTunnel(server.localPort, server.edition.defaultProtocol)
-                            tunnelResult.onSuccess { endpoint ->
-                                serverRepository.updatePublicEndpoint(serverId, endpoint)
-                                log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
-                            }.onFailure { err ->
-                                log(serverId, "[MineHost] Tunnel notice: ${err.message}. Server is running in LOCAL mode.")
-                            }
+                            log(serverId, "[MineHost] Public connectivity is not available in this build. Server is running on the local network only.")
                         }
                     }
                 }

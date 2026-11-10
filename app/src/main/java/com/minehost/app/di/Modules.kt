@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.minehost.app.core.common.Constants
 import com.minehost.app.data.local.MineHostDatabase
+import com.minehost.app.data.local.MIGRATION_1_2
 import com.minehost.app.data.local.dao.BackupDao
 import com.minehost.app.data.local.dao.PlayerDao
 import com.minehost.app.data.local.dao.ServerDao
@@ -19,7 +20,7 @@ import com.minehost.app.domain.repository.LogRepository
 import com.minehost.app.domain.repository.PlayerRepository
 import com.minehost.app.domain.repository.ServerRepository
 import com.minehost.app.domain.repository.WorldRepository
-import com.minehost.app.networking.PlayitTunnelProvider
+import com.minehost.app.networking.UnavailableTunnelProvider
 import com.minehost.app.networking.TunnelProvider
 import dagger.Binds
 import dagger.Module
@@ -87,6 +88,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindTunnelProvider(impl: PlayitTunnelProvider): TunnelProvider
+    abstract fun bindTunnelProvider(impl: UnavailableTunnelProvider): TunnelProvider
 }
 

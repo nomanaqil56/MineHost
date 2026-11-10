@@ -1,42 +1,54 @@
-# MineHost: Testing Status
+# MineHost — Testing Status
 
-This file separates what was **run**, what was **only written**, and what is **not tested**. Earlier versions of this
-file listed many items as PASS without a reproducible run; those claims were removed.
+This file separates source code, automated test evidence, and real-device verification.
 
 ## Test levels
 
-| Level | What | Status |
+| Level | Meaning | Current status |
 |---|---|---|
-| 1. Build | Gradle `assembleDebug`, lint, resources | **NOT TESTED** in the latest audit (no Android SDK or Gradle network in the audit environment). Every Android-dependent edit is **uncompiled**. |
-| 2. Unit tests, pure Kotlin | Protocol framing, parsers, backup swap, checksum, tunnel policy | **RUN, 40 of 40 pass** (see below). Run with `kotlinc` + JUnit **outside Gradle**. |
-| 3. Instrumented / device | Room migration, service, Compose UI | **NOT TESTED** |
-| 4. Real server | PocketMine / Paper starting and answering | **NOT TESTED** (and blocked: no PHP/Java runtime is bundled) |
-| 5. Real client | Minecraft client joining on LAN / via tunnel | **NOT TESTED** |
-| 6. Tunnel | Real Playit account, claim, external join | **NOT TESTED** |
+| Source review | Code exists and has been reviewed | Partial |
+| Pure Kotlin unit tests | Deterministic logic tests | 40 tests were previously run outside Gradle; current Gradle test task is being established |
+| Android Gradle build | Clean debug build against API 36 | Pending current CI result |
+| Emulator/instrumented | Android framework, Room, service and UI | Not verified |
+| Physical device | Real ARM64 phone | Not verified |
+| Real Minecraft client | Real server/client gameplay | Not verified; blocked by runtime/engine choice |
+| External network | Public join from another network/country | Not verified; MineHost relay not implemented |
+| Sustained load | Thermal, battery, TPS/MSPT over hours | Not verified |
 
-## Level 2: unit tests that were actually run
+## Previous pure-Kotlin test evidence
 
-Compiled and executed with the Gradle-bundled `kotlinc` and JUnit 4.13.2 (outside Gradle), 40 tests, 0 failures.
+The previous audit recorded 40 pure-Kotlin helper tests run outside Gradle with 0 failures. These covered:
+- protocol framing/parsing helpers;
+- command sanitization;
+- backup checksum/tamper detection;
+- world swap/rollback helpers;
+- tunnel state/reconnect/log parsing;
+- player join/leave parsing;
+- local network address selection.
 
-| Test class | Tests | Covers | Limit of the evidence |
-|---|---|---|---|
-| `ReadinessProbeTest` | 8 | RakNet ping/pong framing, Java status VarInt parsing, loopback fake responders | Fakes prove the code, **not** that real PocketMine/Paper answer the same way |
-| `CommandSanitizerTest` | 4 | Rejects blank, over-long, control-character commands | n/a |
-| `ZipUtilsAndValidationTest` | 4 | Content checksum, tamper detection | n/a |
-| `WorldSwapTest` | 4 | Replace-with-rollback logic on a temp directory | Not run against a real LevelDB world |
-| `TunnelSupportTest` | 10 | Reachability tracker, reconnect backoff, log redaction, Playit output parser | Parser formats are **assumed**, not captured from the real agent |
-| `PlayerTrackerTest` | 6 | Join/leave parsing | Line formats are **assumed**, not captured from a real server |
-| `LocalNetworkTest` | 4 | LAN address selection | `detect()` itself returned no address in the audit container |
+This is not proof of Android framework integration, a real Minecraft server, or public connectivity. Some protocol/parser assumptions have not been captured from real server logs.
 
-Source: `app/src/test/java/com/minehost/app/`. The older Gradle-based tests in the repo were not re-run.
+## Current automated CI
 
-## Not tested (every one needs hardware or an account)
+The development branch adds [.github/workflows/android-ci.yml](../.github/workflows/android-ci.yml), which:
+1. sets up JDK 17 and Android SDK 36;
+2. runs testDebugUnitTest;
+3. assembles a debug APK;
+4. uploads test reports and APK artifacts.
 
-- PocketMine-MP start on a device, Bedrock client join on the same Wi-Fi, persistence after restart
-- Paper / Java hosting; Geyser cross-play (cross-play is disabled in the app)
-- Playit claim flow, public endpoint, external join, reconnect after network loss
-- Foreground service survival with the screen locked; Android 14 service types; thermal behaviour
-- Room migration 1 to 2 on a device with existing data
-- Backup and restore on a real world; release build and signing
+Check the latest workflow run and fix failures before marking the build verified. CI has not yet established physical-device behavior.
 
-See `docs/DEVICE_TESTING.md` for the exact procedure.
+## Not verified
+
+- PHP runtime and Bedrock engine launch on Android.
+- JVM and Paper launch on Android.
+- Geyser/Floodgate cross-play.
+- Current Bedrock transport/version compatibility.
+- Real Minecraft client join on LAN.
+- MineHost-owned relay, CGNAT traversal, or international join.
+- Wi-Fi/mobile-data handover and recovery.
+- Foreground service survival, Doze/OEM restrictions, thermal/battery behavior.
+- Backup/restore against real Bedrock LevelDB and Java world files.
+- Release signing, AAB, Play pre-launch report, licensing and privacy/security audit.
+
+See [Device Testing](DEVICE_TESTING.md), [Production Readiness](PRODUCTION_READINESS.md), and [Master Roadmap](MINEHOST_MASTER_ROADMAP.md).

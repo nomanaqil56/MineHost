@@ -45,6 +45,15 @@ class JavaEngine @Inject constructor(
             )
         }
 
+        if (runtimeManager.getJavaExecutable() == null) {
+            return Result.failure(
+                IllegalStateException(
+                    "Java hosting is not installable on this build yet: a verified Android ARM64 Java runtime is not bundled. " +
+                        "MineHost will not mark Paper as installed until the runtime is available."
+                )
+            )
+        }
+
         val result = runtimeManager.downloadPaperJar(defaultVersion, onProgress)
         return result.map { }
     }
@@ -61,8 +70,8 @@ class JavaEngine @Inject constructor(
         config: ServerConfiguration,
         listener: ProcessListener
     ): Result<ServerProcessHandle> {
+        val javaBinary = runtimeManager.getJavaExecutable()
         val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val javaBinary = File(nativeDir, "libjava.so")
         val jarFile = runtimeManager.getPaperJar()
 
         if (jarFile == null || !jarFile.exists()) {
@@ -72,7 +81,7 @@ class JavaEngine @Inject constructor(
             return Result.failure(FileNotFoundException(errorMsg))
         }
 
-        if (!javaBinary.exists()) {
+        if (javaBinary == null) {
             val errorMsg = "ARM64 Java runtime binary (libjava.so) was not found in native library directory. A Java 17/21 JRE is required to run PaperMC."
             AppLogger.e("JavaEngine", errorMsg)
             listener.onError(errorMsg)

@@ -146,16 +146,15 @@ fun DiagnosticsScreen(
                         title = "Bedrock Engine (PocketMine-MP)",
                         installed = state.isPocketMineInstalled,
                         onDownload = { viewModel.downloadPocketMine() },
-                        enabled = !state.isDownloading
+                        enabled = !state.isDownloading && state.isPhpRuntimeAvailable
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    ComponentStatusRow(
-                        title = "Playit Anycast Agent (playit-cli)",
-                        installed = state.isPlayitInstalled,
-                        onDownload = { viewModel.downloadPlayitAgent() },
-                        enabled = !state.isDownloading
+                    Text(
+                        text = "Public connectivity: MineHost's own control plane and relay network are not available in this build. No third-party tunnel provider is required or started.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -164,7 +163,7 @@ fun DiagnosticsScreen(
                         title = "Java Engine (PaperMC 1.20.4)",
                         installed = state.isPaperInstalled,
                         onDownload = { viewModel.downloadPaper() },
-                        enabled = !state.isDownloading
+                        enabled = !state.isDownloading && state.isJavaRuntimeAvailable
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -215,7 +214,7 @@ fun DiagnosticsScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (state.thermalState >= DeviceThermalState.SEVERE) {
-                            "Warning: Device is overheating. MineHost will throttle or auto-save world to prevent hardware damage."
+                            "Warning: Device is overheating. Performance may drop or Android may shut down workloads. Reduce server load or stop hosting and let the device cool; automatic thermal throttling is not implemented in this build."
                         } else {
                             "Operating within normal mobile thermal parameters."
                         },
