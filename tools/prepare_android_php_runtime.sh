@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare the pinned, statically linked PocketMine PHP CLI for Android ARM64.
+# Prepare the pinned, statically linked Axolotl-PM PHP CLI (including ext-webrtc) for Android ARM64.
 #
 # The executable is packaged inside the APK under jniLibs so Android extracts it
 # into nativeLibraryDir. Do NOT download this ELF into filesDir and try to exec it:
@@ -16,9 +16,9 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 PHP_RELEASE_TAG="pm5-php-8.4-latest"
 PHP_ASSET="PHP-8.4-Android-arm64-PM5.tar.gz"
-PHP_URL="https://github.com/pmmp/PHP-Binaries/releases/download/${PHP_RELEASE_TAG}/${PHP_ASSET}"
+PHP_URL="https://github.com/axolotl-pm/PHP-Binaries/releases/download/${PHP_RELEASE_TAG}/${PHP_ASSET}"
 # SHA-256 digest published by the GitHub Releases API for this exact asset.
-EXPECTED_SHA256="d8867966340121f821591b9bb29c80a58ad77abd6cc8e0e44d1cbbb3aaedd70c"
+EXPECTED_SHA256="45b462ff5e290ee06d34eced589c325d27a2743185acab53acab291b0188e181"
 
 OUT_DIR="$ROOT_DIR/app/src/main/jniLibs/arm64-v8a"
 OUT_FILE="$OUT_DIR/libphp.so"
@@ -64,4 +64,4 @@ install -m 0755 "$PHP_BINARY" "$OUT_FILE"
 echo "Prepared: $OUT_FILE"
 echo "Binary SHA-256: $(sha256sum "$OUT_FILE" | cut -d' ' -f1)"
 echo "NOTE: this validates archive integrity, ELF architecture and static linkage only."
-echo "A physical Android device test is still required before marking PocketMine supported."
+echo "A physical Android device test is still required before marking Axolotl-PM/NetherNet supported."
