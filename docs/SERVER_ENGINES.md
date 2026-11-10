@@ -1,79 +1,81 @@
-# MineHost — Supported Server Engines & Compatibility
+# MineHost — Server Engine Evaluation & Compatibility
 
-## 1. Supported Server Engines
+> **Status: candidates under evaluation, not a list of production-supported engines.** No engine is considered supported until its exact version and runtime pass the physical-device and real-client acceptance gates in [MINEHOST_MASTER_ROADMAP.md](MINEHOST_MASTER_ROADMAP.md).
 
-MineHost provides a modular server engine interface. Below is the detailed breakdown of supported engines, their installation requirements, runtime configurations, and known limitations.
+## 1. Engine architecture
 
----
+Each server engine must be isolated behind the `ServerEngine` interface and provide:
+- version and capability metadata;
+- verified installation and runtime checks;
+- configuration generation with validated inputs;
+- real process launch and log capture;
+- protocol-aware readiness detection;
+- graceful stop and bounded force-stop;
+- command delivery with truthful success/failure;
+- explicit supported Minecraft client/protocol range.
 
-## 2. Bedrock Edition Engines
+An engine being listed in this document does not mean its runtime is available in the APK or can execute on Android.
 
-### 2.1 PocketMine-MP (v5.x)
-- **Engine ID:** `bedrock-pocketmine-v5`
-- **Architecture:** PHP 8.2+ (ZTS - Zend Thread Safety) compiled for `aarch64-linux-android`.
-- **Target Minecraft Client:** Bedrock 1.20.x - 1.21.x (updated via RakLib & protocol updates).
-- **Default Port:** `19132` (UDP RakNet).
-- **Binary Components:**
-  - `PocketMine-MP.phar`: Core server archive.
-  - Native PHP binary (`libphp.so` in `nativeLibraryDir`).
-  - `start.sh` or direct executable invocation via ProcessBuilder.
-- **Resource Footprint:**
-  - Idle RAM: ~180 MB.
-  - Active (2-4 players): ~350 MB.
-- **Advantages:** Extremely low memory and CPU usage; instantaneous startup; low thermal impact on mobile devices.
-- **Limitations:**
-  - Does not implement vanilla mob AI by default (requires plugins like PureEntitiesX).
-  - Nether/The End dimensions require plugins or custom world generators.
-  - Redstone mechanics are limited compared to Bedrock Dedicated Server.
+## 2. Bedrock candidates
 
-### 2.2 PowerNukkitX (PNX)
-- **Engine ID:** `bedrock-powernukkitx`
-- **Architecture:** Java 21 on Android ARM64 JVM.
-- **Target Minecraft Client:** Bedrock 1.20.x - 1.21.x.
-- **Default Port:** `19132` (UDP RakNet).
-- **Binary Components:**
-  - `powernukkitx.jar`.
-  - Android JRE 21 runtime.
-- **Resource Footprint:**
-  - Idle RAM: ~650 MB.
-  - Active (2-4 players): ~1.2 GB.
-- **Advantages:**
-  - Extensive vanilla feature parity: mob AI, complete redstone simulation, water physics, multi-dimensions (Overworld, Nether, End).
-  - Modern Java plugin API with reflection and events.
-- **Limitations:** Higher RAM and battery consumption than PocketMine-MP. Requires devices with at least 6GB physical RAM.
+### PocketMine-MP
+- Language/runtime: PHP CLI plus PocketMine-MP PHAR and native extensions.
+- Why evaluate it: relatively lightweight, extensible, established plugin ecosystem.
+- Important limitations: it is not a drop-in vanilla Bedrock Dedicated Server replacement; gameplay parity, entity AI, redstone, dimensions, and plugin requirements must be described honestly.
+- Android blocker: MineHost currently has no validated PHP runtime. A desktop Linux PHP build is not assumed to run on Android/Bionic. The project must prove a compatible ARM64 runtime, extension set, process-launch strategy, and licence/redistribution path.
+- Protocol blocker: validate the selected PocketMine release against the current Bedrock client transport. Do not assume legacy RakNet support is sufficient for all current clients.
 
----
+### PowerNukkitX
+- Language/runtime: Java server implementation requiring a compatible JVM.
+- Why evaluate it: potentially different gameplay and plugin capabilities from PocketMine.
+- Android blocker: no validated Android-compatible Java VM is currently present. Memory, CPU, battery and thermal costs must be measured on real phones.
+- Do not publish estimated RAM or player-capacity claims until benchmarked on representative hardware.
 
-## 3. Java Edition Engines
+### Official Bedrock Dedicated Server
+- Official distributions and supported architectures must be checked against Mojang's current release documentation.
+- Do not assume an official ARM64 Android binary exists.
+- x86 emulation is not an acceptable primary path for a performance-first Android host unless rigorous testing proves otherwise.
 
-### 3.1 PaperMC
-- **Engine ID:** `java-paper`
-- **Architecture:** Java 17/21 OpenJDK.
-- **Target Minecraft Client:** Java Edition (versions 1.20.4, 1.21+).
-- **Default Port:** `25565` (TCP).
-- **Binary Components:**
-  - `paper-<version>.jar`.
-  - Android JRE 17/21.
-- **Startup Parameters:**
-  - `-Xms256M -Xmx1536M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -jar paper.jar --nogui`
-- **Resource Footprint:**
-  - Idle RAM: ~900 MB.
-  - Active (2-4 players): ~1.8 GB.
-- **Advantages:** Industry-standard optimization, anti-X-ray, async chunk loading, Bukkit/Spigot/Paper plugin support.
-- **Limitations:** Requires substantial memory; not recommended for low-end devices with <= 4GB RAM.
+## 3. Java candidate
 
----
+### Paper
+- Language/runtime: desktop Java server JAR requiring a full compatible JVM, not Android ART.
+- Why evaluate it: mature server ecosystem and performance-oriented configuration.
+- Android blocker: MineHost currently has no validated Java VM distribution that runs Paper on supported Android devices. A JAR file alone is not an executable runtime.
+- Requirements: test Java version compatibility, native libraries, libc/Bionic compatibility, memory mapping, JIT behaviour, file access, signal handling, and sustained thermal performance.
+- EULA: never accept the Minecraft EULA on behalf of the user. Obtain explicit consent, store it accurately, and provide the official EULA link.
 
-## 4. Cross-Play Integration (Geyser & Floodgate)
+Potential future alternatives include Purpur, Fabric, or Vanilla, but they should not be added until Paper is proven and the additional compatibility burden is justified.
 
-### 4.1 Geyser-Standalone Bridge
-- **Engine ID:** `crossplay-geyser-standalone`
-- **Target Setup:** Runs alongside PaperMC.
-- **Ports:**
-  - Bedrock Facing: `19132` (UDP).
-  - Java Facing: `127.0.0.1:25565` (TCP loopback).
-- **Authentication Modes:**
-  - `online`: Bedrock players log in with their Java-licensed Microsoft account.
-  - `floodgate`: Bedrock players can join using their Bedrock Xbox credentials via automatic public/private key verification without purchasing a separate Java account.
-- **Configuration:** Auto-generated `config.yml` synchronizing server MOTD, player limits, and loopback forwarding.
+## 4. Cross-play: Geyser and Floodgate
 
+Geyser translates compatible Bedrock client traffic to a Java server. Floodgate can support Bedrock identity/authentication workflows with Geyser. They are not independent game-server engines.
+
+Target composition:
+- Paper runs locally on the Android host.
+- Geyser runs as a plugin or supported standalone bridge connected to Paper.
+- Floodgate is added only for the chosen authentication mode and configured securely.
+- The Bedrock-facing transport must match the current supported Geyser/client versions.
+
+This entire composition is blocked until the Java runtime and Paper server work on-device. Do not display cross-play as available before real Bedrock and Java clients have joined the same phone-hosted world.
+
+## 5. Runtime and packaging constraints
+
+- Android ART executes Android DEX; it does not directly run desktop Java server JARs.
+- A PHP/Java runtime must be built for and validated on the target Android ABI and OS environment.
+- Do not assume downloaded executables in app-private writable storage can be executed on modern Android.
+- Native libraries packaged in `jniLibs` have Android packaging and dynamic-linker constraints; a shared object is not automatically a standalone executable.
+- PRoot/rootfs approaches introduce compatibility, storage, performance, security, and maintenance costs. Use only if validated and necessary.
+- Every binary/runtime must have a pinned version, source, licence, ABI, dependencies, integrity verification method, and uninstall/update procedure.
+
+## 6. Engine support policy
+
+A server engine may be labelled:
+- **Candidate:** under research only.
+- **Implemented:** integration code exists, but no complete runtime/client proof.
+- **Device-verified:** launches and answers protocol probes on listed physical devices.
+- **Client-verified:** real Minecraft clients join and play on a local network.
+- **Externally verified:** real clients join over the public internet through MineHost connectivity.
+- **Supported:** the above tests pass for a documented version/device matrix and have a maintained update path.
+
+Never label a candidate or code-only integration as supported.
