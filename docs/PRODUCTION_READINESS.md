@@ -12,11 +12,11 @@ The repository contains a meaningful Android application foundation and several 
 
 | Priority | Blocker | Source evidence / consequence | Required proof |
 |---|---|---|---|
-| P0 | Android PHP runtime absent | RuntimeManager can locate a PHP executable, but no PHP runtime installer or bundled ARM64 runtime is present. BedrockEngine returns a clear failure when it cannot find PHP. | Reproducible Android-compatible ARM64 PHP runtime; launch PocketMine on a physical phone and join with a real Bedrock client. |
+| P0 | Android PHP runtime absent | RuntimeManager accepts only a packaged executable in nativeLibraryDir, but no PHP runtime is bundled. BedrockEngine returns a clear failure when it cannot find PHP. | Reproducible Android-compatible ARM64 PHP runtime; launch PocketMine on a physical phone and join with a real Bedrock client. |
 | P0 | Android JVM absent | JavaEngine expects libjava.so in nativeLibraryDir; no verified JVM distribution is bundled. Paper cannot launch. | Reproducible Android-compatible ARM64 JVM and a real Paper launch/client join on device. |
 | P0 | No end-to-end server proof | The current test evidence is helper/unit logic only. No physical-device server/client acceptance evidence is recorded. | Real device, real server process, real client, persistence and sustained-session test. |
-| P0 | MineHost-owned public connectivity absent | The existing provider is Playit-specific. The MineHost control plane, direct path negotiation and MineHost-operated relays are not implemented. | Public join behind CGNAT using a MineHost-operated relay, with a normal Minecraft client. |
-| P0 | Playit executable path incompatible/unverified | RuntimeManager downloads the agent into app-private files and attempts setExecutable/ProcessBuilder. Android 10+ executable-memory/W^X restrictions make this path unsuitable without a validated loader or packaged native executable. | Prove a permitted Android execution model on API 29+ devices, or remove the provider from production. |
+| P0 | MineHost-owned public connectivity absent | Legacy Playit provider source remains unbound. The app binds an explicit unavailable MineHost provider and does not start a third-party tunnel. The MineHost control plane, direct path negotiation and MineHost-operated relays are not implemented. | Public join behind CGNAT using a MineHost-operated relay, with a normal Minecraft client. |
+| P0 | Playit executable path incompatible/unverified | The legacy RuntimeManager download path writes the agent into app-private files and attempts setExecutable/ProcessBuilder. Android 10+ executable restrictions make this path unsuitable; the provider is unbound and not used. | Prove a permitted Android execution model on API 29+ devices, or remove the provider from production. |
 | P1 | Java/Bedrock cross-play unavailable | Geyser configuration groundwork exists, but Java runtime execution and bridge execution are not available. | Real Paper + Geyser + Bedrock-client interoperability tests for a declared version matrix. |
 | P1 | Bedrock transport/version compatibility uncertain | Existing readiness and networking notes contain legacy RakNet assumptions. Current Bedrock server/client transport support must be revalidated before selecting the engine. | Versioned protocol matrix and real client tests for each supported transport. |
 | P1 | Google Play target SDK migration pending verification | Main currently uses compileSdk/targetSdk 34. This PR migrates the development branch to API 36 with AGP 8.13, Gradle 8.13, Kotlin 2.3 and matching Compose/KSP plugins. The migration has not yet passed CI. | Get the API 36 toolchain build green, run tests, then complete Android 16 behavior/policy migration and Play Console review. |
@@ -33,7 +33,7 @@ The repository contains a meaningful Android application foundation and several 
 - World storage, ZIP backup, checksum validation, safe extraction, and rollback-oriented restore logic.
 - Live backup save-pause logic and restore refusal while server is active.
 - Console command sanitization and player join/leave parsing; parser formats require real server verification.
-- Playit tunnel provider, output parser, claim flow and restart supervision; third-party and not end-to-end verified.
+- Legacy Playit tunnel provider, output parser and restart supervision remain in source but are unbound and not used by the app. The current app binds an unavailable MineHost provider.
 - Separate tunnel/agent/local/public health state groundwork and protocol-aware probes.
 - Release signing configuration that avoids silently signing release builds with the debug key.
 - Runtime architecture check corrected on the development branch to report only ARM64 as supported by the current runtime plan.
@@ -58,7 +58,7 @@ The new Android CI workflow is intended to provide reproducible build and unit-t
 2. JavaEngine requires libjava.so but no JVM package or installer is present.
 3. Runtime downloads must be reviewed against Android W^X restrictions and Google Play's dynamically loaded code policy. A successful download and chmod do not prove execution is permitted.
 4. RuntimeManager accepts downloads when the upstream release provides no checksum, recording the file as not verified. Production policy should pin versions and require trusted integrity evidence for executable/runtime assets.
-5. The Playit agent is stored in app-private files and launched through ProcessBuilder; this must not be treated as a proven Android-compatible execution path.
+5. The legacy Playit agent download path writes to app-private files and launches through ProcessBuilder; it is not a proven Android-compatible execution path and is not active in the current app.
 6. Playit output endpoint parsing is not an end-to-end Minecraft connectivity test.
 7. A tunnel process or assigned public hostname does not prove remote protocol reachability.
 8. Server readiness probes must match the selected server engine and exact Minecraft transport/version.
