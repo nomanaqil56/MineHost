@@ -1,257 +1,242 @@
 # MineHost — Networking Architecture & Global Connectivity
 
-> **Target architecture:** direct-first connectivity with MineHost-operated relays as fallback. The Android phone always runs the actual Minecraft server. A relay forwards traffic only; it must never host or simulate the Minecraft world.
+> **Target:** direct-first connections with MineHost-operated fallback infrastructure. The Android phone runs the actual Minecraft server. MineHost relays forward traffic only; they never host the world.
 >
-> **Status:** architecture target, not implemented or externally verified. The current Playit adapter is experimental and is not the intended permanent dependency.
+> **Status:** architecture target and partial local code. The MineHost coordinator, TCP reverse tunnel, TURN deployment, and real external-network tests are not complete.
 
 See [MINEHOST_MASTER_ROADMAP.md](MINEHOST_MASTER_ROADMAP.md) for delivery phases and acceptance gates.
 
 ---
 
-## 1. Goals and non-goals
+## 1. Goals
 
-### Goals
-- Host the actual Minecraft server on the user's Android device.
-- Support local Wi-Fi and mobile-data hosting.
-- Allow players on external networks to connect without router administration when possible.
-- Prefer direct paths to minimize additional latency and relay bandwidth.
-- Operate our own coordinator and relay services for CGNAT/restricted-network fallback.
-- Support Java TCP and the current transport required by the selected Bedrock engine/client versions.
-- Report measured connectivity honestly.
+- Host the actual game server on the user's Android device.
+- Support Wi-Fi and cellular hosting.
+- Prefer direct paths to minimize latency and relay bandwidth.
+- Provide MineHost-operated public connectivity for CGNAT/restricted networks.
+- Support Java TCP and current Bedrock NetherNet transport.
+- Keep local hosting independent of MineHost cloud/control-plane availability.
+- Never claim that a signalling endpoint or tunnel status proves a successful game session.
 
-### Non-goals
-- A promise of zero latency or universal direct connectivity.
-- Hosting Minecraft worlds in MineHost's cloud.
-- Routing every session through a central proxy by default.
-- Assuming one generic tunnel implementation works for all Minecraft protocols.
-- Depending permanently on Playit.gg or another managed tunnel provider.
+No network can guarantee zero lag. Host upload speed, phone CPU/thermal limits, physical distance, ISP routing, jitter and packet loss remain constraints.
 
----
+## 2. Two protocol paths
 
-## 2. Target logical architecture
-
-```text
-                         MineHost Control Plane
-                  registration / tickets / relay selection
-                                  |
-                                  | control only
-                                  |
-Player Minecraft Client ---- Connection Negotiation
-           |                      |
-           |             +--------+---------+
-           |             |                  |
-           +-------- Direct Path       MineHost Relay
-                       preferred        fallback
-                           |                  |
-                           +--------+---------+
-                                    |
-                         Android Host / MineHost
-                                    |
-                           Local server port
-                                    |
-                       Actual Minecraft process
-                         +----------+----------+
-                         |                     |
-                      Bedrock                 Java
-                   selected engine           Paper
-```
-
-The control plane must not proxy gameplay packets. It issues short-lived, scoped connection tickets and helps peers select a path. The data plane carries game traffic only when a relay is required.
-
----
-
-## 3. Connection preference order
-
-1. **LAN direct:** same local network; no public relay or coordinator needed after discovery.
-2. **Direct IPv6:** use a globally reachable IPv6 address when firewall policy and client reachability permit it.
-3. **Direct public IPv4:** use only when the host really has an externally reachable mapping.
-4. **Protocol-compatible NAT traversal:** attempt direct UDP traversal where both endpoints and protocol support it. Do not assume symmetric NAT or carrier networks will permit it.
-5. **MineHost-operated relay:** use a regional self-hosted relay when direct access fails.
-
-Java gameplay is TCP. Bedrock networking is version-dependent and must follow the selected engine's current transport implementation. A UDP hole-punching design is not a universal answer for Java TCP. Do not tunnel all Minecraft traffic through a generic WebRTC data channel without proving protocol compatibility and performance.
-
----
-
-## 4. Java and Bedrock are separate transport adapters
+Java and current Bedrock are not the same network problem.
 
 ### Java Edition
-- Gameplay connection: TCP.
-- Default port: 25565 (configurable).
-- LAN direct path.
-- Direct public TCP only when genuinely reachable.
-- For CGNAT/restricted networks, use a MineHost-authenticated outbound TCP tunnel to a MineHost relay, which forwards to the local Java port.
-- Preserve byte-stream semantics and avoid excessive buffering/Nagle-related latency.
-- Probe using Java Server List Ping and a real client join.
+- Gameplay uses TCP (default port 25565).
+- Direct LAN/public IPv6/reachable public IPv4 when available.
+- Otherwise, the phone maintains an authenticated outbound TCP tunnel to a MineHost edge.
+- The edge exposes a public TCP endpoint and forwards the byte stream through the tunnel to the local Java server.
+- Use bounded buffers, backpressure, keepalives, reconnect handling and protocol-aware health checks.
+- Do not route Java TCP through a UDP-only tunnel.
 
-### Bedrock Edition
-- Do not hard-code "RakNet forever". The correct transport depends on the Bedrock client version and selected server implementation.
-- Validate the selected engine's support for the currently required Bedrock transport and its TCP/UDP signalling/gameplay requirements.
-- Preserve datagram boundaries and source/destination/session semantics required by that transport.
-- Use a protocol-aware UDP relay path when relaying is required.
-- Probe using the selected engine's real supported status/query protocol and confirm with a real client join.
+### Bedrock Edition — NetherNet
+MineHost's current Bedrock candidate is Axolotl-PM. Bedrock 1.26.60 uses NetherNet, a WebRTC transport based on ICE, DTLS and SCTP DataChannels. Axolotl-PM requires `ext-webrtc` (libdatachannel bindings) for it.
 
-**Release gate:** publish a supported Bedrock version/transport matrix. If the engine does not support the current client transport, show it as unsupported rather than pretending an old RakNet tunnel is sufficient.
+NetherNet has two separate paths:
+- **Signalling:** HTTP(S) over TCP. The built-in endpoint uses `GET /v1/join` as a capability probe and `POST /v1/join/{networkId}` for SDP exchange. The default signalling port follows `server-port` (usually 19132).
+- **Gameplay:** WebRTC data channels over UDP. ICE gathers direct candidates and configured STUN/TURN candidates.
+
+MineHost design:
+1. Phone runs Axolotl-PM and its built-in HTTP signalling endpoint locally.
+2. Phone maintains an authenticated outbound TCP reverse tunnel to a MineHost edge.
+3. MineHost edge exposes a public hostname with valid HTTPS and forwards signalling requests through the tunnel to the phone.
+4. Axolotl-PM uses MineHost-operated STUN/TURN ICE servers. Direct candidate pairs should be selected when possible; TURN relays gameplay only when direct UDP connectivity fails.
+5. Keep signalling reachability and WebRTC gameplay reachability as separate health states.
+
+**Important:** `GET /v1/join` returning 2xx proves only that NetherNet signalling is available. It does not prove that the UDP WebRTC channel can be established. A real Bedrock client join is required.
+
+### Geyser cross-play
+For a Java/Paper server with Geyser:
+- Java players connect over TCP to Paper.
+- Bedrock players connect to Geyser using the current NetherNet transport (Geyser documents NetherNet support for current Bedrock clients).
+- MineHost must expose both the Java TCP endpoint and the Bedrock signalling + UDP gameplay path.
+- Do not mark cross-play as supported until both client types join the same phone-hosted world.
 
 ---
 
-## 5. MineHost-owned control plane
+## 3. Target logical architecture
 
-The control plane is a small, self-operated service (Go is a candidate, not a fixed requirement) responsible for:
-- Host registration and revocable credentials.
-- Server/session registration without storing world data.
+```text
+Player Client
+   |                         MineHost Control Plane
+   |                    registration / tickets / relay choice
+   |                                  |
+   +-------- direct path -------------+
+   |
+   +-------- TCP public edge -------- MineHost edge
+   |                                  |    |                                  |  +-- HTTPS signalling proxy
+   |                                  |        |
+   |                                  |    outbound TCP tunnel
+   |                                  |        |
+   |                                  |    Android phone : local server
+   |                                  |
+   +-------- WebRTC ICE/DTLS ---------- MineHost TURN (fallback)
+                                            |
+                                       Android phone
+                                            |
+                                     Actual Minecraft process
+```
+
+The control plane handles registration, short-lived credentials, rendezvous and relay selection. It must not proxy gameplay packets. The data plane consists of the TCP reverse tunnel/edge and the TURN relay for Bedrock WebRTC.
+
+---
+
+## 4. MineHost control plane
+
+A small self-operated service (Go is a candidate) handles:
+- Host/device registration and revocable credentials.
+- Server/session registration (no world storage).
 - Short-lived connection tickets.
-- Peer candidate exchange and NAT-traversal coordination.
-- Relay discovery and allocation.
-- Endpoint lifecycle/expiry.
-- Relay health and capacity data.
-- Abuse prevention, quotas and rate limits.
+- Relay/TURN allocation and region selection.
+- Public hostname/endpoint lifecycle.
+- Relay health, capacity and abuse controls.
+- Minimal telemetry with documented retention.
 
 Requirements:
 - No game packet proxying through the control plane.
-- Authenticated host-to-control-plane communication.
-- Short-lived scoped credentials, rotation and revocation.
-- Minimal telemetry and documented retention.
-- Redundant deployment when service maturity justifies it.
-- Existing local hosting continues during a control-plane outage.
+- Authenticated communication and short-lived scoped credentials.
+- Rotation and revocation.
+- Redundant deployment as service maturity grows.
+- Existing local server remains running during control-plane outages.
 
 ---
 
-## 6. MineHost-operated data plane
+## 5. MineHost data plane
 
-MineHost operates relay software on infrastructure it controls. Initially this may run on rented VPS or colocated servers; that is still self-operated software, but it is not physical infrastructure ownership.
+### A. TCP edge and reverse tunnel
+Required for Java TCP and Bedrock HTTP(S) signalling.
 
-Relay requirements:
-- Protocol-specific TCP and UDP forwarding.
-- Authenticated encrypted host tunnel.
-- Connection/session authorization.
-- Bounded queues and backpressure.
-- Low-latency forwarding without unnecessary application-layer transformations.
-- Per-host and per-session bandwidth limits.
-- Capacity metrics and overload protection.
-- Abuse controls and DDoS response plan.
-- Regional deployment only when traffic and measured routing justify it.
+- Phone opens an outbound authenticated encrypted connection to a MineHost edge.
+- Edge allocates a public host/port and routes incoming TCP streams to the phone's local service.
+- For Bedrock, edge terminates TLS with a valid certificate and forwards HTTP signalling. Configure Axolotl-PM's trusted reverse-proxy settings only for the local tunnel/proxy address and a specific forwarded-IP header.
+- For Java, edge forwards the Minecraft TCP byte stream without modifying the protocol.
+- Tunnel must support concurrent connections, backpressure, idle timeouts, health checks, reconnect and endpoint updates.
+- A tunnel failure must not stop the local Minecraft process.
 
-Candidate building blocks may include established open-source tunnel, crypto, NAT traversal, and proxy libraries. Their use does not make MineHost dependent on a third-party managed service. Review licences and maintainability before selection. Do not invent a custom transport protocol unless existing components demonstrably cannot meet requirements.
+### B. TURN for Bedrock WebRTC
+Operate our own TURN infrastructure (Coturn or another reviewed implementation) instead of depending on public/managed TURN services.
 
----
+- Axolotl-PM's `ice-servers` configuration points to MineHost-controlled TURN endpoints.
+- Use time-limited authenticated credentials; never embed a permanent TURN password in the APK or public config.
+- Prefer direct ICE candidate pairs when available. TURN is fallback for symmetric NAT, CGNAT or restrictive networks.
+- TURN relays gameplay packets and consumes bandwidth; implement per-host quotas, capacity limits, abuse controls and regional monitoring.
+- Axolotl-PM documents that `ice-udp-mux: true` cannot be used with TURN. MineHost currently generates `ice-udp-mux: false` and a fixed UDP port range sized to max players.
+- Do not add unreachable ICE servers: candidate gathering can stall until timeout.
 
-## 7. Relay selection and latency
-
-Select by measured path quality, not geography alone. A useful first-order estimate is:
-
-`estimated_rtt = player_to_relay_rtt + relay_to_host_rtt + relay_processing_overhead`
-
-Also consider:
-- packet loss and jitter on both legs;
-- relay CPU, memory, queue depth and current bandwidth;
-- host upload capacity;
-- route stability and regional peering;
-- protocol support.
-
-A relay cannot remove physical distance or compensate for a weak host upload connection. A geographically close relay may still have poor peering. Record p50 and p95 results.
-
-Initial candidate test regions (not a commitment to deploy all immediately): Mumbai, Singapore, Frankfurt, and US East. Start with one controlled relay and expand only from measured demand.
+The MineHost edge and TURN service are separate components: TCP signalling is not a substitute for UDP WebRTC relaying.
 
 ---
 
-## 8. Wi-Fi and mobile data
+## 6. Direct-first route policy
 
-Use Android connectivity APIs to observe Wi-Fi, cellular, Ethernet and network capability changes.
+1. Same-LAN direct connection.
+2. Direct public IPv6 where reachable and firewall rules permit it.
+3. Direct public IPv4 where the host is genuinely reachable.
+4. WebRTC ICE direct candidate pair for NetherNet when possible.
+5. MineHost TURN relay for Bedrock WebRTC when direct ICE fails.
+6. MineHost TCP reverse tunnel/edge for Java and Bedrock signalling when the phone is not publicly reachable.
+
+Do not assume a single generic UDP hole-punching library solves Java TCP or all NAT types. NetherNet already uses WebRTC ICE; use its protocol implementation rather than creating a parallel NAT traversal layer for Bedrock.
+
+### Route selection
+For TURN region choice, measure:
+- host-to-TURN RTT, jitter and loss;
+- player-to-TURN path where measurable;
+- relay capacity and queue depth;
+- host upload and device thermal state.
+
+A first-order estimate is `player_to_turn_rtt + turn_to_host_rtt + relay_processing_overhead`. Geography alone is not enough. A relay cannot remove physical distance or fix a slow host upload connection.
+
+Start with one self-managed region, measure real traffic, then add regions. Candidate test locations: Mumbai, Singapore, Frankfurt and US East.
+
+---
+
+## 7. Wi-Fi and mobile data
+
+Use Android connectivity APIs to observe Wi-Fi, cellular, Ethernet and capability changes.
 
 Policy:
 - Support Wi-Fi and mobile data.
-- Prefer the healthier route based on measured reachability, latency, jitter, packet loss and upload capacity.
-- Respect user data-cost preference.
-- Keep LAN connectivity available where possible.
-- When the selected network changes, re-establish the tunnel and update the public endpoint only after it is verified.
-- Explain that existing player sessions may disconnect because IP/NAT mappings change.
-- Do not claim seamless session migration until it is proven.
-
-Do not automatically bond Wi-Fi and cellular. Multipath aggregation requires compatible transports at both ends and can increase complexity, battery use and cost.
+- Prefer the healthier path based on measured reachability, RTT, jitter, loss and upload capacity.
+- Respect the user's data-cost preference.
+- Keep LAN hosting available even if internet access is unavailable.
+- On a network change, re-establish the tunnel and verify the new endpoint before reporting remote connectivity as healthy.
+- Existing TCP and WebRTC sessions may disconnect when the host's public address/NAT mapping changes. Tell players to reconnect; do not claim seamless migration unless proven.
+- Do not automatically bond Wi-Fi and cellular. Multipath aggregation requires compatible transports at both ends and may increase battery use and complexity.
 
 ---
 
-## 9. Health model and diagnostics
+## 8. Health model and diagnostics
 
 Track independent facts; do not collapse them into one green "online" state.
 
 - Local server process: stopped / starting / ready / crashed.
-- Local protocol health: reachable / unreachable / unknown.
+- Local engine readiness: protocol response / timeout / unknown.
+- NetherNet signalling: HTTP(S) /v1/join reachable or not.
+- WebRTC gameplay: direct ICE / TURN relay / failed / unknown (known only after actual ICE/client telemetry).
+- Java TCP endpoint: reachable / unreachable.
 - Host internet: available / unavailable.
-- Direct path: available / failed / not attempted.
+- TCP tunnel: stopped / connecting / authenticated / forwarding / failed.
+- TURN allocation: not configured / active / failed (where telemetry is available).
 - Coordinator: reachable / unavailable.
-- Relay agent: stopped / starting / authenticated / running / failed.
-- Relay endpoint: assigned / expired / unknown.
-- Remote protocol probe: reachable / unreachable / unknown.
 - Network type: Wi-Fi / cellular / Ethernet / none.
-- Measured RTT, jitter, loss, throughput, and probe timestamp.
+- RTT, jitter, loss, throughput, timestamp and measurement type.
 
-A tunnel process being alive or an endpoint being assigned is not proof that a player can join. The public endpoint must pass a protocol-aware remote probe. Do not use TCP connect as the only health check for a UDP gameplay endpoint.
+A successful NetherNet signalling probe is not gameplay ping. Label it "signalling RTT". Actual game RTT should be measured by a real client or a protocol-level gameplay echo/telemetry mechanism.
 
-Tunnel failure must not stop the local Minecraft server. Reconnection must use bounded exponential backoff with jitter and a maximum retry policy.
+Tunnel failure must not stop the local server. Reconnection uses bounded exponential backoff with jitter and a maximum retry policy.
 
 ---
 
-## 10. Security and abuse controls
+## 9. Security and abuse controls
 
-- Encrypt and authenticate the host-to-relay channel.
-- Use short-lived relay tickets bound to host, port, protocol, and expiry.
+- Encrypt and authenticate the host-to-edge tunnel.
+- Use short-lived relay and TURN credentials bound to host/session/expiry.
 - Prevent one host from claiming another host's endpoint.
-- Rate-limit allocation, control-plane calls and probes.
-- Bound packet sizes, queues, connections and bandwidth.
-- Avoid logging player payloads or credentials.
-- Redact secrets from logs and diagnostic exports.
-- Support credential revocation.
-- Define an abuse reporting and relay-blocking process.
+- Rate-limit allocation, control-plane calls, signalling and probes.
+- Bound queues, packet sizes, connections and bandwidth.
+- Do not log player payloads or credentials.
+- Support credential revocation and rotation.
+- Restrict forwarded headers to trusted local proxy addresses.
+- Define abuse reporting, account suspension and relay-blocking processes.
 - Plan for volumetric attacks; a small VPS alone cannot guarantee DDoS protection.
 
 ---
 
-## 11. Rollout plan
+## 10. Rollout and acceptance tests
 
-### N1 — Local LAN
-- Verify local IPv4/IPv6 discovery and connection.
-- Join from a second device on the same Wi-Fi.
-- Test server restart and world persistence.
+### N1 — Local Bedrock/Java
+- [ ] Axolotl-PM NetherNet signalling answers locally.
+- [ ] Bedrock client joins on same Wi-Fi using current client version.
+- [ ] Java server answers Server List Ping and accepts a real client.
+- [ ] Cross-play tested only after Paper/Geyser work.
 
-### N2 — First self-hosted public relay
-- Deploy one relay and coordinator.
-- Implement authenticated outbound host tunnel.
-- Test Java TCP and selected Bedrock transport independently.
-- Join from a genuinely external network behind CGNAT.
-- Measure end-to-end RTT, jitter, loss, bandwidth and relay cost.
+### N2 — MineHost TCP edge
+- [ ] Phone establishes authenticated outbound tunnel.
+- [ ] Public HTTPS signalling endpoint proxies to local Axolotl-PM.
+- [ ] Java TCP endpoint forwards to local Paper port.
+- [ ] Test host behind CGNAT from a different ISP.
+- [ ] Relay outage leaves local server running.
 
-### N3 — Direct-first routing
-- Add IPv6/direct candidates.
-- Add supported NAT traversal.
-- Select direct path when proven reachable.
-- Fall back to MineHost relay.
+### N3 — MineHost TURN
+- [ ] Deploy self-managed TURN with ephemeral credentials.
+- [ ] Configure Axolotl-PM `ice-servers` using MineHost TURN only.
+- [ ] Verify direct ICE is preferred where it succeeds.
+- [ ] Verify TURN fallback from mobile carrier CGNAT.
+- [ ] Record gameplay join success, RTT, jitter, loss, bandwidth and TURN cost.
 
-### N4 — Network changes
-- Detect Wi-Fi/cellular transitions.
-- Rebuild tunnel and endpoint.
-- Test player reconnection behaviour.
+### N4 — Wi-Fi/cellular transitions
+- [ ] Detect network changes.
+- [ ] Re-establish TCP tunnel and update public endpoint.
+- [ ] Re-gather ICE candidates/reconnect sessions.
+- [ ] Verify truthful diagnostics and player reconnection behaviour.
 
 ### N5 — Regional scale
-- Add relay regions from measured traffic.
-- Add capacity-aware selection, redundancy, alerts and operational runbooks.
+- [ ] Add TURN/edge regions based on real user distribution and measured paths.
+- [ ] Capacity planning, quotas, abuse mitigation, DDoS response and runbooks.
+- [ ] Redundant coordinator, monitoring, alerting and restore drills.
 
----
-
-## 12. Acceptance tests
-
-A networking feature is not complete until tested with real Minecraft clients.
-
-- [ ] Two devices on the same Wi-Fi join via LAN.
-- [ ] Host on Wi-Fi behind CGNAT is reachable through MineHost relay from another ISP.
-- [ ] Host on mobile data behind carrier CGNAT is reachable through MineHost relay.
-- [ ] Java TCP is tested independently from Bedrock.
-- [ ] Bedrock current transport is tested against declared supported clients.
-- [ ] Relay outage leaves local server running.
-- [ ] Host network change triggers endpoint recovery and clear player messaging.
-- [ ] Public endpoint passes a protocol-aware remote probe.
-- [ ] p50/p95 RTT, jitter, loss and throughput are recorded.
-- [ ] Relay bandwidth and cost per active server-hour are recorded.
-- [ ] No Playit or other managed tunnel account is required for the MineHost-owned relay acceptance test.
-
-**No worldwide-connectivity claim is valid until these external-network tests pass.**
+**No worldwide-connectivity claim is valid until real clients join from external networks through MineHost-operated infrastructure.**
