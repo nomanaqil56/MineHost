@@ -122,17 +122,21 @@ class RuntimeManager @Inject constructor(
      */
     fun getPhpExecutable(): File? {
         val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val inNativeLib = File(nativeDir, "libphp.so")
-        if (inNativeLib.exists()) return inNativeLib
+        val candidates = listOf(
+            File(nativeDir, "libphp.so"),
+            File(baseRuntimesDir, "php/bin/php"),
+            File(baseRuntimesDir, "php/php")
+        )
+        return candidates.firstOrNull { it.isFile && it.canExecute() }
+    }
 
-        val inRuntimes = File(baseRuntimesDir, "php/bin/php")
-        if (inRuntimes.exists() && inRuntimes.canExecute()) return inRuntimes
-
-        // Standalone binary in runtimes/php
-        val inPhpRoot = File(baseRuntimesDir, "php/php")
-        if (inPhpRoot.exists()) return inPhpRoot
-
-        return null
+    /**
+     * Finds the packaged ARM64 Java launcher. A Paper JAR alone is not an installed
+     * runnable server: the matching Android-compatible JVM must also be executable.
+     */
+    fun getJavaExecutable(): File? {
+        val java = File(context.applicationInfo.nativeLibraryDir, "libjava.so")
+        return java.takeIf { it.isFile && it.canExecute() }
     }
 
     /**
@@ -148,7 +152,7 @@ class RuntimeManager @Inject constructor(
      */
     fun isPaperJavaInstalled(): Boolean {
         val jar = File(baseEnginesDir, "java/paper.jar")
-        return jar.exists() && jar.length() > 1_000_000
+        return jar.exists() && jar.length() > 1_000_000 && getJavaExecutable() != null
     }
 
     fun getPaperJar(): File? {
@@ -161,22 +165,18 @@ class RuntimeManager @Inject constructor(
      */
     fun isPlayitAgentInstalled(): Boolean {
         val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return true
+        if (inNativeLib.isFile && inNativeLib.canExecute()) return true
 
         val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        return inTunnels.exists() && inTunnels.length() > 100_000
+        return inTunnels.isFile && inTunnels.length() > 100_000 && inTunnels.canExecute()
     }
 
     fun getPlayitExecutable(): File? {
         val inNativeLib = File(context.applicationInfo.nativeLibraryDir, "libplayit.so")
-        if (inNativeLib.exists()) return inNativeLib
+        if (inNativeLib.isFile && inNativeLib.canExecute()) return inNativeLib
 
         val inTunnels = File(baseTunnelsDir, "playit/playit-cli")
-        if (inTunnels.exists()) {
-            inTunnels.setExecutable(true)
-            return inTunnels
-        }
-        return null
+        return inTunnels.takeIf { it.isFile && it.canExecute() }
     }
 
     // ------------------------------------------------------------------ source resolution
