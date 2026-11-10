@@ -12,7 +12,7 @@
 
 MineHost is an Android application that runs a Minecraft Bedrock-compatible server locally on an ARM64 Android device. The current implementation uses Axolotl-PM 5.51.1 and a pinned PHP 8.4.27 ZTS runtime packaged in the APK.
 
-The latest recorded `main` commit at the start of this workstream was `14d99eca3f4b569cef86d8a40e2e687d966c588b`. Its Android CI run **42817752559 passed**. Existing physical-device evidence records successful runtime, server startup, host-side signaling, world persistence, foreground operation, and three start/stop cycles on a Vivo iQOO Z7 Pro 5G running Android 16 / API 36.
+The baseline `main` commit before this Phase 1 hardening work was `14d99eca3f4b569cef86d8a40e2e687d966c588b` (CI run **42817752559: PASS**). The Phase 1 hardening and cleanup changes were merged to `main` as `b1e128c9a05859e367f9a6ca1604b6d06320f390`. The PR-head CI run **42819256915 passed**, including JVM unit tests, Android lint, debug APK assembly, PHP payload verification, and PHP archive/QEMU smoke test. The post-merge `main` CI run **42819682947** was still running at the time of this report update. Existing physical-device evidence records successful runtime, server startup, host-side signaling, world persistence, foreground operation, and three start/stop cycles on a Vivo iQOO Z7 Pro 5G running Android 16 / API 36.
 
 **Phase 1 is not accepted as complete.** The retained device evidence is from an earlier source commit, no real second Bedrock client gameplay session is recorded, and backup/restore acceptance is incomplete. The latest configured NetherNet UDP-port change must also be installed and retested on the phone.
 
@@ -29,7 +29,7 @@ The current priority is to finish Phase 1. Do not begin Phase 2 public relay dev
 - Bedrock server configuration generation, input validation, Xbox authentication setting, and configurable NetherNet ICE UDP mux port range.
 - Managed process launch, stdout/stderr capture, command input, shutdown, crash handling, and protocol-level readiness probes.
 - Android foreground service, notification controls, wake-lock and thermal-monitoring integrations.
-- LAN IPv4 address discovery and pure unit tests for address selection.
+- LAN IPv4 discovery hardened to use active Wi-Fi/Ethernet transport and recognized LAN interfaces only; cellular, VPN, and unrelated private interfaces are excluded. Expanded JVM unit tests cover Wi-Fi, hotspot, Ethernet, USB tether, cellular/VPN exclusion, duplicates, and empty input.
 - World directory management, ZIP backup creation, SHA-256 validation, staged restore, safety snapshot, and rollback-capable world replacement.
 - JVM unit tests for runtime contract, configuration, readiness packet parsing, networking selection, world swap, ZIP validation, and supporting utilities.
 
