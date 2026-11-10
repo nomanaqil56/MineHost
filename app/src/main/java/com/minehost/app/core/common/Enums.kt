@@ -34,7 +34,7 @@ enum class MinecraftEdition {
 
     val defaultProtocol: NetworkProtocol
         get() = when (this) {
-            BEDROCK -> NetworkProtocol.UDP
+            BEDROCK -> NetworkProtocol.BOTH
             JAVA -> NetworkProtocol.TCP
             CROSSPLAY -> NetworkProtocol.BOTH
         }

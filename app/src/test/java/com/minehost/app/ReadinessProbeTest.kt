@@ -9,6 +9,8 @@ import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.ServerSocket
@@ -18,7 +20,7 @@ import kotlin.concurrent.thread
  * PROTOCOL UNIT TESTS ONLY.
  *
  * These verify MineHost's probe code against hand-built packets and tiny loopback responders.
- * They do NOT prove that a real PocketMine-MP or Paper server answers correctly; that requires
+ * They do NOT prove that a real Axolotl-PM or Paper server answers correctly; that requires
  * running the real server on a device (see docs/TESTING.md, "Real Minecraft tests").
  */
 class ReadinessProbeTest {
@@ -104,6 +106,56 @@ class ReadinessProbeTest {
         // Empty / truncated stream
         assertFalse(ReadinessProbe.parseJavaStatusResponse(ByteArrayInputStream(ByteArray(0))))
         assertFalse(ReadinessProbe.parseJavaStatusResponse(ByteArrayInputStream(byteArrayOf(0x10, 0x00))))
+    }
+
+    @Test
+    fun netherNetProbeAcceptsSuccessfulHttpCapabilityResponse() {
+        ServerSocket(0).use { server ->
+            val requestLine = arrayOfNulls<String>(1)
+            val responder = thread(start = true) {
+                try {
+                    server.accept().use { socket ->
+                        socket.soTimeout = 2000
+                        val reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.US_ASCII))
+                        requestLine[0] = reader.readLine()
+                        while (reader.readLine()?.isNotEmpty() == true) { /* consume headers */ }
+                        socket.getOutputStream().write(
+                            "HTTP/1.1 204 No Content\\r\\nConnection: close\\r\\n\\r\\n".toByteArray(Charsets.US_ASCII)
+                        )
+                        socket.getOutputStream().flush()
+                    }
+                } catch (_: Exception) {
+                }
+            }
+
+            assertTrue(ReadinessProbe.probeNetherNet("127.0.0.1", server.localPort, timeoutMs = 1000))
+            responder.join(2000)
+            assertEquals("GET /v1/join HTTP/1.1", requestLine[0])
+        }
+    }
+
+    @Test
+    fun netherNetProbeRejectsNonSuccessfulHttpResponse() {
+        ServerSocket(0).use { server ->
+            val responder = thread(start = true) {
+                try {
+                    server.accept().use { socket ->
+                        socket.soTimeout = 2000
+                        val reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.US_ASCII))
+                        reader.readLine()
+                        while (reader.readLine()?.isNotEmpty() == true) { /* consume headers */ }
+                        socket.getOutputStream().write(
+                            "HTTP/1.1 404 Not Found\\r\\nConnection: close\\r\\n\\r\\n".toByteArray(Charsets.US_ASCII)
+                        )
+                        socket.getOutputStream().flush()
+                    }
+                } catch (_: Exception) {
+                }
+            }
+
+            assertFalse(ReadinessProbe.probeNetherNet("127.0.0.1", server.localPort, timeoutMs = 500))
+            responder.join(2000)
+        }
     }
 
     @Test

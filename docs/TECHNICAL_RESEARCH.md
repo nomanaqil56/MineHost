@@ -1,142 +1,138 @@
-# MineHost — Technical Research & Feasibility Analysis
+# MineHost — Technical Research & Feasibility
 
-## 1. Executive Summary
+> This document records engineering constraints and candidate approaches. It is not proof that a candidate works on Android. Current delivery priorities and evidence requirements are in [MINEHOST_MASTER_ROADMAP.md](MINEHOST_MASTER_ROADMAP.md).
 
-MineHost transforms an Android device (smartphones and tablets) into a dedicated, self-contained Minecraft server host. Unlike cloud-managed services where mobile apps serve only as dashboards for remote virtual machines, MineHost executes the Minecraft server process directly on Android's ARM64 hardware, stores all world and player data within local device storage, and bridges incoming traffic across cellular NAT / CGNAT via a high-performance UDP/TCP reverse tunnel.
+## 1. Product and system constraints
 
-This document presents the technical evaluation of server engines, Android runtime environments, networking protocols, background process constraints, and mitigation strategies required to deliver a reliable host.
+MineHost runs the actual Minecraft server process on the user's Android phone. The phone stores the world and supplies CPU, memory, storage, battery/charging and upstream bandwidth. MineHost's backend coordinates remote access and provides self-operated relay fallback; it does not host the Minecraft world.
 
----
+This creates three independent performance budgets:
+1. **Game server:** CPU tick time, memory, storage I/O, plugin/mod load, thermal throttling.
+2. **Host network:** upload bandwidth, carrier/router NAT, packet loss, jitter, route stability.
+3. **Remote path:** direct route or player-to-relay-to-host route, relay capacity and peering.
 
-## 2. Server Engine Evaluation
+A low ping does not prove healthy TPS. A 20 TPS server does not prove a low-latency network. Measure them separately.
 
-### 2.1 Minecraft Bedrock Edition
+## 2. Bedrock engine candidate: Axolotl-PM
 
-| Engine | Primary Language | Vanilla Parity | ARM64 Android Support | Memory Footprint | Recommendation |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **PocketMine-MP (PM5)** | PHP 8.2+ (ZTS) | Moderate (No native AI/Redstone without plugins) | Excellent (Native ARM64 CLI binary) | Very Low (150MB - 350MB) | **Primary Bedrock Engine for low-spec devices** |
-| **PowerNukkitX (PNX)** | Java 21 | High (Vanilla mobs, blocks, redstone, dimensions) | High (Requires Android ARM64 JVM) | Medium (600MB - 1.2GB) | **Primary Bedrock Engine for high parity** |
-| **Bedrock Dedicated Server (BDS)** | C++ | 100% Official Vanilla | Incompatible (Only x86_64 Linux/Windows; no ARM64 binary) | Medium (500MB - 1GB) | Not viable natively without heavy x86 emulation |
-| **Cloudburst Nukkit** | Java 17 | Moderate-High | High (Requires Android ARM64 JVM) | Medium (400MB - 800MB) | Supported alternative |
+The original `pmmp/PocketMine-MP` project ended support and was archived in July 2026. MineHost should not build its current-version promise around that archived repository.
 
-#### Key Technical Findings:
-1. **Mojang Bedrock Dedicated Server (BDS):** Mojang only ships precompiled x86_64 Linux and Windows binaries. There are no official ARM64 Linux or Android builds. Running BDS on ARM64 requires Box64 / QEMU user-mode translation, which introduces significant CPU overhead and instability on mobile chips. It is therefore unsuitable as a primary engine.
-2. **PocketMine-MP:** Highly optimized, event-driven, multi-threaded C-extension PHP. Runs exceptionally well on mobile ARM64 cores with low battery consumption and fast startup (<3 seconds). Best suited for survival/creative multiplayer with friends where lightweight execution is paramount.
-3. **PowerNukkitX:** Offers superior vanilla parity (water physics, nether/end dimensions, redstone, entity AI). Requires Java 21 runtime.
+[Axolotl-PM](https://github.com/axolotl-pm/PocketMine-MP) is the maintained continuation. Its current 5.51.1 release (2026-11-02) targets Bedrock 1.26.60 / v26.60 and includes support for NetherNet. Axolotl-PM is still not a vanilla-parity engine; gameplay differences such as world generation, redstone and mob AI must be disclosed.
 
----
+### Android runtime
+[Axolotl-PM PHP-Binaries](https://github.com/axolotl-pm/PHP-Binaries) publishes an Android ARM64 PHP 8.4 build. Its build script compiles `axolotl-pm/ext-webrtc` (version 0.3.1 in the inspected build) for NetherNet, and its Android build workflow checks that the PHP executable is statically linked.
 
-### 2.2 Minecraft Java Edition
+The Android ARM64 PHP 8.4 asset SHA-256 published by GitHub Releases is:
+`45b462ff5e290ee06d34eced589c325d27a2743185acab53acab291b0188e181`
 
-| Engine | Primary Language | Compatibility & Plugins | ARM64 Android Support | Memory Footprint | Recommendation |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **PaperMC** | Java 17 / 21 | High performance, Bukkit/Spigot/Paper plugins | Requires ARM64 OpenJDK | 1.0GB - 2.5GB | **Primary Java Engine** |
-| **Purpur** | Java 17 / 21 | High customization, Bukkit/Spigot/Paper | Requires ARM64 OpenJDK | 1.0GB - 2.5GB | Supported alternative |
-| **Vanilla Server** | Java 17 / 21 | 100% Vanilla | Requires ARM64 OpenJDK | 1.5GB - 3.0GB | High overhead compared to Paper |
-| **Fabric** | Java 17 / 21 | Mod support | Requires ARM64 OpenJDK | 1.0GB - 2.5GB | Future expansion |
+MineHost now pins this asset in `tools/prepare_android_php_runtime.sh`, packages the executable through `jniLibs/arm64-v8a/libphp.so`, and checks at runtime for the PHP `webrtc` module before starting the server.
 
-#### Key Technical Findings:
-- Android runs on Android Runtime (ART/Dalvik), which executes `.dex` bytecode and cannot execute Java desktop `.class` or `.jar` bytecode directly.
-- Running Paper or PowerNukkitX requires an actual Java Virtual Machine (`bin/java` + `libjvm.so` + OpenJDK core libraries) compiled for `aarch64-linux-android` (or compatible musl/glibc rootfs).
-- PaperMC provides the best memory optimizations (chunk loading, entity ticking, async pathfinding), which is critical for phones with 4GB - 8GB RAM.
+**Still unverified:** CI packaging, APK extraction, execution on physical Android ARM64, required extension availability, Axolotl-PM startup, NetherNet signalling, UDP ICE/DTLS data channel, and a real Bedrock client join. Review every PHP/native dependency licence and the upstream release/update policy before public release.
 
----
+### NetherNet
+Bedrock 1.26.60 uses NetherNet rather than legacy RakNet. NetherNet uses WebRTC (ICE, DTLS and SCTP DataChannels):
+- TCP HTTP(S) signalling, including `GET /v1/join` and `POST /v1/join/{networkId}`.
+- UDP WebRTC game traffic.
+- Axolotl-PM's `ext-webrtc` extension backed by libdatachannel.
+- STUN/TURN ICE servers for NAT traversal and relay.
 
-### 2.3 Cross-Play Architecture (Java + Bedrock)
+The generated MineHost config enables `transport.name: nethernet`, built-in signalling, a persistent `nethernet.key`, and a fixed UDP port range sized from max players. `ice-udp-mux` remains disabled because Axolotl-PM documents that it cannot be combined with TURN.
 
-To enable Minecraft Bedrock players (iOS, Android, Windows, Consoles) to join a Java Edition server running on the device, MineHost integrates **GeyserMC**:
-- **Geyser-Standalone / Geyser Plugin:** Translates Bedrock RakNet UDP packets and Bedrock game protocol into Java TCP packets in real-time.
-- **Floodgate:** Allows Bedrock players to join Java servers without requiring a Java Edition Microsoft account purchase.
-- **Resource Considerations:** Running Paper + Geyser on a single mobile device requires at least 6GB to 8GB of physical RAM.
+A successful `GET /v1/join` is only a signalling readiness result. It does not prove that the UDP WebRTC game path is reachable. Real client joins are mandatory.
 
----
+### MineHost connectivity implications
+For Bedrock, do not reinvent NAT traversal if NetherNet already supplies WebRTC ICE. MineHost should:
+1. Provide an authenticated outbound TCP reverse tunnel from the phone to a MineHost edge, allowing the edge to terminate HTTPS for the public signalling endpoint and forward to the phone's local Axolotl-PM HTTP signalling port.
+2. Operate its own STUN/TURN infrastructure. Direct ICE candidate pairs should win when possible; TURN is the fallback for restrictive NAT/CGNAT.
+3. Keep the TCP signalling path and UDP TURN data path separate and observable.
+4. Avoid third-party managed STUN/TURN services in the production configuration.
+5. Measure actual WebRTC gameplay latency separately from HTTP signalling RTT.
 
-## 3. Android Runtime & Execution Strategy
+TURN relays all game traffic and consumes bandwidth. It must be regionally deployed, authenticated, capacity-limited and costed. Axolotl-PM warns that configured ICE servers must be reachable because candidate gathering can delay joins until timeout.
 
-### 3.1 Android 10+ (API 29+) W^X Security Enforcement
-On modern Android (API 29 through 35+), the kernel enforces W^X (Write XOR Execute) and SELinux policies:
-- Applications **cannot** execute binaries from writable directories such as `/data/data/<package>/files/` or external storage (`/sdcard`). Attempting `execve()` results in `EACCES (Permission Denied)`.
-- **Sanctioned Solution:** Executables packaged in the APK under `jniLibs/<abi>/lib<name>.so` and installed with `android:extractNativeLibs="true"` in `AndroidManifest.xml` are extracted by the Android Package Manager to `context.applicationInfo.nativeLibraryDir` (`/data/app/.../lib/arm64`). The OS mounts this directory with `+x` (execute) permissions.
-- MineHost uses this sanctioned mechanism:
-  - Tunnel client binary: `libplayit.so`
-  - Engine launcher binary: `libserverlauncher.so`
-  - PHP runtime: `libphp.so`
+## 3. Java engine candidate
 
-### 3.2 Process Management & Isolation
-- Server engines run as child processes managed via `ProcessBuilder`.
-- Standard Output and Standard Error streams are captured asynchronously on dedicated coroutine dispatchers to prevent buffer deadlocks.
-- Stdin is piped to a command dispatch queue, allowing direct console administration (`say`, `kick`, `stop`, `save-all`).
+### Paper
+- A performance-oriented Java server JAR with a mature plugin ecosystem.
+- Android ART cannot directly execute desktop Java JARs. MineHost needs a real, compatible JVM and native libraries.
+- The current adapter expects `libjava.so`; no validated Android JVM is present in the repository.
+- Feasibility checks: Bionic/dynamic-linker compatibility, JVM native libraries, JIT behaviour, filesystem permissions, signal/process handling, memory mapping, supported Java version, sustained thermal behaviour.
+- Test realistic memory allocation on physical phones before setting minimum device specifications.
 
----
+## 4. Cross-play
 
-## 4. Worldwide Networking & Tunneling Strategy
+Geyser translates compatible Bedrock client traffic for a Java server. Floodgate supports a Bedrock identity/authentication flow when configured with Geyser. This requires a working Java server and a compatible current Geyser version.
 
-### 4.1 The NAT / CGNAT Problem
-Mobile networks (4G/5G LTE) and residential Wi-Fi connections use Carrier-Grade NAT (CGNAT) or symmetric NAT without public IPv4 addresses or UPnP port-forwarding capabilities. A server listening on `0.0.0.0:19132` is unreachable from outside the local Wi-Fi subnet.
+Do not advertise cross-play until Paper + Geyser (+ Floodgate where needed) execute on the same phone and real Java and Bedrock clients can join the same world.
 
-### 4.2 Protocol Requirements
-- **Bedrock Edition:** Uses RakNet over **UDP** (default port `19132`).
-- **Java Edition:** Uses **TCP** (default port `25565`).
-- Any tunnel provider must support low-latency UDP packet forwarding for Bedrock and TCP stream multiplexing for Java.
+## 5. Android process execution and packaging
 
-### 4.3 Tunnel Architecture Evaluation
+- Android ART is not a desktop OpenJDK runtime.
+- A server runtime must target the device ABI and compatible Android userspace/dynamic linker.
+- A Linux binary compiled for glibc is not automatically executable on Android/Bionic.
+- Downloading a file into app-private writable storage and setting its executable bit is not proof that Android will allow it to execute.
+- Packaging native code in `jniLibs` has ABI, loader, library naming, linker and Play policy implications; a shared library is not automatically a standalone CLI executable.
+- PRoot or a Linux rootfs may improve compatibility for some tools but adds storage, performance, security and maintenance costs. It must be justified by measurements.
+- Pin every runtime and engine version; record source, ABI, licence, dependency set and trusted digest/signature.
 
-| Solution | UDP Support | TCP Support | Self-Hosting Required | Setup Complexity | Assessment |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Playit.gg** | Yes (Native) | Yes (Native) | No (Global Anycast edge) | Minimal (Agent API / claim code) | **Selected Primary Tunnel** |
-| **Bore.pub** | TCP Only (no native UDP) | Yes | Optional | Low | Unsuitable for Bedrock |
-| **Rathole / FRP** | Yes | Yes | Yes (Requires VPS) | High | Ideal for custom self-hosted tier |
-| **Ngrok** | Limited (TCP only on free tier) | Yes | No | Low | Incompatible with Bedrock UDP on free tier |
-| **Cloudflare Tunnel** | TCP/HTTP (No raw game UDP) | Yes | No | Medium | Incompatible with Bedrock |
+## 6. Networking feasibility
 
-#### Selected Tunnel Solution: Playit.gg
-- Provides native ARM64 agent executable (`playit-cli`).
-- Full support for both UDP (Bedrock RakNet) and TCP (Java).
-- Dedicated gaming relay network with global edge points minimizing ping jitter.
-- Provides static public hostnames (e.g. `*.joinmc.link`, `*.ply.gg`).
+### NAT and CGNAT
+Mobile carriers and residential ISPs often prevent inbound connections. A listening server socket on the phone is therefore not necessarily reachable from the public internet.
 
----
+### Java TCP
+Java gameplay uses TCP. Direct LAN/IPv6/public IPv4 is preferred when reachable. Behind CGNAT, MineHost needs an authenticated outbound TCP reverse tunnel to its own edge, which exposes a public TCP endpoint and forwards byte streams to the local Paper port.
 
-## 5. Android Background Execution & Reliability
+### Bedrock NetherNet
+Axolotl-PM's current Bedrock transport is WebRTC:
+- TCP HTTP(S) signalling on the configured server port (`GET /v1/join`, `POST /v1/join/{networkId}`).
+- UDP gameplay using ICE, DTLS and SCTP DataChannels.
+- Direct ICE candidate pairs should be selected when possible.
+- MineHost-operated TURN is the fallback when direct UDP connectivity fails.
 
-### 5.1 Foreground Services
-- In Android 8.0+ (API 26+) and Android 14+ (API 34+), background process execution is strictly capped.
-- MineHost implements `ServerForegroundService` declaring:
-  - `android:foregroundServiceType="specialUse|dataSync"`
-  - Persistent ongoing notification with interactive controls (Stop Server, Console quick view, player count).
-  - Proper notification channels with `IMPORTANCE_LOW` to avoid intrusive audio alerts while maintaining process priority.
+The phone's outbound TCP tunnel exposes the HTTPS signalling endpoint through a MineHost edge. A separate MineHost TURN service relays UDP gameplay when required. A TCP tunnel alone cannot carry or prove the WebRTC data path. A successful `GET /v1/join` is only signalling readiness, not proof that gameplay can connect.
 
-### 5.2 Power Management & Doze Mode
-- `WakeLockManager`: Acquires a `PowerManager.PARTIAL_WAKE_LOCK` with `setReferenceCounted(false)` while the server process is active.
-- `WifiLock`: Acquires `WifiManager.WIFI_MODE_FULL_HIGH_PERF` to prevent the Wi-Fi chipset from entering power-saving latency throttling.
-- Prompts user to exempt MineHost from OEM battery optimizations (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`).
+Axolotl-PM documents that TURN and `ice-udp-mux` cannot be used together. MineHost therefore generates a fixed UDP port range sized from the configured max players and leaves mux disabled. TURN credentials must be short-lived and generated by MineHost; do not depend on public STUN/TURN services in production.
 
-### 5.3 Thermal & Memory Throttling
-- Integrates `PowerManager.OnThermalStatusChangedListener` (API 29+).
-- If device hits `THERMAL_STATUS_SEVERE` or `CRITICAL`, MineHost:
-  1. Issues an in-game warning to players via RCON/stdin broadcast (`[MineHost] Device overheating, reducing tick load`).
-  2. Offers an optional graceful auto-save & shutdown policy to protect the host device hardware.
+### MineHost-owned architecture
+- LAN and direct public IPv6 where reachable.
+- Direct WebRTC ICE for Bedrock when possible.
+- MineHost TCP edge/reverse tunnel for Java TCP and Bedrock HTTPS signalling.
+- MineHost TURN for Bedrock WebRTC UDP fallback.
+- MineHost control plane for registration, short-lived credentials, rendezvous and relay allocation.
+- Regional route selection based on measured RTT, jitter, loss, capacity and peering.
+- Coordinator outage must not stop a locally running server.
 
----
+TURN relays game traffic and consumes bandwidth. It cannot remove physical distance or compensate for weak host upload. Start with one self-managed region, measure per-server-hour traffic/cost, then expand based on actual demand.
 
-## 6. Compatibility & System Requirements Matrix
+## 7. Android background and device constraints
 
-| Component | Minimum | Recommended | Ideal |
-| :--- | :--- | :--- | :--- |
-| **Android Version** | Android 9.0 (Pie / API 28) | Android 12.0 (API 31) | Android 14+ (API 34) |
-| **CPU Architecture** | ARM64 (aarch64 / arm64-v8a) | Snapdragon 7xx / Dimensity 800+ | Snapdragon 8 Gen 1+ |
-| **RAM** | 4 GB (Bedrock only) | 6 GB - 8 GB (Bedrock + Java) | 12 GB+ (Cross-play + heavy worlds) |
-| **Internal Storage** | 2 GB free | 10 GB free UFS 2.2+ | 32 GB+ free UFS 3.1+ |
-| **Network** | 10 Mbps Wi-Fi / 4G LTE | 50 Mbps Wi-Fi 5 / 5G | 100 Mbps Wi-Fi 6 |
+- A foreground service is necessary for a user-visible long-running host workload, but it does not guarantee process survival.
+- Select an Android foreground-service type that accurately matches the work and current Android/Play policies; do not use a time-limited service type as a workaround for permanent hosting.
+- OEM battery managers and low-memory killers can still terminate a process.
+- Wake locks and high-performance Wi-Fi locks increase battery use.
+- Thermal throttling can reduce CPU performance during sustained sessions.
+- MineHost should recommend charging and stable Wi-Fi for dedicated hosting, while still supporting cellular when the user chooses it.
+- Implement bounded restart/recovery and clearly report when the OS terminates a server.
 
----
+## 8. Security and operational feasibility
 
-## 7. Development Risks & Mitigations
+- Self-hosting a relay means MineHost is responsible for patching, monitoring, capacity, abuse handling, DDoS response and incident response.
+- Use authenticated encrypted host tunnels and short-lived scoped tickets.
+- Rate-limit control-plane requests and relay sessions.
+- Do not expose arbitrary port forwarding or open proxy functionality.
+- Minimize telemetry and document retention.
+- Budget relay bandwidth per active server-hour before promising unlimited free relaying.
+- Use established open-source components where suitable, after licence and threat-model review.
 
-1. **Risk:** Android aggressive OOM killer terminating server process when user launches Minecraft client on same device.
-   - **Mitigation:** Foreground service with high priority notification, low initial heap configurations (`-Xms256M -Xmx1024M`), and memory warning callbacks (`onTrimMemory`).
-2. **Risk:** World corruption during abrupt app kill or battery depletion.
-   - **Mitigation:** Continuous LevelDB / Anvil sync triggers, periodic auto-saves, and automatic pre-shutdown backups (`save-all flush`).
-3. **Risk:** Relay network disconnection.
-   - **Mitigation:** Exponential backoff reconnection in `TunnelManager` that maintains local server uptime while re-establishing public endpoint.
+## 9. Open research questions
 
+- Which maintained Bedrock server has the best current protocol compatibility and can run efficiently on Android ARM64?
+- Which PHP runtime and extension set can be distributed and executed lawfully and reliably on supported Android versions?
+- Is there a maintainable Android JVM distribution suitable for Paper and Geyser?
+- What transport adapter is needed for each supported Bedrock protocol generation?
+- Which NAT traversal method works with the target mobile carriers, and what percentage still requires relay?
+- What relay bandwidth and operating cost does a realistic Minecraft workload produce?
+- Which foreground-service declaration and Play distribution approach is compliant for the exact host workload?
+
+No candidate should be selected based on marketing claims or desktop benchmarks alone. Validate it on target devices with real clients.

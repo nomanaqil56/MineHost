@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import com.minehost.app.core.common.MinecraftEdition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -261,7 +262,7 @@ fun ServerDetailScreen(
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
-                    title = "Ping",
+                    title = if (server.edition == MinecraftEdition.BEDROCK) "Signal RTT" else "Ping",
                     value = uiState.latencyMs?.let { "${it}ms" }
                         ?: if (uiState.remoteReachable == false) "Unreachable" else "--",
                     icon = Icons.Default.Speed,

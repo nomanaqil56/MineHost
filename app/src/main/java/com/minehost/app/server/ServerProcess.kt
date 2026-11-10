@@ -109,11 +109,11 @@ class ManagedServerProcess(
 
     /**
      * The server is reported ready ONLY after it answers a genuine Minecraft protocol probe
-     * (RakNet ping for Bedrock, Server List Ping for Java). If the process stays alive but never
+     * (NetherNet signaling or legacy RakNet for Bedrock, Server List Ping for Java). If the process stays alive but never
      * answers within [startupTimeoutMs], startup is reported as a failure and the process is killed.
      */
     private suspend fun awaitReadiness() {
-        val protocolName = if (isUdp) "Bedrock (RakNet/UDP)" else "Java (Server List Ping/TCP)"
+        val protocolName = if (isUdp) "Bedrock (NetherNet signaling / RakNet fallback)" else "Java (Server List Ping/TCP)"
         val deadline = System.currentTimeMillis() + startupTimeoutMs
         while (isAlive && System.currentTimeMillis() < deadline) {
             val ready = if (isUdp) {

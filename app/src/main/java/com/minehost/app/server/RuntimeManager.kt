@@ -117,21 +117,16 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Finds the PHP executable either in nativeLibraryDir or in private app runtimes.
+     * Returns only the APK-packaged Android PHP executable.
+     *
+     * Do not execute a downloaded ELF from filesDir: modern Android restricts execution
+     * from app-writable directories. The build-time preparation script packages the
+     * statically linked ARM64 executable as jniLibs/arm64-v8a/libphp.so, which Android
+     * extracts into nativeLibraryDir.
      */
     fun getPhpExecutable(): File? {
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val inNativeLib = File(nativeDir, "libphp.so")
-        if (inNativeLib.exists()) return inNativeLib
-
-        val inRuntimes = File(baseRuntimesDir, "php/bin/php")
-        if (inRuntimes.exists() && inRuntimes.canExecute()) return inRuntimes
-
-        // Standalone binary in runtimes/php
-        val inPhpRoot = File(baseRuntimesDir, "php/php")
-        if (inPhpRoot.exists()) return inPhpRoot
-
-        return null
+        val executable = File(context.applicationInfo.nativeLibraryDir, "libphp.so")
+        return executable.takeIf { it.isFile && it.canExecute() }
     }
 
     /**
@@ -199,6 +194,11 @@ class RuntimeManager @Inject constructor(
             .mapCatching { json.decodeFromString<GhRelease>(it) }
     }
 
+    private fun githubReleaseByTag(repo: String, tag: String): Result<GhRelease> {
+        return fetchText("https://api.github.com/repos/$repo/releases/tags/$tag")
+            .mapCatching { json.decodeFromString<GhRelease>(it) }
+    }
+
     /** GitHub publishes asset checksums as "sha256:<64 hex>". Returns the hex, or null if absent/other algorithm. */
     private fun sha256FromDigest(digest: String?): String? {
         val hex = digest?.removePrefix("sha256:") ?: return null
@@ -206,27 +206,37 @@ class RuntimeManager @Inject constructor(
     }
 
     /**
-     * Downloads PocketMine-MP.phar from the latest official pmmp/PocketMine-MP release.
+     * Downloads the Axolotl-PM PocketMine-MP.phar from the maintained axolotl-pm/PocketMine-MP release.
      * The download is checked against the checksum GitHub publishes for the asset when available.
      */
     suspend fun downloadPocketMinePhar(
         onProgress: (Float, String) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
-        onProgress(0.02f, "Looking up the latest PocketMine-MP release...")
-        val release = latestGithubRelease("pmmp/PocketMine-MP").getOrElse {
-            return@withContext Result.failure(IOException("Could not query PocketMine-MP releases: ${it.message}", it))
+        // Pin the engine release to a client protocol that MineHost explicitly supports.
+        // Update this tag and digest only after the new release passes device/client acceptance.
+        val pinnedTag = "5.51.1"
+        val pinnedSha256 = "bcfbd0deff349c2b25b1688299a7d54f1fc8a080d2f95e19884f8e341319021a"
+        onProgress(0.02f, "Looking up Axolotl-PM $pinnedTag...")
+        val release = githubReleaseByTag("axolotl-pm/PocketMine-MP", pinnedTag).getOrElse {
+            return@withContext Result.failure(IOException("Could not query Axolotl-PM release $pinnedTag: ${it.message}", it))
         }
         val asset = release.assets.firstOrNull { it.name == "PocketMine-MP.phar" }
-            ?: return@withContext Result.failure(IOException("Release ${release.tagName} has no PocketMine-MP.phar asset."))
+            ?: return@withContext Result.failure(IOException("Axolotl-PM $pinnedTag has no PocketMine-MP.phar asset."))
+        val publishedSha256 = sha256FromDigest(asset.digest)
+        if (publishedSha256 != pinnedSha256) {
+            return@withContext Result.failure(
+                IOException("Axolotl-PM $pinnedTag asset digest is missing or does not match the pinned SHA-256.")
+            )
+        }
 
         val targetDir = File(baseEnginesDir, "bedrock").apply { mkdirs() }
         downloadFileWithProgress(
             url = asset.url,
             targetFile = File(targetDir, "PocketMine-MP.phar"),
-            componentName = "PocketMine-MP ${release.tagName}",
+            componentName = "Axolotl-PM $pinnedTag",
             onProgress = onProgress,
-            expectedSha256 = sha256FromDigest(asset.digest),
-            version = release.tagName
+            expectedSha256 = pinnedSha256,
+            version = pinnedTag
         )
     }
 
@@ -331,14 +341,16 @@ class RuntimeManager @Inject constructor(
      */
     fun verifyExecutable(binary: File, vararg args: String, timeoutSeconds: Long = 10): Result<String> {
         return try {
-            val process = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
+            val builder = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
                 .redirectErrorStream(true)
-                .start()
+            // Match the bundled-runtime launch environment used by PocketMine's start script.
+            builder.environment()["PHPRC"] = ""
+            val process = builder.start()
             if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
                 process.destroyForcibly()
                 Result.failure(IOException("${binary.name} started but did not exit within ${timeoutSeconds}s."))
             } else {
-                Result.success(process.inputStream.bufferedReader().readText().take(300))
+                Result.success(process.inputStream.bufferedReader().readText().take(8192))
             }
         } catch (e: IOException) {
             val msg = e.message.orEmpty()

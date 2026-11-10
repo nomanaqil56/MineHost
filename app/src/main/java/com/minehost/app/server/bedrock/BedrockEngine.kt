@@ -23,11 +23,11 @@ class BedrockEngine @Inject constructor(
     private val runtimeManager: RuntimeManager
 ) : ServerEngine {
 
-    override val id: String = "bedrock-pocketmine-v5"
-    override val name: String = "PocketMine-MP (Bedrock)"
+    override val id: String = "bedrock-pocketmine-v5" // Stable persisted ID; engine implementation is Axolotl-PM.
+    override val name: String = "Axolotl-PM (Bedrock)"
     override val edition: MinecraftEdition = MinecraftEdition.BEDROCK
-    override val defaultVersion: String = "1.20.80"
-    override val supportedVersions: List<String> = listOf("1.20.80", "1.21.0")
+    override val defaultVersion: String = "1.26.60"
+    override val supportedVersions: List<String> = listOf("1.26.60")
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -36,7 +36,7 @@ class BedrockEngine @Inject constructor(
     }
 
     override suspend fun install(onProgress: (Float, String) -> Unit): Result<Unit> {
-        AppLogger.i("BedrockEngine", "Installing PocketMine-MP engine...")
+        AppLogger.i("BedrockEngine", "Installing Axolotl-PM Bedrock engine...")
         if (!runtimeManager.isSupportedArchitecture()) {
             return Result.failure(
                 UnsupportedOperationException(
@@ -52,7 +52,7 @@ class BedrockEngine @Inject constructor(
     override suspend fun configure(serverDir: File, config: ServerConfiguration): Result<Unit> {
         return runCatching {
             BedrockConfigGenerator.writeConfigurations(serverDir, config)
-            AppLogger.i("BedrockEngine", "Bedrock server configured at: ${serverDir.absolutePath}")
+            AppLogger.i("BedrockEngine", "Axolotl-PM Bedrock server configured at: ${serverDir.absolutePath}")
         }
     }
 
@@ -65,21 +65,58 @@ class BedrockEngine @Inject constructor(
         val phar = runtimeManager.getPocketMinePhar()
 
         if (phpBinary == null || !phpBinary.exists()) {
-            val errorMsg = "PHP runtime binary (libphp.so) was not found in native libraries or app runtimes. Please install the Bedrock runtime from Diagnostics or Setup."
+            val errorMsg = "APK-packaged Android PHP runtime (libphp.so) was not found. Rebuild the app with tools/prepare_android_php_runtime.sh and install the resulting APK."
             AppLogger.e("BedrockEngine", errorMsg)
             listener.onError(errorMsg)
             return Result.failure(FileNotFoundException(errorMsg))
         }
 
         if (phar == null || !phar.exists()) {
-            val errorMsg = "PocketMine-MP.phar was not found in engines directory. Please download the Bedrock engine."
+            val errorMsg = "Axolotl-PM server archive (PocketMine-MP.phar) was not found. Download the Bedrock engine first."
             AppLogger.e("BedrockEngine", errorMsg)
             listener.onError(errorMsg)
             return Result.failure(FileNotFoundException(errorMsg))
         }
 
+        // File presence is not proof that Android can execute the packaged ELF. Probe it
+        // before creating the server process so incompatible packaging/ABI fails clearly.
+        val runtimeProbe = runtimeManager.verifyExecutable(phpBinary, "-v")
+        val runtimeOutput = runtimeProbe.getOrElse { error ->
+            val errorMsg = "The packaged Android PHP runtime could not be executed: ${error.message}"
+            AppLogger.e("BedrockEngine", errorMsg, error)
+            listener.onError(errorMsg)
+            return Result.failure(error)
+        }
+        if (!runtimeOutput.contains("PHP")) {
+            val errorMsg = "The packaged PHP runtime launched but did not return a valid PHP version response."
+            AppLogger.e("BedrockEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(IllegalStateException(errorMsg))
+        }
+        AppLogger.i("BedrockEngine", "Validated PHP runtime: ${runtimeOutput.lineSequence().firstOrNull().orEmpty()}")
+
+        // Axolotl-PM's NetherNet transport requires axolotl-pm/ext-webrtc. Fail closed
+        // instead of silently starting a RakNet-only server that current clients cannot join.
+        val moduleProbe = runtimeManager.verifyExecutable(phpBinary, "-m")
+        val modules = moduleProbe.getOrElse { error ->
+            val errorMsg = "Could not inspect PHP runtime extensions: ${error.message}"
+            AppLogger.e("BedrockEngine", errorMsg, error)
+            listener.onError(errorMsg)
+            return Result.failure(error)
+        }
+        if ("webrtc" !in modules.lineSequence().map { it.trim().lowercase() }.toSet()) {
+            val errorMsg = "The packaged PHP runtime is missing ext-webrtc. NetherNet is required for current Bedrock clients."
+            AppLogger.e("BedrockEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(IllegalStateException(errorMsg))
+        }
+
         val command = listOf(
             phpBinary.absolutePath,
+            "-d", "phar.readonly=0",
+            "-d", "phar.require_hash=1",
+            "-d", "zend.assertions=1",
+            "-d", "memory_limit=${config.maxMemoryMb}M",
             phar.absolutePath,
             "--no-wizard",
             "--enable-ansi=false",
@@ -88,7 +125,10 @@ class BedrockEngine @Inject constructor(
 
         val env = mutableMapOf(
             "LD_LIBRARY_PATH" to context.applicationInfo.nativeLibraryDir,
-            "TMPDIR" to context.cacheDir.absolutePath
+            "TMPDIR" to context.cacheDir.absolutePath,
+            // PocketMine's bundled Android PHP build is intended to run without a host php.ini.
+            // This mirrors PMMP's start.sh behaviour when using its bundled PHP runtime.
+            "PHPRC" to ""
         )
 
         val managedProcess = ManagedServerProcess(

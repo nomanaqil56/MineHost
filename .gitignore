@@ -17,3 +17,6 @@
 *.jks
 *.keystore
 keystore.properties
+
+# Generated Android PHP runtime (downloaded by tools/prepare_android_php_runtime.sh)
+/app/src/main/jniLibs/arm64-v8a/libphp.so

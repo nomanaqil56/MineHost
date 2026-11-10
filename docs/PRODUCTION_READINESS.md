@@ -1,90 +1,79 @@
-# MineHost: Production Readiness
+# MineHost — Production Readiness Audit
 
-_Audit date: 2026-11-09. Based on reading the source of the `main` branch (commit `915ff66`) and the changes listed below._
+_Audit date: 2026-11-10. The original baseline review inspected `main` at `6db300fe1265eccbd7cbe855d88a128964ec10fe`. The current PR branch adds the Axolotl-PM/NetherNet and runtime-packaging changes described below. This is source inspection only; no Gradle build or physical-device test has been completed in this review._
 
 ## Verdict
 
-**NOT READY: CRITICAL BLOCKERS REMAIN.**
+# NOT PRODUCTION READY
 
-MineHost has a well-organised app shell (UI, database, services, backups), but **no Minecraft server has ever been shown to run through it**, and several blockers mean it cannot run one today. Nothing here has been built or run on a device in this audit (see "What was and was not verified").
+MineHost has an Android application foundation and server/network integration code, but the core promise — a real Minecraft server running on Android and reachable by external players — has not yet been demonstrated.
 
-## Blockers (why a real server cannot start today)
+Do not publish claims of production-grade hosting, worldwide connectivity, or cross-play until the release gates below pass.
 
-| # | Blocker | Evidence | Needed to resolve |
+## Critical blockers
+
+| # | Blocker | Source evidence / consequence | Required proof |
 |---|---|---|---|
-| 1 | **No PHP runtime exists.** The Bedrock engine runs `libphp.so` from `nativeLibraryDir`, but the repo has no `app/src/main/jniLibs/` directory and no code that obtains a PHP binary. `getPhpExecutable()` returns `null`, so Bedrock start fails with a clear error. | `RuntimeManager.getPhpExecutable()`, `BedrockEngine.start()`, no `jniLibs/` | An Android-compatible ARM64 PHP build (as `lib*.so` in `jniLibs`, or another validated execution method), tested on a device. |
-| 2 | **No Java runtime exists.** `JavaEngine` needs `libjava.so`; none is bundled. | `JavaEngine.start()`, no `jniLibs/` | An ARM64 JRE that runs on Android Bionic, or a PRoot userspace. Java is therefore **BLOCKED**. |
-| 3 | **Android 10+ W^X.** Binaries downloaded into `filesDir` (the Playit agent, a downloaded PHP) cannot be executed on targetSdk 29+. Only files extracted from the APK's `jniLibs` can. | `RuntimeManager.downloadPlayitAgent()` writes to `filesDir` and calls `setExecutable` | Package binaries in `jniLibs` or use an approved loader. Not testable without a device. |
-| 4 | **Playit agent download URL is almost certainly wrong.** The app requests `playit-cli-linux-aarch64` / `playit-cli-linux-x86_64`. The official Linux asset naming is `playit-linux-*` (e.g. `playit-linux-amd64`, per playit.gg/support/run-on-linux). The correct arm64 asset name was not confirmed. | `RuntimeManager.downloadPlayitAgent()` | Confirm the real asset name and whether it runs on Bionic. |
-| 5 | **Downloads are not integrity-checked.** SHA-256 is _computed_ and stored but never compared with a trusted value; PocketMine and the Playit agent use `releases/latest`. | `RuntimeManager.downloadFileWithProgress()` | Pin versions and verify against published checksums or signatures. |
-| 6 | **No physical-device or real-client test has been done**, so every end-to-end claim is unproven. | n/a | Run the Bedrock acceptance test in the brief (Part 5.5). |
+| 1 | PHP runtime not device-validated | Build-time script pins the Axolotl-PM PHP 8.4 Android ARM64 asset, verifies archive SHA-256 and static AArch64 ELF properties, and packages it as `jniLibs/arm64-v8a/libphp.so`. The app checks for PHP and the `webrtc` module. Neither packaging nor execution has yet been verified on a physical device. | CI must package it; inspect APK/nativeLibraryDir; run `libphp.so -v` and `-m` on physical ARM64 Android; verify ext-webrtc; start Axolotl-PM and join with a real client. |
+| 2 | PHP/native dependency licensing | The PHP runtime includes PHP and native dependencies (including libdatachannel/ext-webrtc). The full dependency licence inventory and redistribution rights are not yet documented. | Produce SBOM/licence notices and confirm redistribution rights before public release. |
+| 3 | No validated Java VM | `JavaEngine` expects `libjava.so`; no validated Android JVM distribution or install path is present. Android ART does not execute desktop Paper JARs. | Prove a compatible JVM/native dependency set on physical Android devices; run Paper and a real Java client. |
+| 4 | Android executable packaging model unproven on device | The PHP script packages an executable in `jniLibs` to avoid running a downloaded ELF from writable app storage. This packaging strategy still needs Android installer/execution proof and Play policy review. Playit agent download/execution remains experimental. | Inspect APK extraction and execute the packaged binary on supported Android versions. Review Google Play executable-code and native-code rules. |
+| 5 | No MineHost-owned public edge or TURN | Current provider code includes experimental Playit integration. The production target requires a MineHost-operated TCP edge/reverse tunnel for Java and Bedrock HTTPS signalling, plus MineHost-operated TURN for NetherNet UDP gameplay fallback. | Deploy and test the MineHost coordinator, TCP edge/tunnel, and TURN from a CGNAT phone to real clients on another ISP. |
+| 6 | NetherNet gameplay not proven | Branch code targets Axolotl-PM 5.51.1 / Bedrock 1.26.60, configures `transport.name: nethernet`, checks ext-webrtc, and probes HTTP(S) `GET /v1/join`. A signalling 2xx does not prove WebRTC ICE/DTLS/SCTP gameplay connectivity. | Join with real Bedrock 1.26.60 clients over LAN, direct WAN, and MineHost TURN fallback. Record the version matrix and results. |
+| 7 | No end-to-end evidence | No confirmed physical Android device, real Minecraft client, external ISP, or international connection test is recorded. | Execute `DEVICE_TESTING.md` and record device, OS, engine/client versions, network, RTT/loss, TPS/MSPT and outcome. |
+| 8 | Release signing is conditional | Release signing is read from local properties/environment; absent credentials leave the release unsigned. | Configure protected release signing and verify signed artifact/update continuity. |
+| 9 | CI/build reproducibility not established | Android CI workflow has been added, but its run result must be inspected; no passing result is recorded here. | Confirm PHP runtime bootstrap, `assembleDebug`, and `testDebugUnitTest` pass; retain APK and test reports. |
 
-## Changes made in this audit (not yet built or run)
+## Source-reviewed capabilities (not device verified)
 
-| File | Previous problem | Change | Verification |
-|---|---|---|---|
-| `server/ServerProcess.kt` | After a 60 s port probe, **any live process was reported ONLINE** (`if (isAlive) listener.onStarted()`). The Bedrock "probe" treated "cannot bind the UDP port" as "server ready", which is also true for any other app using that port. A deliberate stop was reported as a **crash** (signal exit code). | Readiness now requires a real protocol response (RakNet pong / Java Server List Ping). If the process is alive but silent for the timeout (default 180 s), startup is reported as an **error** and the process is killed. A requested stop is reported as a clean exit. | Logic unit-tested in `ReadinessProbeTest` (not run here). Needs a real server to prove. |
-| `server/ReadinessProbe.kt` (new) | n/a | RakNet unconnected ping/pong and Java Server List Ping implementations plus VarInt helpers. | `ReadinessProbeTest`: hand-built packets plus loopback fake responders (not run here). Fake responders do **not** prove a real PocketMine/Paper server answers. |
-| `server/ServerEngineRegistry.kt`, `ServerController.kt`, `CreateServerScreen.kt` | `CROSSPLAY` silently mapped to the **Bedrock-only** engine, so "cross-play" servers were not cross-play. | Cross-play now returns "unsupported" with an explanation, and the option on the create screen is disabled and labelled unavailable. | Code review only. |
-| `server/ServerController.kt` | The result of `engine.configure()` was ignored, so a failed config write still started the server. | A failed configuration now aborts startup with an error. | Code review only. |
-| `world/WorldBackupManager.kt` | **Restore deleted the live world first**, then extracted straight into it. A failed or corrupt extraction left the user with no world and no automatic rollback. No checksum check before restore. | Restore now: verifies the archive checksum, extracts to a temp directory, checks it is non-empty, makes a safety snapshot (aborting if that fails), swaps by rename with rollback, and only then deletes the old world. | `ZipUtilsAndValidationTest` covers checksum/tamper detection (not run here). The swap logic is **untested**. |
-| `core/util/ZipUtils.kt` | No way to verify an archive against its recorded checksum. | Added `computeContentChecksum` matching how backups are hashed. | `ZipUtilsAndValidationTest` (not run here). |
-| `features/worlds/BackupsViewModel.kt` | Restore was allowed while the server was running. | Restore is refused while that server is starting, running or stopping. | Code review only. |
-
-## Feature status (source-verified; none device-verified)
-
-| Feature | Actual status | Notes |
+| Area | Source-level state | Evidence boundary |
 |---|---|---|
-| App shell, navigation, Compose UI, Room, Hilt | IMPLEMENTED BUT UNVERIFIED | Not built in this audit. |
-| Bedrock engine (PocketMine-MP) | **BLOCKED** | Real code, but no PHP runtime (blocker 1). Fake shell loops and `\|\| true` checks from older versions are already gone. |
-| Java engine (Paper) | **BLOCKED** | No JRE (blocker 2). |
-| EULA consent | **NOT IMPLEMENTED** | `eula.txt` is written as `eula=false` (the server will refuse to start rather than silently accepting). There is no consent screen or stored consent. |
-| Cross-play (Paper + Geyser) | **NOT IMPLEMENTED** | Only a Geyser config generator exists. Now correctly reported as unsupported. |
-| Playit tunnel | PARTIALLY IMPLEMENTED, **BROKEN download** | Real process launch and output parsing, but blockers 3 and 4. It reports CONNECTED when its output regex matches a hostname, not after an end-to-end check. |
-| Connection monitoring | PARTIALLY IMPLEMENTED | Uses a TCP connect, which is **wrong for Bedrock (UDP)**. Not protocol-aware. |
-| Tunnel state model | PARTIALLY IMPLEMENTED | One status enum; agent/auth/tunnel/local/remote health are not separated. |
-| Backups: create | IMPLEMENTED BUT UNVERIFIED | Backing up while the server runs can capture an inconsistent world (no `save-off`/`save-all`). |
-| Backups: restore | IMPROVED, UNVERIFIED | See changes above. |
-| Players screen | IMPLEMENTED BUT UNVERIFIED | Sends console commands and updates the local DB regardless of whether the server accepted them. Whether the list reflects real joins was not traced. |
-| Diagnostics | PARTIALLY IMPLEMENTED | Install flags and device info are real; download failures are swallowed (results ignored) so the user sees nothing on error. |
-| Foreground service / wake lock / thermal | IMPLEMENTED BUT UNVERIFIED | `specialUse\|dataSync` types declared; Android 14+ behaviour untested. |
-| Release signing | **BROKEN for production** | Release build uses the **debug** signing config (`app/build.gradle.kts`). |
-| Credential storage | NOT IMPLEMENTED | `security-crypto` is a dependency but nothing stores Playit credentials securely. |
+| Android UI/navigation and Room/Hilt | SOURCE PRESENT | No build/instrumented behaviour verified in this audit. |
+| Server engine abstraction | SOURCE PRESENT | Does not prove a runtime exists. |
+| Axolotl-PM adapter | SOURCE PRESENT | Targets 5.51.1 / Bedrock 1.26.60; runtime and actual client join unverified. |
+| PHP runtime bootstrap | SOURCE PRESENT | Pinned Android ARM64 asset and packaging checks added; no physical-device run. |
+| NetherNet config | SOURCE PRESENT | Generates NetherNet transport, persistent key path and UDP port range; TURN credentials and public HTTPS edge are not implemented. |
+| NetherNet readiness probe | SOURCE PRESENT | HTTP(S) capability probe plus legacy RakNet fallback; signalling only, not UDP gameplay. |
+| Paper adapter | SOURCE PRESENT / BLOCKED | No validated Java VM. |
+| Geyser/Floodgate | SOURCE PRESENT / BLOCKED | Configuration exists; Java/Paper and current NetherNet cross-play are unverified. |
+| Playit provider | SOURCE PRESENT / EXPERIMENTAL | Third-party managed service; not the target architecture. Dual TCP/UDP is explicitly rejected by this adapter. |
+| MineHost TCP edge / reverse tunnel | NOT STARTED | Required for public Java TCP and Bedrock signalling behind CGNAT. |
+| MineHost TURN | NOT STARTED | Required for Bedrock WebRTC relay fallback. |
+| Foreground service / wake lock / thermal monitor | SOURCE PRESENT | Requires current Android/OEM sustained-device testing and Play policy review. |
+| World backup/restore | SOURCE PRESENT | Must preserve real worlds and Axolotl-PM's `nethernet.key` identity file. |
+| Unit tests | TEST SOURCES PRESENT | Must not be counted as passing until CI records results. |
 
-## What was and was not verified
+## Immediate next actions
 
-- **Done:** read the source of the server, networking, world, service, build and test files; verified each audit finding against it; checked the Playit asset naming against playit.gg.
-- **Not done:** no Gradle build, no unit-test run, no emulator, no physical device, no Minecraft client, no tunnel. This audit environment has no Android SDK and no network for Gradle. **Treat all edits above as unbuilt.** The previously documented "assembleDebug passes / 8 of 8 tests pass" claims were not reproduced here.
-- All real-Minecraft tests (local Bedrock/Java join, external join, persistence, cross-play) are **NOT TESTED**.
+1. Inspect and fix the Android CI result; confirm PHP asset verification, APK packaging, `assembleDebug`, and `testDebugUnitTest`.
+2. Verify the packaged PHP executable and ext-webrtc on a physical ARM64 Android phone.
+3. Complete PHP/native dependency licence review.
+4. Start Axolotl-PM 5.51.1 and join with a real Bedrock 1.26.60 client on LAN.
+5. Preserve `nethernet.key` in backup/export/restore and server migration.
+6. Prove a Java VM separately; then validate Paper and Geyser.
+7. Implement MineHost-owned TCP reverse tunnel/HTTPS edge and TURN service.
+8. Test Wi-Fi, cellular, CGNAT, external ISP and international paths.
+9. Complete security, privacy, Play policy, release signing, capacity planning and incident-response reviews.
 
-## Remaining work, in priority order
+## Verification record
 
-1. Build the project and run the unit tests (including the new ones) to confirm the edits compile and pass.
-2. Resolve blocker 1 (PHP on Android) and run the Bedrock acceptance test from the original brief on a physical device with a real Bedrock client.
-3. Pin and verify downloads (blocker 5); fix the Playit URL and execution model (blockers 3, 4).
-4. EULA consent screen plus persisted consent (needs a Room migration).
-5. Protocol-aware tunnel/connection health with separate agent/tunnel/local/remote states; secure credential storage.
-6. Safe backups of a live server (`save-off`/`save-all`); surface download errors in Diagnostics.
-7. Real release signing via environment variables or local properties.
-8. Java runtime investigation, then Geyser cross-play.
+Reviewed: repository tree, README, engine adapters, runtime manager, networking providers, manifest, Gradle configuration, test sources, and project documentation.
 
+**Not run in this audit:**
+- Gradle build, Android lint, or unit tests;
+- emulator or physical-device tests;
+- PHP runtime launch or ext-webrtc module verification;
+- Axolotl-PM server launch;
+- real Bedrock client join or NetherNet ICE/DTLS gameplay;
+- Java/Paper/Geyser launch or cross-play;
+- Playit claim or external tunnel test;
+- MineHost-owned TCP edge or TURN test;
+- international latency benchmark.
 
-## Update (later in the same audit): status after further changes
+No unrun test should be reported as passed.
 
-Still **NOT READY**. Blockers 1 to 3 (PHP, Java, executing binaries on Android 10+) are unchanged. All items below are **implemented but uncompiled and untested on a device** unless a unit test is named.
+## Release decision
 
-| Area | Now |
-|---|---|
-| Download integrity (blocker 5) | `RuntimeManager` resolves real release assets and verifies published SHA-256 when one exists. Asset names were not confirmed by a run. |
-| EULA | Consent dialog, stored consent (Room migration 1 to 2), Java never starts without it. |
-| Tunnel state model | Separate states and health facts, protocol-aware probes (UDP/TCP), supervised restart with backoff, redacted logs. Playit output formats are assumed (`TunnelSupportTest`). |
-| Players | Online list from parsed join/leave lines (`PlayerTrackerTest`, formats assumed); commands need an ONLINE server and a successful send. |
-| Server detail | Shows LAN address and an internet-check line; no hard-coded player count. |
-| Diagnostics | Download failures are shown; concurrent downloads blocked. |
-| Backups | Live backups pause world saving (`save-off`/`save-all`). |
-| Release signing | Reads env vars or `local.properties`; the release build is unsigned (not debug-signed) if absent. |
-| Stale state | On app start, servers recorded ONLINE/STARTING are marked CRASHED. |
-| Service/backup rules | `specialUse` type, `START_NOT_STICKY`; tunnel dir excluded from backups. |
-| Credential storage | Still **NOT IMPLEMENTED**: the Playit agent keeps its secret in an app-private, owner-only directory; no Keystore encryption. |
+**Release status: BLOCKED.**
 
-Not done: dependency/license inventory, security and performance reviews beyond this table, any build or device run. Test status is in `docs/TESTING.md`.
+A release candidate can be considered only after all critical blockers have evidence-backed resolution and the production definition in `MINEHOST_MASTER_ROADMAP.md` is met. A successful APK build alone is insufficient.

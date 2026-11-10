@@ -19,9 +19,13 @@ import com.minehost.app.services.WakeLockManager
 import com.minehost.app.world.WorldManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -44,11 +48,13 @@ class ServerController @Inject constructor(
     private val thermalManager: ThermalManager
 ) {
     private companion object {
-        /** Fixed wait after `save-off` + flush before a backup reads the world files. */
-        const val SAVE_SETTLE_MS = 5_000L
+        /** Abort rather than snapshot if the server never confirms the post-flush console barrier. */
+        const val SAVE_ACK_TIMEOUT_MS = 15_000L
+        val SAVE_BARRIER_PATTERN = Regex("(?i)players online")
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val consoleOutput = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 512)
 
     private val _activeServerId = MutableStateFlow<String?>(null)
     val activeServerId: StateFlow<String?> = _activeServerId.asStateFlow()
@@ -164,6 +170,7 @@ class ServerController @Inject constructor(
                             scope.launch { playerRepository.recordJoin(serverId, name, System.currentTimeMillis()) }
                         }
                     }
+                    consoleOutput.tryEmit(serverId to line)
                     scope.launch { log(serverId, line) }
                 }
 
@@ -267,25 +274,52 @@ class ServerController @Inject constructor(
      * LIMITATION: there is no completion signal from the server here, so the flush wait is a fixed
      * [SAVE_SETTLE_MS]. A very large world may need longer. Not verified against a real server.
      */
+    /**
+     * Creates a consistent best-effort snapshot. If this server is active, pause autosaves,
+     * flush to disk, then issue "list" as a console barrier. Since console commands are processed
+     * sequentially, its "players online" output confirms the preceding save command completed.
+     * Abort on missing acknowledgement rather than silently taking a mid-write backup.
+     */
     suspend fun <T> withWorldSavePaused(serverId: String, block: suspend () -> T): T {
-        val online = _activeServerId.value == serverId && _serverStatus.value == ServerStatus.ONLINE
-        if (!online) return block()
+        val active = _activeServerId.value == serverId
+        if (!active) return block()
+        if (_serverStatus.value != ServerStatus.ONLINE) {
+            throw IllegalStateException("Server is starting or stopping; wait until it is fully stopped or online before backing up.")
+        }
 
         val edition = serverRepository.getServerById(serverId)?.edition
+            ?: throw IllegalStateException("Server configuration is unavailable; backup aborted.")
         val flushCommand = if (edition == MinecraftEdition.JAVA) "save-all flush" else "save-all"
-
-        if (!sendCommand("save-off")) {
-            log(serverId, "[MineHost] WARNING: could not pause world saving; the backup may capture a world that is mid-write.")
-            return block()
+        val barrier = scope.async(start = CoroutineStart.UNDISPATCHED) {
+            consoleOutput.first { (loggedServerId, line) ->
+                loggedServerId == serverId && SAVE_BARRIER_PATTERN.containsMatchIn(line)
+            }
         }
-        sendCommand(flushCommand)
-        log(serverId, "[MineHost] World saving paused for backup; waiting ${SAVE_SETTLE_MS / 1000}s for the flush...")
-        delay(SAVE_SETTLE_MS)
+
+        var paused = false
         try {
+            if (!sendCommand("save-off")) {
+                throw IllegalStateException("Could not pause server autosaving; backup aborted.")
+            }
+            paused = true
+            if (!sendCommand(flushCommand)) {
+                throw IllegalStateException("Could not flush the server world to disk; backup aborted.")
+            }
+            if (!sendCommand("list")) {
+                throw IllegalStateException("Could not issue the save-completion console barrier; backup aborted.")
+            }
+            withTimeout(SAVE_ACK_TIMEOUT_MS) { barrier.await() }
+            log(serverId, "[MineHost] Save flush confirmed by the server console; creating backup snapshot.")
             return block()
         } finally {
-            sendCommand("save-on")
-            log(serverId, "[MineHost] World saving resumed.")
+            barrier.cancel()
+            if (paused) {
+                if (sendCommand("save-on")) {
+                    log(serverId, "[MineHost] World autosaving resumed.")
+                } else {
+                    log(serverId, "[MineHost] WARNING: could not send save-on; check server state before continuing.")
+                }
+            }
         }
     }
 
