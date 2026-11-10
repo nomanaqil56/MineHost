@@ -27,6 +27,8 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.DataInputStream
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
