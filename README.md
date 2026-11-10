@@ -29,7 +29,7 @@ MineHost is an Android application project intended to run Minecraft server soft
 - Foreground service, wake-lock and thermal-monitoring components
 - Unit-test sources and a Python verification harness
 
-These are source-code capabilities, not a claim that every feature has passed end-to-end testing.
+The Android PHP runtime bootstrap is build-time only and still requires physical-device validation. These are source-code capabilities, not a claim that every feature has passed end-to-end testing.
 
 ## Build from source
 
@@ -39,9 +39,12 @@ These are source-code capabilities, not a claim that every feature has passed en
 - Android ARM64 device for actual server-runtime testing
 
 ### Build
+The Bedrock runtime is prepared at build time from a pinned Android ARM64 PHP-Binaries release. On Linux/macOS (or Git Bash/WSL on Windows), run the bootstrap before Gradle:
+
 ```bash
 git clone https://github.com/nomanaqil56/MineHost.git
 cd MineHost
+bash tools/prepare_android_php_runtime.sh
 ./gradlew assembleDebug
 ./gradlew testDebugUnitTest
 ```
