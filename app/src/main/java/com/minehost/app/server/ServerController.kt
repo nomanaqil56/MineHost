@@ -287,10 +287,19 @@ class ServerController @Inject constructor(
         val stoppedCleanly = engine?.stop(handle, 15_000L) ?: true
         if (stoppedCleanly) {
             log(serverId, "[MineHost] Server process terminated gracefully.")
+        } else if (!handle.isAlive) {
+            log(serverId, "[MineHost] Graceful shutdown timed out; the process was forcibly terminated.")
         } else {
-            log(serverId, "[MineHost] Server process was forcibly stopped after timeout.")
+            // Do not clear the active handle, release the wake lock or claim STOPPED while
+            // the OS still reports the process alive. The process-exit watcher can reconcile
+            // the state if it exits later.
+            log(serverId, "[ERROR] Server process is still alive after the forced-stop timeout.")
+            return@withLock Resource.Error("The server did not exit after the forced-stop timeout. MineHost is keeping its active state and wake lock until process exit is confirmed.")
         }
 
+        if (handle.isAlive) {
+            return@withLock Resource.Error("The server stop result could not be confirmed; the process is still alive.")
+        }
         handleServerStopped(serverId, ServerStatus.STOPPED, sessionToken)
         return@withLock Resource.Success(Unit)
     }
