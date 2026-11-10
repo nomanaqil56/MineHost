@@ -60,6 +60,21 @@ Do not advertise cross-play until Paper + Geyser (+ Floodgate where needed) exec
 - PRoot or a Linux rootfs may improve compatibility for some tools but adds storage, performance, security and maintenance costs. It must be justified by measurements.
 - Pin every runtime and engine version; record source, ABI, licence, dependency set and trusted digest/signature.
 
+## 5A. Android PHP runtime candidate (research update 2026-11-10)
+
+The official `pmmp/PHP-Binaries` repository documents an `android-aarch64` cross-compile target using an `aarch64-linux-musl` toolchain. Its PM5 PHP 8.4 release exposes an asset named `PHP-8.4-Android-arm64-PM5.tar.gz`; the GitHub Releases API currently reports SHA-256:
+
+`d8867966340121f821591b9bb29c80a58ad77abd6cc8e0e44d1cbbb3aaedd70c`
+
+The upstream Android build test checks that the PHP executable has no dynamic section. This is promising because a static ARM64 executable can avoid relying on a desktop glibc loader. The MineHost repository now has `tools/prepare_android_php_runtime.sh`, which verifies the archive digest, checks the ELF architecture/static linkage, and copies the executable as `libphp.so` under `jniLibs/arm64-v8a` so Android packages/extracts it with native libraries.
+
+**This is only a packaging spike, not a validated runtime.** The upstream PHP-Binaries repository is archived, and the full PHP/dependency licence inventory and update strategy must be reviewed before release. CI packaging, APK inspection, execution on current physical Android versions, required PHP extensions, PocketMine startup, and real Bedrock client join are still required. Do not mark Bedrock as supported based on the script alone.
+
+Sources:
+- [PMMP PHP-Binaries build documentation](https://github.com/pmmp/PHP-Binaries)
+- [PMMP PHP-Binaries PM5 PHP 8.4 release](https://github.com/pmmp/PHP-Binaries/releases/tag/pm5-php-8.4-latest)
+- [PMMP PHP-Binaries Android build workflow](https://github.com/pmmp/PHP-Binaries/blob/stable/.github/workflows/main-pm-matrix.yml)
+
 ## 6. Networking feasibility
 
 ### NAT and CGNAT
