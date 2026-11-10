@@ -1,5 +1,6 @@
 package com.minehost.app.features.servers
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,7 @@ import com.minehost.app.domain.repository.ServerRepository
 import com.minehost.app.networking.TunnelManager
 import com.minehost.app.server.ServerController
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -57,7 +59,8 @@ class ServerDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val serverRepository: ServerRepository,
     private val serverController: ServerController,
-    private val tunnelManager: TunnelManager
+    private val tunnelManager: TunnelManager,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     val serverId: String = checkNotNull(savedStateHandle["serverId"])
@@ -68,7 +71,7 @@ class ServerDetailViewModel @Inject constructor(
     private val localAddressFlow: kotlinx.coroutines.flow.Flow<String?> =
         kotlinx.coroutines.flow.flow {
             while (true) {
-                emit(com.minehost.app.networking.LocalNetwork.detect().firstOrNull())
+                emit(com.minehost.app.networking.LocalNetwork.detect(appContext).firstOrNull())
                 kotlinx.coroutines.delay(5_000L)
             }
         }.flowOn(kotlinx.coroutines.Dispatchers.IO)
