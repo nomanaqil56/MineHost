@@ -58,29 +58,26 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 3. The app will download and verify `PocketMine-MP.phar` directly into your private app files.
 
 ### Step 4: Create and Start Your Bedrock Server
-1. Return to the **Dashboard** and tap the **+** (Create Server) button.
+1. Return to the Dashboard and tap the **+** (Create Server) button.
 2. Enter a server name (e.g. *Survival World*).
-3. Select **Bedrock Edition** (Default Port: `19132`).
-4. Keep **Worldwide Public Tunnel** checked (or uncheck for local Wi-Fi only).
+3. Select **Bedrock Edition** (default port 19132).
+4. For the first local test, **disable Worldwide Public Tunnel**. LAN hosting must work without a tunnel.
 5. Tap **Create Server**.
 6. On the Server Details screen, tap **START SERVER**.
-7. The notification will show the server status.
+7. Wait until the server reports **ONLINE**. For the current Axolotl-PM build this means the NetherNet HTTP signaling endpoint answered its local capability probe.
 
-### Step 5: Connect Second Minecraft Device (Local Wi-Fi)
-1. Connect a second device (phone, tablet, or PC) to the same Wi-Fi network.
-2. Open **Minecraft: Bedrock Edition**.
-3. Go to **Play -> Servers -> Add Server**.
-4. Server Name: `MineHost Local`
-5. Server Address: Enter the local IP address of your Android phone (e.g. `192.168.1.50`).
-6. Port: `19132`.
-7. Tap **Save** and **Join Server**.
-8. Build something, break blocks, and chat!
+### Step 5: Connect a second Minecraft Bedrock device (local Wi-Fi)
+1. Connect the second device to the same Wi-Fi network as the MineHost phone.
+2. Use a Bedrock client version compatible with the pinned Axolotl-PM release (currently Minecraft Bedrock v26.60).
+3. Open Minecraft and go to **Play -> Servers -> Add Server**.
+4. Server Name: MineHost Local.
+5. Server Address: enter the phone's LAN IPv4 address shown by MineHost (not 127.0.0.1).
+6. Port: 19132.
+7. Save and join. Modern NetherNet uses TCP for signaling and UDP for WebRTC gameplay; keep both protocols available on the LAN.
+8. Complete Minecraft's first-connection trust prompt if shown. Then test movement, block placement, breaking and chat.
 
-### Step 6: Worldwide Multiplayer (Playit.gg)
-1. If Worldwide Tunnel is enabled, MineHost will initialize the Playit agent.
-2. If first time, tap **Claim Agent on Playit.gg** to link your free agent.
-3. Once assigned, your public address (e.g. `xyz.gl.joinmc.link:38491`) appears on screen.
-4. Friends can join from another Wi-Fi or cellular network from anywhere in the world!
+### Step 6: Worldwide Multiplayer (experimental Playit.gg)
+The Playit adapter is optional and is not part of the local Bedrock acceptance test. It has not yet been validated end-to-end with a real external Bedrock client. Do not interpret a displayed tunnel endpoint as proof that a remote player can join.
 
 ### Step 7: Stop & Persistence Verification
 1. Tap **STOP SERVER** in MineHost.
