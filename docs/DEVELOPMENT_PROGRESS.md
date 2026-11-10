@@ -1,6 +1,6 @@
 # MineHost — Development Progress
 
-**Last reconciled:** 2026-11-10 (after Android CI run 42753556848)  
+**Last reconciled:** 2026-11-10 (API 36 CI baseline plus latest runtime/lifecycle fixes)  
 **Authoritative roadmap:** [MINEHOST_MASTER_ROADMAP.md](../MINEHOST_MASTER_ROADMAP.md)  
 **Current verdict:** Active development; not production-ready.
 
@@ -38,7 +38,7 @@ Never promote a feature to a higher verification level without a reproducible te
 | Server readiness probes | SOURCE PRESENT | 8 pure-Kotlin tests reported | Current Bedrock probe is RakNet-specific; validate selected current engine/client transport |
 | Player tracking | SOURCE PRESENT | 6 pure-Kotlin tests reported | Log formats require capture from real server output |
 | Server lifecycle serialization | SOURCE UPDATED | ANDROID BUILD VERIFIED | Start/stop serialized with a mutex; process-handle absence/early exit handled explicitly; CI compile passed |
-| Android CI workflow | ADDED | ANDROID BUILD VERIFIED | Run 42753556848: unit tests PASS, lint PASS, debug APK assembled and uploaded |
+| Android CI workflow | ADDED | API 36 DEBUG BASELINE VERIFIED; RELEASE MATRIX PENDING | Run 42754538024 passed unit tests, lint and debug APK; latest workflow also checks release lint, unsigned APK and AAB |
 | Android 16 target API | SOURCE UPDATED | ANDROID BUILD VERIFIED | compileSdk/targetSdk 36; AGP 8.13.2, Gradle 8.13, Kotlin 2.3.21, Compose BOM 2026.04.01, KSP 2.3.9, Room 2.8.5, Hilt 2.57.2, JDK 17 |
 
 ## Test evidence currently documented
@@ -71,7 +71,8 @@ In addition, the Gradle `testDebugUnitTest` task passed in CI run 42753556848. T
 ## Immediate next work
 
 ### P0 — Reproducible baseline (CI gate passed)
-- [x] API 36 Android CI unit tests, lint and debug APK assembly pass (run 42753556848).
+- [x] API 36 Android CI unit tests, lint and debug APK assembly pass (run 42754538024).
+- [ ] Verify release lint, unsigned release APK and Android App Bundle in the expanded CI workflow.
 - [x] Server lifecycle serialization compiles in the Android build.
 - [x] Reconcile core roadmap, build and networking documentation.
 - [ ] Keep CI green as runtime and relay work is added.
@@ -102,13 +103,16 @@ In addition, the Gradle `testDebugUnitTest` task passed in CI run 42753556848. T
 - Rewrote README claims to distinguish vision from current implementation.
 - Reworked production readiness and networking docs to reflect actual implementation and missing MineHost-owned connectivity.
 - Added Android CI workflow for Gradle unit tests, lint and debug APK assembly.
-- Serialized server start/stop lifecycle operations and added explicit handling for missing or already-exited process handles. This change is source-only until CI/build verification passes.
+- Serialized server start/stop lifecycle operations and added explicit handling for missing or already-exited process handles.
+- Corrected runtime readiness reporting so downloaded PHAR/JAR archives are not presented as complete runnable engines without PHP/Java launchers.
+- Corrected Playit executable detection to avoid relying on chmod for app-data binaries.
+- Made diagnostics download gating atomic to prevent concurrent downloads from rapid taps.
+- Improved shutdown handling: wait after forced termination and do not clear the active server state while the process remains alive.
 
 
 ## Latest verification record
 
-- Commit: `d02fa9c1909886cdad1ca1e008eb32d391c2f292`
-- CI: [run 42753556848](https://github.com/nomanaqil56/MineHost/actions/runs/42753556848) — unit tests, lint and debug APK assembly all passed.
-- Artifact: `minehost-debug-apk`; 68.9 MB APK, SHA-256 of workflow artifact ZIP: `b1cabf08231e1f9c51f2761bd3aaa9e388d973e1442d1c7f42272ebd896c8000`.
+- Latest API 36 debug baseline: [run 42754538024](https://github.com/nomanaqil56/MineHost/actions/runs/42754538024) — unit tests, lint and debug APK assembly all passed.
+- The expanded workflow now also runs release lint and builds the unsigned release APK and Android App Bundle; its latest run is pending for the current branch head.
 - Verification level: ANDROID BUILD VERIFIED only. No physical Android runtime launch, Minecraft client join, international connection or relay test has been performed.
 - The current branch is `work/production-readiness`; it has not been merged to main.
