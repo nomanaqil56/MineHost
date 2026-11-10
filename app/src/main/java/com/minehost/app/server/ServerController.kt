@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.net.DatagramSocket
 import java.net.ServerSocket
@@ -49,6 +51,8 @@ class ServerController @Inject constructor(
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    /** Serializes start/stop so a stop request cannot race process-handle creation. */
+    private val lifecycleMutex = Mutex()
 
     private val _activeServerId = MutableStateFlow<String?>(null)
     val activeServerId: StateFlow<String?> = _activeServerId.asStateFlow()
@@ -64,12 +68,12 @@ class ServerController @Inject constructor(
     private var activeProcessHandle: ServerProcessHandle? = null
     private var activeEngine: ServerEngine? = null
 
-    suspend fun startServer(serverId: String): Resource<Unit> {
+    suspend fun startServer(serverId: String): Resource<Unit> = lifecycleMutex.withLock {
         val server = serverRepository.getServerById(serverId)
-            ?: return Resource.Error("Server with ID $serverId not found")
+            ?: return@withLock Resource.Error("Server with ID $serverId not found")
 
         if (_serverStatus.value.isRunning) {
-            return Resource.Error("Another server instance is already running")
+            return@withLock Resource.Error("Another server instance is already running")
         }
 
         return try {
@@ -88,7 +92,7 @@ class ServerController @Inject constructor(
                 val unsupportedMsg = "Cross-play (Java + Bedrock) is not supported yet: it requires Paper and Geyser running together, which MineHost does not implement. Create a Bedrock or Java server instead."
                 log(serverId, "[ERROR] $unsupportedMsg")
                 handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(unsupportedMsg)
+                return@withLock Resource.Error(unsupportedMsg)
             }
             activeEngine = engine
 
@@ -96,14 +100,14 @@ class ServerController @Inject constructor(
                 val notInstalledMsg = "Server engine '${engine.name}' is not installed on this device. Please download and install it via Diagnostics or Setup."
                 log(serverId, "[ERROR] $notInstalledMsg")
                 handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(notInstalledMsg)
+                return@withLock Resource.Error(notInstalledMsg)
             }
 
             if (server.edition == MinecraftEdition.JAVA && !server.eulaAccepted) {
                 val eulaMsg = "You must accept the Minecraft EULA (https://aka.ms/MinecraftEULA) before starting a Java server."
                 log(serverId, "[ERROR] $eulaMsg")
                 handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(eulaMsg)
+                return@withLock Resource.Error(eulaMsg)
             }
 
             // 2. Validate port conflict before starting
@@ -112,7 +116,7 @@ class ServerController @Inject constructor(
                 val portConflictMsg = "Port ${server.localPort} (${if (isUdp) "UDP" else "TCP"}) is already bound by another service on this device. Please select a different port in server settings."
                 log(serverId, "[ERROR] $portConflictMsg")
                 handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(portConflictMsg)
+                return@withLock Resource.Error(portConflictMsg)
             }
 
             // 3. Acquire system wake locks and thermal listener
@@ -146,7 +150,7 @@ class ServerController @Inject constructor(
                 val msg = "Could not write server configuration files: $configError"
                 log(serverId, "[ERROR] $msg")
                 handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error(msg)
+                return@withLock Resource.Error(msg)
             }
 
             // 5. Start foreground service
@@ -206,7 +210,7 @@ class ServerController @Inject constructor(
             if (launchResult.isFailure) {
                 val error = launchResult.exceptionOrNull()?.message ?: "Unknown process launch failure"
                 handleServerStopped(serverId, ServerStatus.ERROR)
-                return Resource.Error("Server start failed: $error")
+                return@withLock Resource.Error("Server start failed: $error")
             }
 
             activeProcessHandle = launchResult.getOrNull()
@@ -218,8 +222,21 @@ class ServerController @Inject constructor(
         }
     }
 
-    suspend fun stopServer(serverId: String): Resource<Unit> {
-        val handle = activeProcessHandle ?: return Resource.Success(Unit)
+    suspend fun stopServer(serverId: String): Resource<Unit> = lifecycleMutex.withLock {
+        val activeId = _activeServerId.value
+        if (activeId != null && activeId != serverId) {
+            return@withLock Resource.Error("Server '$activeId' is currently active; cannot stop '$serverId'.")
+        }
+        val handle = activeProcessHandle
+        if (handle == null) {
+            if (activeId == serverId && _serverStatus.value.isRunning) {
+                // Do not claim success when the state machine says a process is active but
+                // no process handle exists. Reconcile the stale state instead.
+                handleServerStopped(serverId, ServerStatus.CRASHED)
+                return@withLock Resource.Error("The server was marked active but its process handle is missing. State was recovered; start it again.")
+            }
+            return@withLock Resource.Success(Unit)
+        }
         val engine = activeEngine
 
         _serverStatus.value = ServerStatus.STOPPING
@@ -238,7 +255,7 @@ class ServerController @Inject constructor(
         }
 
         handleServerStopped(serverId, ServerStatus.STOPPED)
-        return Resource.Success(Unit)
+        return@withLock Resource.Success(Unit)
     }
 
     fun sendCommand(command: String): Boolean {
