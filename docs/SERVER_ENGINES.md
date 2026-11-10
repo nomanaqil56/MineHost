@@ -127,3 +127,36 @@ Choose the smallest maintained engine set that meets the product promise:
 3. Geyser/Floodgate only after both underlying runtime and transport paths work.
 
 Prioritize stability, low resource use, current protocol support and maintainability over the number of engine options in the UI.
+
+
+## 8. New implementation findings (2026-11-10)
+
+### Bedrock runtime path
+
+VanillaMine remains the leading proof-of-concept candidate, not a selected production engine:
+- Pin a current VanillaMine release that supports the target Bedrock protocol (the reviewed 5.48.4 release advertises 1.26.60).
+- Build or obtain an Android ARM64 PHP 8.4 runtime with the exact extension versions required by that release. The available Altay PHP-Binaries Android PHP 8.4 archive is a useful feasibility lead, but its inspected `chunkutils2` version (0.3.5) is behind VanillaMine's documented 0.3.15 requirement.
+- Build `pm-nethernet` for Android ARM64 from its Go source (MIT, Go 1.26.0). The helper path is configurable in VanillaMine; package it as an Android executable only after ELF and physical-device launch tests.
+- Do not bundle a Linux ARM64 helper and assume it is an Android binary.
+
+Altay is a secondary candidate. Its Android-targeted PHP build and pure-PHP NetherNet implementation are interesting, but the `altayofficial/network` dependency is GPL-3.0-or-later and needs licence review. The Android PHP archive's extension versions must be matched to the exact Altay release too.
+
+### Java and cross-play candidate
+
+The first Java stack worth validating is:
+- Paper 1.21.11 on a Java 21 ARM64 runtime.
+- ViaVersion 5.12.0 to support newer Java 26.3 clients while the backend remains on a Java-21-compatible Paper release.
+- Current Geyser build 1276 (reviewed compatibility range: Bedrock 26.40–26.63 / Java 26.3) with `bedrock.transport: nethernet`.
+- Floodgate where the selected authentication model requires it.
+
+Amethyst-Android's OpenJDK 21 ARM64 runtime is a candidate, not a verified headless server runtime. Paper must be started and joined by a real Java client before this stack is selected.
+
+### Port model for cross-play
+
+A cross-play server needs separate public ports:
+- Java: TCP only (Paper server port).
+- Bedrock: TCP signaling + UDP gameplay (Geyser NetherNet port).
+
+The Bedrock port cannot be shared with Paper's Java TCP port. If HTTPS signaling is terminated by a MineHost relay, Geyser's internal signaling TCP port can differ from its public Bedrock port; the relay maps public TCP to internal signaling TCP and public UDP to the WebRTC gameplay port. Geyser must trust the local proxy and use the forwarded client address. See [Geyser HTTPS for NetherNet](https://github.com/GeyserMC/GeyserWebsite/blob/master/wiki/geyser/nethernet-https.mdx).
+
+**None of these stacks is currently integrated or physically verified by MineHost.**

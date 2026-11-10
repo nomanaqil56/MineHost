@@ -311,3 +311,42 @@ Before changing code:
 8. Preserve existing UI and working architecture unless the change is necessary and explained.
 
 **A task is not complete because code was written. It is complete when its acceptance test passes at the appropriate verification level.**
+
+
+## 13. Implementation refinement — runtime and relay decisions (2026-11-10)
+
+### Bedrock proof-of-concept direction
+
+- Keep VanillaMine as the leading Bedrock proof-of-concept candidate; it is not yet selected as a production engine.
+- Build a reproducible Android ARM64 PHP 8.4 runtime with the exact current extensions. The available Altay PHP-Binaries Android PHP 8.4 archive is only a feasibility lead: its inspected `chunkutils2` 0.3.5 does not match VanillaMine's documented 0.3.15.
+- Build the MIT-licensed `pm-nethernet` Go helper for Android ARM64 (Go 1.26.0) and verify its executable format and process launch on a physical device.
+- Keep Altay as a secondary candidate; review its GPL-3.0 network dependency and benchmark its implementation before selecting it.
+- Do not advertise Bedrock support until a current real client joins, plays, disconnects and rejoins on a physical Android host.
+
+### Java and cross-play proof-of-concept direction
+
+- Test Paper 1.21.11 on a Java 21 ARM64 runtime.
+- Test ViaVersion 5.12.0 for newer Java 26.3 clients.
+- Test current Geyser (reviewed build 1276) with `bedrock.transport: nethernet` and Floodgate where required.
+- Amethyst-Android OpenJDK 21 ARM64 is a candidate runtime; prove headless Paper execution before selecting it.
+- Cross-play requires two public ports: Paper Java TCP, and Geyser Bedrock TCP+UDP. Do not collapse these into the existing single-port model.
+
+### MineHost-owned low-latency relay
+
+Proposed implementation:
+1. Go host agent runs on Android ARM64 and maintains outbound authenticated QUIC connections to MineHost relay nodes.
+2. Java TCP connections are forwarded through QUIC streams to the phone's local Paper port.
+3. Bedrock signaling TCP is forwarded through a QUIC stream to the local signaling listener; public TLS terminates at the MineHost relay.
+4. Bedrock gameplay UDP is forwarded through QUIC DATAGRAM to the local NetherNet/Geyser UDP listener. Maintain per-client UDP socket mappings.
+5. The relay is a packet forwarder only; game processes and worlds stay on the phone.
+6. Start with one self-operated relay. Add regional relays only after p50/p95 RTT, jitter, loss, throughput and cost measurements.
+7. Use direct LAN/public paths first. The relay is fallback, not the default route.
+
+For Geyser's HTTPS reverse-proxy pattern, public Bedrock TCP port `P` can map to an internal signaling TCP port `S`, while public UDP `P` maps to local WebRTC UDP `P`. The relay must provide trusted `X-Forwarded-For` and Geyser must trust only the local authenticated proxy. Paper's Java TCP port `J` remains separate.
+
+The candidate Go networking stack is `quic-go` v0.65.0 / Go 1.26.0. This is a design candidate, not an implemented or benchmarked choice. Android cross-compilation, MTU/fragmentation, carrier NAT, network switching and relay throughput are open proof-of-concept tasks.
+
+### External infrastructure reality
+
+MineHost can own the software, control plane, relay fleet and operations. It cannot remove dependence on ISPs, public internet routing, electricity, a domain registrar, data-centre/colocation capacity or public TLS certificate authorities. This is compatible with the goal of avoiding third-party managed Minecraft tunnel services and cloud game hosting.
+

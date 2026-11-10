@@ -10,7 +10,7 @@ This guide covers building the Android application. **A successful APK build doe
 - Git.
 - Android ARM64 physical device and ADB for end-to-end testing.
 
-The project targets Android 16 (API 36) and currently uses Gradle Wrapper 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.21 and JDK 17. Use the checked-in wrapper rather than a globally installed Gradle. The first CI run after this toolchain migration must pass before treating it as build-verified. Compose BOM 2026.04.01, KSP 2.3.9 and Hilt 2.60.1 are aligned with the Kotlin 2.3 toolchain.
+The project targets Android 16 (API 36) and currently uses Gradle Wrapper 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.3.21, Compose BOM 2026.04.01, KSP 2.3.9, Room 2.8.5, Hilt 2.57.2 and JDK 17. Use the checked-in wrapper rather than a globally installed Gradle. This stack has passed the GitHub Actions unit-test, lint and debug-APK workflow on branch `work/production-readiness`.
 
 ## 2. Build and test locally
 
@@ -37,9 +37,9 @@ Debug APK output:
 
 ## 3. Continuous integration
 
-The repository now includes `.github/workflows/android-ci.yml`. It installs JDK 17 and Android SDK Platform 36, runs unit tests and lint, assembles the debug APK, and uploads the APK as the `minehost-debug-apk` artifact.
+The repository includes `.github/workflows/android-ci.yml`. Run [CI workflow 42753556848](https://github.com/nomanaqil56/MineHost/actions/runs/42753556848): unit tests passed, Android lint passed, debug APK assembled and uploaded as `minehost-debug-apk`. This is an Android build verification only; it does not prove runtime launch or gameplay.
 
-The first workflow run must pass before treating the branch as build-verified. CI does not replace physical-device or real Minecraft-client testing.
+CI does not replace physical-device or real Minecraft-client testing.
 
 ## 4. Install on a physical device
 
@@ -98,3 +98,13 @@ For each acceptance run, record:
 - Relevant redacted logs and metrics (p50/p95 RTT, jitter, loss, TPS/MSPT, thermal state).
 
 Never mark a feature as device-tested or production-ready based only on a successful compile.
+
+
+## 9. Latest CI evidence
+
+- Branch: `work/production-readiness`
+- Commit: `d02fa9c1909886cdad1ca1e008eb32d391c2f292`
+- Workflow: [Android CI run 42753556848](https://github.com/nomanaqil56/MineHost/actions/runs/42753556848)
+- Result: unit tests PASS, lint PASS, debug APK assembly PASS.
+- Debug APK artifact: `minehost-debug-apk` (68.9 MB APK inside the workflow ZIP; temporary artifact expires after 14 days).
+- This is not a release-signed APK and does not include the not-yet-integrated PHP/JVM runtimes or MineHost relay. Use it only to inspect the app shell and exercise current implemented UI/source paths.

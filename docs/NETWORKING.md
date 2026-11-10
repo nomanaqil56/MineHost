@@ -42,7 +42,7 @@ Java and Bedrock must not be treated as one generic tunnel.
 - NetherNet uses HTTP signaling (GET /v1/join, POST /v1/join/{networkId} with SDP) and WebRTC DTLS/SCTP data channels. Gameplay uses UDP; the signaling endpoint uses TCP/HTTP(S).
 - NetherNet server identity assertions and the operator key must be implemented and protected. iOS clients require HTTPS signaling with a trusted certificate.
 - The Mojang onboarding guide documents full ICE with trickle ICE disabled and no client STUN/TURN URLs by default. Do not assume generic STUN/TURN or a UDP-only tunnel solves CGNAT. Test the actual client ICE candidates and session flow.
-- A MineHost relay may need to proxy the HTTP SDP exchange and provide a reachable ICE candidate or terminate/forward WebRTC traffic over the phone tunnel. This architecture is a proof-of-concept blocker, not an already solved feature.
+- A MineHost relay must provide a reachable advertised ICE candidate and forward the signaling and gameplay paths independently. The implementation below is the proposed proof-of-concept architecture; it is not yet implemented or client-verified.
 - Probe the real signaling and data-channel protocol, not just whether TCP/UDP port 19132 is open. Keep RakNet and NetherNet probes separate.
 - A RakNet readiness probe only proves compatibility with a RakNet-speaking endpoint; it must not be treated as a universal current Bedrock probe.
 
@@ -177,3 +177,68 @@ A public hostname being assigned does not prove that a player can join. A local 
 - [ ] Record p50/p95 RTT, jitter, packet loss, reconnect time, throughput and relay cost.
 
 **No zero-lag or universal-uptime promise:** the network is bounded by distance, ISP routing, radio conditions, host upload speed, relay capacity and the phone's processing/thermal limits.
+
+
+## 10. Concrete NetherNet relay design (proposed, not implemented)
+
+The current protocol makes a simple port-forwarding model possible, provided the selected engine exposes the right configuration and the client path is tested.
+
+### Bedrock-only server
+
+For a current NetherNet engine such as VanillaMine:
+- Allocate a MineHost public Bedrock port `P`.
+- Configure the server's UDP gameplay port to local port `P`.
+- Configure its signaling TCP listener to a local port `S` (which may equal `P` when the engine supports same-port TCP/UDP).
+- Add the MineHost relay public IP address(es) to the engine's advertised-address list so its SDP includes reachable relay candidates.
+- Relay public UDP `P` to the host's local UDP `P`.
+- Relay public TCP `P` to the host's local signaling TCP `S`; use HTTPS on the public endpoint for iOS clients.
+
+Do not assume the engine's advertised candidate port or signaling URL is correct merely because configuration was written. Inspect the SDP/server metadata and verify with a real 26.60+ client.
+
+### Java + Geyser cross-play
+
+Geyser's current NetherNet configuration uses TCP signaling and UDP gameplay. Its HTTPS guidance documents a reverse-proxy pattern in which:
+- Players connect to public Bedrock port `P` over TCP (HTTPS signaling) and UDP (gameplay).
+- The proxy forwards TCP signaling to a separate internal Geyser signaling port `S`.
+- UDP gameplay continues to the Geyser WebRTC port `P`.
+- Geyser trusts the proxy and reads the real client address from `X-Forwarded-For`.
+
+MineHost should implement the same mapping across its relay tunnel:
+- Public TCP `P` -> local TCP `S` (TLS terminates at the MineHost relay).
+- Public UDP `P` -> local UDP `P`.
+- The relay injects a trustworthy `X-Forwarded-For` value; Geyser trusts only the authenticated local host-agent/proxy address.
+- Paper Java TCP uses a separate public TCP port `J` -> local Paper TCP `J`.
+
+This gives a cross-play server two public endpoints: Java TCP `J`, and Bedrock TCP+UDP `P`. Do not reuse the Paper port for Geyser.
+
+Sources: [Geyser setup](https://geysermc.org/wiki/geyser/setup/), [Geyser NetherNet migration](https://geysermc.org/blog/preparing-for-nethernet/), [Geyser HTTPS for NetherNet](https://github.com/GeyserMC/GeyserWebsite/blob/master/wiki/geyser/nethernet-https.mdx).
+
+### MineHost host-agent and relay transport
+
+Proposed first implementation:
+- A Go Android ARM64 host agent maintains an outbound authenticated QUIC connection to a MineHost relay. This works through common CGNAT configurations because the phone initiates the connection; it still needs real carrier testing.
+- Java TCP and Bedrock signaling TCP use QUIC bidirectional streams.
+- Bedrock gameplay UDP uses QUIC DATAGRAM frames. The host agent maps each player/session to a distinct local UDP socket so the local NetherNet endpoint can maintain per-peer flows.
+- The relay forwards packets only; it never simulates Minecraft or stores worlds.
+- Use TLS 1.3/QUIC authentication, short-lived scoped host credentials, bounded buffers, datagram size limits/fragmentation, rate limits and per-session bandwidth accounting. Do not implement custom cryptography.
+- `quic-go` v0.65.0 (Go 1.26.0) is a candidate library. Android cross-compilation, NAT behaviour, MTU and performance must be proven before adoption.
+- The separate `pm-nethernet` helper is the engine's WebRTC transport; it is not the MineHost relay agent.
+
+### Regional routing
+
+Start with one self-operated relay and measure it. Later, a host may maintain tunnels to multiple MineHost regions:
+- Bedrock engines that support multiple advertised addresses can publish several relay candidates and let ICE select a working path.
+- Java TCP needs a regional entrypoint or GeoDNS selection; DNS location is only a heuristic.
+- Reserve a consistent public port per server across the relays that advertise it, or explicitly rewrite/advertise each candidate port. Never assume port equality without checking the SDP.
+- Add regions only when measurements show a better end-to-end route and the relay cost is sustainable.
+
+### HTTPS, domain and independence boundary
+
+iOS NetherNet signaling requires HTTPS with a trusted certificate and a domain name. MineHost can terminate HTTPS at its own relay and forward plain HTTP over the authenticated host tunnel. Certificate issuance still relies on a public certificate authority (for example, Let's Encrypt), and a domain requires a registrar; these are unavoidable public-internet trust dependencies, not managed Minecraft tunnel services. Do not distribute a wildcard private key to every host. Prefer per-host certificates or terminate TLS centrally at MineHost relays.
+
+### Failure behaviour
+
+- If the MineHost control plane is down, local server and LAN play continue.
+- If a relay tunnel drops, the host agent reconnects; existing player sessions may need to reconnect.
+- If all relays are down, a reachable direct path may still work; otherwise remote play is unavailable but the local server remains running.
+- If UDP is blocked, Bedrock relay service may be unavailable or degraded. Do not silently tunnel latency-sensitive UDP over TCP and claim equivalent performance.

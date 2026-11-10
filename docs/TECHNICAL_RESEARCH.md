@@ -9,7 +9,7 @@ MineHost's product model is feasible in principle: run the actual game server on
 
 The most important new finding is that the Bedrock networking model changed in late October 2026. Bedrock 26.60 clients use NetherNet rather than RakNet. NetherNet is WebRTC data-channel transport with HTTP signaling and ICE. A generic UDP tunnel or RakNet ping is not sufficient for current Bedrock compatibility.
 
-The original PocketMine-MP project and its PHP-Binaries repository are archived. VanillaMine is a continuation and supports Bedrock 1.26.60, but its current published PHP binaries are listed for x86-64 Linux and Windows x64, not ARM. Altay is another current Bedrock candidate; its published release page advertises 1.26.60, but ARM64 Android runtime and NetherNet compatibility still need verification.
+The original PocketMine-MP project and its PHP-Binaries repository are archived. VanillaMine is the strongest current Bedrock candidate to investigate (5.48.4 / Bedrock 1.26.60) and uses a Go `pm-nethernet` helper, but its own published PHP builds are x86-64 only. New research found Android-targeted ARM64 PHP 8.4 builds in Altay's PHP-Binaries releases; the inspected build scripts use an older `chunkutils2` 0.3.5, while current VanillaMine requires 0.3.15. That runtime is therefore a feasibility lead, not a production-ready drop-in for VanillaMine. Altay also has a pure-PHP NetherNet implementation, but its networking package is GPL-3.0 and needs a separate licence/performance review.
 
 **Recommendation:** Do not select or advertise a Bedrock engine yet. Run a focused runtime + NetherNet proof-of-concept before changing the engine downloader. For Java, investigate a mobile OpenJDK 17/21 distribution, but prove it can run headless Paper/Allay as a server process rather than assuming a Minecraft client runtime is automatically suitable.
 
@@ -227,3 +227,44 @@ Relays incur bandwidth and egress costs. The free product should maximize direct
 | Paper | Java candidate; Android JVM not verified |
 | Geyser/Floodgate | Cross-play candidate; underlying runtime/transport must pass |
 | PRoot | Optional fallback, not default performance path |
+
+
+## 10. New Android runtime and relay findings (2026-11-10)
+
+These findings narrow the proof-of-concept path. They do **not** establish Android device compatibility.
+
+### Android PHP runtime
+
+- The public `altayofficial/PHP-Binaries` project publishes an Android ARM64 PM5 PHP 8.4 archive (`PHP-8.4-Android-arm64-PM5.tar.gz`) and an older PHP 8.2 archive.
+- Its Android build path targets ARM64 and uses a static musl build with PMMP extensions including threading, LevelDB, chunk utilities, GMP, OpenSSL and sockets. A static musl binary may run on the Android Linux kernel, but MineHost must verify the exact ELF, executable placement and process launch on real Android versions.
+- The inspected PHP 8.4 build script pins `chunkutils2` 0.3.5. VanillaMine 5.48.4 documents `chunkutils2` 0.3.15. Do not label this binary performance-complete for VanillaMine. Build a MineHost-controlled, reproducible Android ARM64 PHP 8.4 runtime with the exact current extension versions, or verify a maintained upstream build that matches them.
+- The Altay PHP binary is not the same thing as the Altay server engine. Treat runtime, engine PHAR, extensions and licences as separate pinned artifacts.
+
+Sources: [Altay PHP-Binaries](https://github.com/altayofficial/PHP-Binaries), [VanillaMine](https://vanillamine.com/), [VanillaMine install requirements](https://docs.vanillamine.com/server/install).
+
+### NetherNet helper and engine configuration
+
+- VanillaMine's `pm-nethernet` helper is a Go program. The published helper source is MIT-licensed and its module requires Go 1.26.0. Its published build script does not provide an Android release, but a `GOOS=android GOARCH=arm64 CGO_ENABLED=0` cross-build is a concrete experiment to run.
+- VanillaMine exposes configuration for the helper binary path, advertised addresses, UDP port, signaling port, ICE servers, relay-only mode and TLS certificate/key paths. This is useful for a MineHost-owned relay because the signaling TCP port and gameplay UDP port can be mapped independently.
+- Altay's `altayofficial/network` package implements NetherNet signaling/transport in PHP and exposes advertised-address configuration, but the package declares GPL-3.0-or-later. Keep it as a secondary candidate until licence obligations and performance are understood.
+- `quic-go` v0.65.0 requires Go 1.26.0 and is a candidate for a MineHost-owned host-agent/relay transport: QUIC streams for TCP and QUIC DATAGRAM for UDP. Android cross-compilation and real-network performance remain unverified.
+
+Sources: [pm-nethernet Go package](https://pkg.go.dev/gitlab.com/VanillaPocketMine/nethernet), [pm-nethernet source](https://gitlab.com/VanillaPocketMine/nethernet), [Altay network source](https://github.com/altayofficial/network), [quic-go](https://github.com/quic-go/quic-go).
+
+### Current Geyser cross-play transport
+
+- Current Geyser builds support NetherNet; Geyser's setup guide requires `bedrock.transport: nethernet` for Bedrock 26.50+ and says the Bedrock port uses both TCP and UDP and must not collide with the Java server port.
+- Geyser's HTTPS guide documents a reverse-proxy arrangement: public TCP signaling can be terminated at a trusted HTTPS proxy and forwarded to Geyser's internal signaling port, while UDP gameplay is forwarded to the WebRTC port. Geyser must trust the proxy and receive the player's address through `X-Forwarded-For`.
+- For MineHost, this means a cross-play server needs two public endpoints: Java TCP, and a Bedrock TCP+UDP endpoint. The Bedrock public port can map TCP to a separate local signaling port and UDP to the local WebRTC port. This must be verified against the exact Geyser build and client versions.
+
+Sources: [Geyser setup](https://geysermc.org/wiki/geyser/setup/), [Geyser NetherNet migration](https://geysermc.org/blog/preparing-for-nethernet/), [Geyser HTTPS for NetherNet](https://github.com/GeyserMC/GeyserWebsite/blob/master/wiki/geyser/nethernet-https.mdx).
+
+### Java runtime candidate
+
+A practical initial Java stack to test is Paper 1.21.11 on Java 21, with ViaVersion 5.12.0 to accept newer Java 26.3 clients and current Geyser for Bedrock 26.60. Amethyst-Android / its OpenJDK 21 ARM64 runtime is a candidate source, not proof of headless Paper compatibility. Test the exact JRE launcher, native library layout, process execution, memory and thermal behaviour before selecting it.
+
+Sources: [PaperMC](https://papermc.io/), [ViaVersion](https://github.com/ViaVersion/ViaVersion), [Amethyst-Android](https://github.com/AngelAuraMC/Amethyst-Android), [Amethyst OpenJDK builds](https://github.com/AngelAuraMC/android-openjdk-build-multiarch).
+
+### Decision
+
+Keep VanillaMine as the leading Bedrock proof-of-concept candidate, Altay as a secondary candidate, and Paper/Geyser as the Java/cross-play candidate. Do not mark any as selected or supported until the Android ARM64 runtime, helper, local join, public relay and sustained-load tests pass on a physical device.
