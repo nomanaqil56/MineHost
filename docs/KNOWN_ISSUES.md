@@ -44,7 +44,7 @@ No real remote or international Minecraft client session is recorded. A hostname
 ## Lifecycle and reliability risks
 
 ### 8. Server lifecycle serialization is newly changed
-Start and stop operations are now serialized using a mutex, and missing/dead process handles are treated as errors/recovered state. This source change has not yet passed Android CI or physical-device testing.
+Start and stop operations are serialized using a mutex, and missing/dead process handles are treated as errors/recovered state. The lifecycle code passed the API 36 CI baseline (run 42754538024); the latest shutdown-reporting and diagnostics changes are pending CI. Physical-device behaviour remains unverified.
 
 ### 9. Process and service lifecycle
 Foreground service, wake lock, thermal monitoring and stale-state reconciliation exist in source but are not physical-device verified. OEM process killers and memory pressure can still terminate hosting.
@@ -61,7 +61,7 @@ Review the storage of agent secrets and any future MineHost relay credentials. U
 ## Release and repository hygiene
 
 ### 17. Android 16 target API migration
-The previous baseline targeted API 34, which is not sufficient for new Google Play app submissions or updates after 2026-08-31. The production-readiness branch now targets API 36 and upgrades AGP/Gradle/Kotlin; the migration still needs a passing CI run and Android 16 device testing.
+The previous baseline targeted API 34. The production-readiness branch now targets API 36 and upgrades AGP/Gradle/Kotlin; this migration passed the API 36 CI baseline (run 42754538024), but Android 16 physical-device and Play policy testing remain outstanding.
 
 ### 18. Special-use foreground service review
 The app uses specialUse for user-initiated persistent Minecraft server hosting. Google Play reviews the manifest subtype and requires an accurate declaration and supporting evidence. Approval is not guaranteed; prepare the Play Console declaration and demo video.
@@ -70,7 +70,7 @@ The app uses specialUse for user-initiated persistent Minecraft server hosting. 
 The inspected root tree did not contain a `LICENSE` file, although an earlier README claimed Apache-2.0. The owner must confirm the intended project licence and add the correct licence text before public distribution. Do not infer a licence from dependencies.
 
 ### 20. CI and build verification
-An Android CI workflow has been added at `.github/workflows/android-ci.yml`. Its first run is pending. Until it passes, the current source changes remain uncompiled by CI.
+An Android CI workflow is active at `.github/workflows/android-ci.yml`. API 36 unit tests, lint and debug APK assembly passed in run 42754538024. Newer changes must continue to pass CI before merge.
 
 ### 21. Release signing
 The Gradle release configuration no longer falls back to the debug key. A release build remains unsigned unless a valid owner-controlled production keystore is supplied. Keep the keystore and passwords outside Git.
