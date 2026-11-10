@@ -1,81 +1,87 @@
 # MineHost — Server Engine Evaluation & Compatibility
 
-> **Status: candidates under evaluation, not a list of production-supported engines.** No engine is considered supported until its exact version and runtime pass the physical-device and real-client acceptance gates in [MINEHOST_MASTER_ROADMAP.md](MINEHOST_MASTER_ROADMAP.md).
+> **Status: candidates under evaluation; no engine is production-supported until it passes the physical-device and real-client gates.** See [MINEHOST_MASTER_ROADMAP.md](MINEHOST_MASTER_ROADMAP.md).
 
-## 1. Engine architecture
+## 1. Bedrock: Axolotl-PM is the primary candidate
 
-Each server engine must be isolated behind the `ServerEngine` interface and provide:
-- version and capability metadata;
-- verified installation and runtime checks;
-- configuration generation with validated inputs;
-- real process launch and log capture;
-- protocol-aware readiness detection;
-- graceful stop and bounded force-stop;
-- command delivery with truthful success/failure;
-- explicit supported Minecraft client/protocol range.
+### Why Axolotl-PM instead of the original PMMP?
+The original `pmmp/PocketMine-MP` project announced end of support and was archived in July 2026. Its final release is not the right long-term dependency for a product that promises current Bedrock compatibility.
 
-An engine being listed in this document does not mean its runtime is available in the APK or can execute on Android.
+[Axolotl-PM](https://github.com/axolotl-pm/PocketMine-MP) is the maintained continuation/fork. Its current 5.51.1 release (2026-11-02) targets Bedrock 1.26.60 / v26.60. Axolotl-PM supports NetherNet, the WebRTC-based transport required by current Bedrock clients; RakNet is deprecated and removed for 1.26.60.
 
-## 2. Bedrock candidates
+### Runtime requirements
+Axolotl-PM requires PHP 8.1+ (64-bit) and several extensions. Current NetherNet specifically requires `axolotl-pm/ext-webrtc`, which uses libdatachannel.
 
-### PocketMine-MP
-- Language/runtime: PHP CLI plus PocketMine-MP PHAR and native extensions.
-- Why evaluate it: relatively lightweight, extensible, established plugin ecosystem.
-- Important limitations: it is not a drop-in vanilla Bedrock Dedicated Server replacement; gameplay parity, entity AI, redstone, dimensions, and plugin requirements must be described honestly.
-- Android runtime candidate: a build-time script now prepares the official PMMP PHP-Binaries Android ARM64 static PHP 8.4 asset and packages it as `jniLibs/arm64-v8a/libphp.so`. It is not yet device-validated. Verify required extensions, process launch, Android packaging, upstream archive maintenance, and all bundled dependency licences before release.
-- Protocol blocker: validate the selected PocketMine release against the current Bedrock client transport. Do not assume legacy RakNet support is sufficient for all current clients.
+The maintained [Axolotl-PM PHP-Binaries](https://github.com/axolotl-pm/PHP-Binaries) project publishes Android ARM64 PHP builds. Its PHP 8.4 build workflow includes the `ext-webrtc` extension and an Android static-link check. MineHost's build script now pins the Android ARM64 PHP 8.4 asset by SHA-256 and packages the static executable as `jniLibs/arm64-v8a/libphp.so`.
+
+**Not yet verified:** the APK has not yet been confirmed to run this executable on a physical Android device; the PHP module check, PocketMine PHAR launch, NetherNet signalling, UDP ICE channel, and real client join still need device testing. Full dependency licence review is also required before release.
+
+### NetherNet configuration
+MineHost generates:
+- `transport.name: nethernet`
+- persistent `nethernet.key`
+- a fixed UDP `port-range` sized from the configured player limit
+- built-in HTTP signalling on `server-port`
+- `ice-udp-mux: false` because Axolotl-PM documents that UDP mux cannot be used with TURN
+
+NetherNet uses TCP HTTP(S) signalling (`GET /v1/join`, `POST /v1/join/{networkId}`) and UDP WebRTC gameplay (ICE/DTLS/SCTP). A successful `GET /v1/join` probe only proves signalling readiness; it does not prove the UDP gameplay path is reachable. A real client join is mandatory.
+
+For public hosting, MineHost must terminate HTTPS at its own edge/reverse proxy and forward signalling through the phone's outbound tunnel. MineHost-operated TURN provides relay fallback when direct ICE connectivity fails. Direct ICE paths should be preferred when they work.
+
+### Important compatibility note
+Axolotl-PM is not a vanilla Bedrock server replacement. It has known gameplay-parity differences (for example, some vanilla world-generation, redstone, and mob-AI behaviour). The app and store listing must describe this honestly. If MineHost later needs a vanilla-like Bedrock experience, evaluate an additional server engine rather than claiming Axolotl-PM provides parity.
+
+## 2. Other Bedrock candidates
 
 ### PowerNukkitX
-- Language/runtime: Java server implementation requiring a compatible JVM.
-- Why evaluate it: potentially different gameplay and plugin capabilities from PocketMine.
-- Android blocker: no validated Android-compatible Java VM is currently present. Memory, CPU, battery and thermal costs must be measured on real phones.
-- Do not publish estimated RAM or player-capacity claims until benchmarked on representative hardware.
+- Java-based Bedrock server implementation.
+- Potential alternative if its feature set or gameplay parity better matches a target use case.
+- Requires a compatible JVM on Android ARM64, which is not yet validated.
+- Must be tested for current NetherNet transport support before being considered.
 
 ### Official Bedrock Dedicated Server
-- Official distributions and supported architectures must be checked against Mojang's current release documentation.
-- Do not assume an official ARM64 Android binary exists.
-- x86 emulation is not an acceptable primary path for a performance-first Android host unless rigorous testing proves otherwise.
+- Check Mojang's current release artifacts and supported architectures.
+- Do not assume an official ARM64 Android build exists.
+- x86 emulation is not an acceptable primary path for a performance-first phone host unless measured evidence justifies it.
 
-## 3. Java candidate
+## 3. Java: Paper
 
-### Paper
-- Language/runtime: desktop Java server JAR requiring a full compatible JVM, not Android ART.
-- Why evaluate it: mature server ecosystem and performance-oriented configuration.
-- Android blocker: MineHost currently has no validated Java VM distribution that runs Paper on supported Android devices. A JAR file alone is not an executable runtime.
-- Requirements: test Java version compatibility, native libraries, libc/Bionic compatibility, memory mapping, JIT behaviour, file access, signal handling, and sustained thermal performance.
-- EULA: never accept the Minecraft EULA on behalf of the user. Obtain explicit consent, store it accurately, and provide the official EULA link.
-
-Potential future alternatives include Purpur, Fabric, or Vanilla, but they should not be added until Paper is proven and the additional compatibility burden is justified.
+- Paper is the initial Java server candidate.
+- It requires a full compatible JVM; Android ART does not execute desktop Java server JARs.
+- MineHost currently has no validated Android JVM distribution or install path.
+- Feasibility checks include Bionic/dynamic-linker compatibility, native libraries, Java version, JIT, memory, filesystem, process signals, and sustained thermal performance.
+- Pin server/JVM versions; do not follow a moving "latest" release without compatibility testing.
+- Obtain explicit user EULA consent; never accept on behalf of the user.
 
 ## 4. Cross-play: Geyser and Floodgate
 
-Geyser translates compatible Bedrock client traffic to a Java server. Floodgate can support Bedrock identity/authentication workflows with Geyser. They are not independent game-server engines.
+Geyser translates Bedrock client traffic to a Java server. Floodgate supports a Bedrock identity/authentication workflow with Geyser where appropriate. They are not independent server engines.
 
 Target composition:
-- Paper runs locally on the Android host.
-- Geyser runs as a plugin or supported standalone bridge connected to Paper.
-- Floodgate is added only for the chosen authentication mode and configured securely.
-- The Bedrock-facing transport must match the current supported Geyser/client versions.
+- Paper runs locally on Android.
+- Geyser runs as a plugin or supported bridge connected to Paper.
+- Geyser's Bedrock transport must be configured for NetherNet on current Bedrock clients (the current Geyser documentation describes NetherNet support for 26.50+).
+- Floodgate is added only for the selected authentication mode and secured properly.
 
-This entire composition is blocked until the Java runtime and Paper server work on-device. Do not display cross-play as available before real Bedrock and Java clients have joined the same phone-hosted world.
+This is blocked until the Android JVM and Paper work on-device. Cross-play is not supported until real Java and Bedrock clients join the same phone-hosted world.
 
-## 5. Runtime and packaging constraints
+## 5. Runtime and packaging policy
 
-- Android ART executes Android DEX; it does not directly run desktop Java server JARs.
-- A PHP/Java runtime must be built for and validated on the target Android ABI and OS environment.
-- Do not assume downloaded executables in app-private writable storage can be executed on modern Android.
-- Native libraries packaged in `jniLibs` have Android packaging and dynamic-linker constraints; a shared object is not automatically a standalone executable.
-- PRoot/rootfs approaches introduce compatibility, storage, performance, security, and maintenance costs. Use only if validated and necessary.
-- Every binary/runtime must have a pinned version, source, licence, ABI, dependencies, integrity verification method, and uninstall/update procedure.
+- Android ART is not a desktop OpenJDK runtime.
+- PHP/Java runtimes must target the Android ABI and compatible userspace/dynamic linker.
+- Do not assume a downloaded ELF in app-writable storage can execute on modern Android.
+- MineHost's PHP bootstrap packages the Android static executable via `jniLibs`; the app verifies it can run and checks for the `webrtc` PHP module before starting Axolotl-PM.
+- Pin every runtime and engine version, source, ABI, licence, dependency set, and trusted digest/signature.
+- Review all bundled PHP and native dependency licences before public distribution.
 
 ## 6. Engine support policy
 
 A server engine may be labelled:
 - **Candidate:** under research only.
-- **Implemented:** integration code exists, but no complete runtime/client proof.
+- **Implemented:** integration code exists, but runtime/client proof is incomplete.
 - **Device-verified:** launches and answers protocol probes on listed physical devices.
-- **Client-verified:** real Minecraft clients join and play on a local network.
-- **Externally verified:** real clients join over the public internet through MineHost connectivity.
-- **Supported:** the above tests pass for a documented version/device matrix and have a maintained update path.
+- **Client-verified:** real Minecraft clients join and play on LAN.
+- **Externally verified:** real clients join over public internet through MineHost connectivity.
+- **Supported:** tests pass for a documented version/device matrix with a maintained update path.
 
 Never label a candidate or code-only integration as supported.
