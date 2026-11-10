@@ -38,7 +38,7 @@ MineHost can own its application, protocol adapters, coordinator, relay software
 The repository already contains a Kotlin/Jetpack Compose Android application, Room/Hilt layers, server abstractions, Bedrock and Java engine classes, a tunnel-provider abstraction with a Playit implementation, world backup utilities, diagnostics, foreground-service code, and unit-test sources.
 
 The latest documented source audit identifies major unresolved execution and verification blockers. In particular:
-- No validated Android-compatible PHP runtime is present for PocketMine.
+- A checksum-pinned Android ARM64 PHP runtime preparation script now targets the official PMMP PHP-Binaries release and packages its static executable into `jniLibs`; it has not yet been built into an APK or run on a physical device, and its full dependency/licence review is pending.
 - No validated desktop-compatible Java VM for Android is present for Paper/Geyser.
 - Downloaded executable files in app-writable storage are not a safe assumed execution path on modern Android; Android's executable mapping and packaging restrictions need a proven design.
 - The Playit integration is a third-party managed service and is not the target final architecture. Its agent download/execution path is not proven on Android.
@@ -208,7 +208,9 @@ Do not combine Wi-Fi and cellular bandwidth by default. Multipath bonding adds c
 
 ### Phase 1 — One real Bedrock server on Android
 - [ ] Select a maintained Bedrock engine after current protocol/maintenance review.
-- [ ] Resolve Android ARM64 runtime and executable packaging legally and technically.
+- [ ] Validate the checksum-pinned Android ARM64 PHP runtime bootstrap in CI and inspect the packaged APK.
+- [ ] Complete PHP/runtime dependency and licence review before release.
+- [ ] Prove the packaged PHP executable launches on physical Android ARM64 devices.
 - [ ] Pin engine/runtime versions and trusted hashes.
 - [ ] Install, launch, protocol-probe, stop, restart on a physical ARM64 phone.
 - [ ] Join from a real Bedrock client over the same Wi-Fi.
