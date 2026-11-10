@@ -95,6 +95,22 @@ class BedrockEngine @Inject constructor(
         }
         AppLogger.i("BedrockEngine", "Validated PHP runtime: ${runtimeOutput.lineSequence().firstOrNull().orEmpty()}")
 
+        // Axolotl-PM's NetherNet transport requires axolotl-pm/ext-webrtc. Fail closed
+        // instead of silently starting a RakNet-only server that current clients cannot join.
+        val moduleProbe = runtimeManager.verifyExecutable(phpBinary, "-m")
+        val modules = moduleProbe.getOrElse { error ->
+            val errorMsg = "Could not inspect PHP runtime extensions: ${error.message}"
+            AppLogger.e("BedrockEngine", errorMsg, error)
+            listener.onError(errorMsg)
+            return Result.failure(error)
+        }
+        if (!modules.contains("webrtc", ignoreCase = true)) {
+            val errorMsg = "The packaged PHP runtime is missing ext-webrtc. NetherNet is required for current Bedrock clients."
+            AppLogger.e("BedrockEngine", errorMsg)
+            listener.onError(errorMsg)
+            return Result.failure(IllegalStateException(errorMsg))
+        }
+
         val command = listOf(
             phpBinary.absolutePath,
             phar.absolutePath,
