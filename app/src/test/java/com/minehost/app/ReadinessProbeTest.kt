@@ -191,7 +191,7 @@ class ReadinessProbeTest {
                 } catch (_: Exception) {
                 }
             }
-            assertTrue(ReadinessProbe.probeNetherNet("127.0.0.1", server.localPort, timeoutMs = 2000))
+            assertTrue(ReadinessProbe.probeBedrock("127.0.0.1", server.localPort, timeoutMs = 2000))
             responder.join(2000)
         }
 
