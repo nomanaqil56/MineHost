@@ -404,21 +404,26 @@ class RuntimeManager @Inject constructor(
      * A successful process start with a non-zero exit code is not considered healthy.
      */
     fun verifyExecutable(binary: File, vararg args: String, timeoutSeconds: Long = 10): Result<String> {
+        // Drain output to a file while the child is running. Waiting before reading a pipe can
+        // deadlock if a future smoke command emits more than the OS pipe buffer.
+        val outputFile = File(context.cacheDir, "runtime-check-${System.nanoTime()}.log")
+        var process: Process? = null
         return try {
-            val process = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
+            process = ProcessBuilder(listOf(binary.absolutePath) + args.toList())
                 .redirectErrorStream(true)
+                .redirectOutput(outputFile)
                 .start()
             if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
                 process.destroyForcibly()
+                if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                    return Result.failure(IOException("${binary.name} timed out and could not be terminated."))
+                }
                 Result.failure(IOException("${binary.name} started but did not exit within ${timeoutSeconds}s."))
             } else {
-                val output = process.inputStream.bufferedReader().readText().take(300)
+                val output = outputFile.takeIf { it.isFile }?.readText()?.take(300).orEmpty()
                 val exitCode = process.exitValue()
-                if (exitCode == 0) {
-                    Result.success(output)
-                } else {
-                    Result.failure(IOException("${binary.name} exited with code $exitCode: $output"))
-                }
+                if (exitCode == 0) Result.success(output)
+                else Result.failure(IOException("${binary.name} exited with code $exitCode: $output"))
             }
         } catch (e: IOException) {
             val msg = e.message.orEmpty()
@@ -435,6 +440,13 @@ class RuntimeManager @Inject constructor(
             Result.failure(IOException(explanation, e))
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            // If an exceptional path occurs after start, do not leak a child process.
+            if (process?.isAlive == true) {
+                process.destroyForcibly()
+                runCatching { process.waitFor(2, TimeUnit.SECONDS) }
+            }
+            outputFile.delete()
         }
     }
 

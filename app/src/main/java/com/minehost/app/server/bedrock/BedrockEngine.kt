@@ -3,6 +3,7 @@ package com.minehost.app.server.bedrock
 import android.content.Context
 import com.minehost.app.core.common.MinecraftEdition
 import com.minehost.app.core.logging.AppLogger
+import com.minehost.app.server.BedrockRuntimeContract
 import com.minehost.app.server.ManagedServerProcess
 import com.minehost.app.server.ProcessListener
 import com.minehost.app.server.RuntimeManager

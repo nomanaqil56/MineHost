@@ -23,7 +23,7 @@ The original audit below identified several false-positive runtime checks. Follo
 - The Axolotl-PM PHAR downloader is pinned to release 5.51.1 and a hard-coded SHA-256; launch re-verifies the installed PHAR.
 - An Android CI workflow has been added for unit tests, lint and debug APK assembly.
 
-**Verification status (2026-11-10):** the pinned PHP archive checksum, AArch64 ELF shape, PHP 8.4.27 CLI, required modules and bundled configuration passed the QEMU ARM64 CI smoke test. The Android unit-test and lint steps passed, and Gradle successfully assembled the debug APK with the packaged runtime. The APK content assertion for `lib/arm64-v8a/libphp.so` and `assets/php/php.ini` passed in CI run `42764077291`. No physical Android process launch, Bedrock server start, or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
+**Verification status (2026-11-10, latest run `42764731958`):** the pinned PHP archive checksum, AArch64 ELF shape, PHP 8.4.27 CLI, required modules and bundled configuration passed in the earlier successful QEMU ARM64 CI run `42764077291`. The latest run exposed a Kotlin compile error: `BedrockEngine.kt` referenced `BedrockRuntimeContract` without importing it; lint and APK assembly were skipped. This is being corrected on `main` before rerunning CI. The earlier successful run `42764077291` did pass unit tests, lint, APK assembly and APK-content assertions, but predates the newest PHAR-contract changes. No physical Android process launch, Bedrock server start, or real Minecraft client join has been verified. MineHost remains **NOT PRODUCTION READY**.
 
 
 

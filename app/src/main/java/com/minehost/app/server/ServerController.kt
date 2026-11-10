@@ -230,13 +230,16 @@ class ServerController @Inject constructor(
         tunnelManager.stopTunnel()
         serverRepository.updatePublicEndpoint(serverId, null)
 
-        val stoppedCleanly = engine?.stop(handle, 15_000L) ?: true
-        if (stoppedCleanly) {
-            log(serverId, "[MineHost] Server process terminated gracefully.")
-        } else {
-            log(serverId, "[MineHost] Server process was forcibly stopped after timeout.")
+        val stopped = engine?.stop(handle, 15_000L) ?: true
+        if (!stopped || handle.isAlive) {
+            val message = "The server process is still alive after the shutdown timeout. MineHost has not marked it STOPPED; retry shutdown or force-close the app only as a last resort."
+            log(serverId, "[ERROR] $message")
+            _serverStatus.value = ServerStatus.ERROR
+            serverRepository.updateStatus(serverId, ServerStatus.ERROR)
+            return Resource.Error(message)
         }
 
+        log(serverId, "[MineHost] Server process has exited.")
         handleServerStopped(serverId, ServerStatus.STOPPED)
         return Resource.Success(Unit)
     }
@@ -275,17 +278,21 @@ class ServerController @Inject constructor(
         val flushCommand = if (edition == MinecraftEdition.JAVA) "save-all flush" else "save-all"
 
         if (!sendCommand("save-off")) {
-            log(serverId, "[MineHost] WARNING: could not pause world saving; the backup may capture a world that is mid-write.")
-            return block()
+            throw IllegalStateException("Could not send save-off to the running server; refusing to create an unsafe live-world backup.")
         }
-        sendCommand(flushCommand)
-        log(serverId, "[MineHost] World saving paused for backup; waiting ${SAVE_SETTLE_MS / 1000}s for the flush...")
-        delay(SAVE_SETTLE_MS)
         try {
+            if (!sendCommand(flushCommand)) {
+                throw IllegalStateException("Could not send $flushCommand to the running server; refusing to snapshot a world that may still be writing.")
+            }
+            log(serverId, "[MineHost] World saving pause and flush commands sent; waiting ${SAVE_SETTLE_MS / 1000}s (server acknowledgement is not available).")
+            delay(SAVE_SETTLE_MS)
             return block()
         } finally {
-            sendCommand("save-on")
-            log(serverId, "[MineHost] World saving resumed.")
+            if (!sendCommand("save-on")) {
+                log(serverId, "[ERROR] Could not send save-on after backup; world saving may remain paused until the server is restarted.")
+            } else {
+                log(serverId, "[MineHost] World saving resumed.")
+            }
         }
     }
 
