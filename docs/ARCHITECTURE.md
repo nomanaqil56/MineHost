@@ -57,7 +57,7 @@ No current engine is certified for production. See [Server Engine Status](SERVER
 - **Java:** TCP forwarding.
 - **Bedrock:** version-specific transport handling; validate required TCP/UDP behavior with real clients.
 
-Playit remains an experimental provider adapter only and is not the target production dependency. See [Networking](NETWORKING.md).
+Legacy Playit adapter source remains unbound and is not used by the app; the default provider reports public connectivity unavailable until MineHost operates its own network. See [Networking](NETWORKING.md).
 
 ## 6. Storage
 
