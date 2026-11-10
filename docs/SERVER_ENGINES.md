@@ -1,6 +1,8 @@
-# MineHost — Supported Server Engines & Compatibility
+# MineHost — Server Engines & Compatibility
 
-## 1. Supported Server Engines
+> **Status correction (2026-11-10):** No Minecraft server engine is yet proven to launch from MineHost on a physical Android device. The Bedrock implementation now targets Axolotl-PM, not the archived original PMMP upstream. The matching Android ARM64 PHP package is selected as a candidate but is not yet packaged or executable through MineHost. Paper/Java and Geyser/Floodgate remain blocked by the missing Android-compatible JVM. Treat all engine entries below as architecture/implementation targets, not verified supported runtimes. See [Decision 0001](decisions/0001-bedrock-engine-and-php-runtime.md).
+
+## 1. Engine Targets
 
 MineHost provides a modular server engine interface. Below is the detailed breakdown of supported engines, their installation requirements, runtime configurations, and known limitations.
 
@@ -8,23 +10,25 @@ MineHost provides a modular server engine interface. Below is the detailed break
 
 ## 2. Bedrock Edition Engines
 
-### 2.1 PocketMine-MP (v5.x)
-- **Engine ID:** `bedrock-pocketmine-v5`
-- **Architecture:** PHP 8.2+ (ZTS - Zend Thread Safety) compiled for `aarch64-linux-android`.
-- **Target Minecraft Client:** Bedrock 1.20.x - 1.21.x (updated via RakLib & protocol updates).
+### 2.1 Axolotl-PM (PocketMine-compatible fork, v5.x)
+- **Engine ID:** `bedrock-pocketmine-v5` (kept stable for existing MineHost server records)
+- **Architecture:** PHP 8.4 PM5 runtime candidate for Android ARM64; executable packaging and process launch are not yet verified.
+- **Selected baseline:** Axolotl-PM 5.51.1 for Bedrock 1.26.60; matching PHP asset: `PHP-8.4-Android-arm64-PM5.tar.gz`.
+- **Target Minecraft Client:** Bedrock 1.26.60 at the selected release baseline.
 - **Default Port:** `19132` (UDP RakNet).
 - **Binary Components:**
-  - `PocketMine-MP.phar`: Core server archive.
-  - Native PHP binary (`libphp.so` in `nativeLibraryDir`).
-  - `start.sh` or direct executable invocation via ProcessBuilder.
+  - Axolotl-PM `PocketMine-MP.phar`: Core server archive.
+  - Matching PHP 8.4 Android ARM64 runtime archive from Axolotl-PM PHP-Binaries.
+  - A proven Android-compatible executable launch path (still unresolved); a JNI shared object is not interchangeable with a PHP CLI executable.
 - **Resource Footprint:**
   - Idle RAM: ~180 MB.
   - Active (2-4 players): ~350 MB.
-- **Advantages:** Extremely low memory and CPU usage; instantaneous startup; low thermal impact on mobile devices.
+- **Advantages:** PocketMine's lightweight PHP architecture is a promising fit for mobile hosting. Actual MineHost performance and compatibility are not yet measured.
 - **Limitations:**
-  - Does not implement vanilla mob AI by default (requires plugins like PureEntitiesX).
-  - Nether/The End dimensions require plugins or custom world generators.
-  - Redstone mechanics are limited compared to Bedrock Dedicated Server.
+  - PocketMine-derived software is not a vanilla Bedrock server: mob AI, redstone and other vanilla behaviours differ and may require plugins.
+  - Plugin compatibility must be checked, especially plugins that use internal network APIs.
+  - Android runtime packaging, PHP extension loading and process execution are not yet proven.
+  - The original `pmmp/PocketMine-MP` upstream was archived in July 2026; Axolotl-PM is the selected maintained continuation.
 
 ### 2.2 PowerNukkitX (PNX)
 - **Engine ID:** `bedrock-powernukkitx`
