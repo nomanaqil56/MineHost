@@ -1,0 +1,189 @@
+11-11 13:47:40.470 I/adbd    (26451): adbd service requested 'shell,v2,raw:dumpsys package com.minehost.app.debug | grep -E 'versionName|versionCode''
+11-11 13:47:40.796 I/artd    (23899): GetBestInfo: odex next to the dex file (/data/app/~~2bK_Kc6PCtEXexcBZj8gYQ==/com.minehost.app.debug-ulcnJzi9XUyXrEC86C3nXA==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-11 13:47:40.796 I/artd    (23899): GetBestInfo: odex next to the dex file (/data/app/~~2bK_Kc6PCtEXexcBZj8gYQ==/com.minehost.app.debug-ulcnJzi9XUyXrEC86C3nXA==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-11 13:47:53.789 W/MediaProvider(18189): WorkProfileOwnerApps cache miss for package com.minehost.app.debug
+11-11 13:47:54.060 I/ProximityAuth(30731): [RecentAppsMediator] Package added: (user=UserHandle{0}) com.minehost.app.debug
+11-11 13:47:54.282 W/SQLiteLog(30731): (28) double-quoted string literal: "com.minehost.app.debug"
+11-11 13:48:02.884 I/adbd    (26451): adbd service requested 'shell,v2,raw:dumpsys package com.minehost.app.debug | grep -E 'versionName|versionCode''
+11-11 13:48:03.038 I/artd    (23899): GetBestInfo: /data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/base.apk has no usable artifacts
+11-11 13:48:18.803 I/adbd    (26451): adbd service requested 'shell,v2,raw:am start -n com.minehost.app.debug/com.minehost.app.MainActivity'
+11-11 13:48:19.153 I/ehost.app.debug( 8170): Late-enabling -Xcheck:jni
+11-11 13:48:19.166 I/artd    (23899): GetBestInfo: /data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/base.apk has no usable artifacts
+11-11 13:48:19.189 I/ehost.app.debug( 8170): Using generational CollectorTypeCC GC.
+11-11 13:48:19.192 I/adbd    (26451): jdwp connection from 8170
+11-11 13:48:19.211 E/ehost.app.debug( 8170): BBinder_init Processname  com.minehost.app.debug  
+11-11 13:48:19.211 E/ehost.app.debug( 8170): BBinder_init hasGetProcessName  com.minehost.app.debug
+11-11 13:48:19.430 I/ehost.app.debug( 8170): AssetManager2(0xb400007a57a94138) locale list changing from [] to [en-US]
+11-11 13:48:19.440 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.440 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.489 I/MineHost_MineHostApplication( 8170): MineHost Application initializing...
+11-11 13:48:19.499 E/ashmem  ( 8170): Pinning is deprecated since Android Q. Please use trim or other methods.
+11-11 13:48:19.554 I/DisplayManager( 8170): Choreographer implicitly registered for the refresh rate.
+11-11 13:48:19.555 I/GameManager( 8170): __progname=com.minehost.app.debug
+11-11 13:48:19.569 I/ehost.app.debug( 8170): AssetManager2(0xb400007a57a8e9b8) locale list changing from [] to [en-US]
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): QUALCOMM build                   : defc157649, I421d8b9656
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Build Date                       : 01/26/26
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): OpenGL ES Shader Compiler Version: E031.45.02.26
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Local Branch                     : 
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Remote Branch                    : refs/tags/AU_LINUX_ANDROID_LA.VENDOR.14.3.0.11.00.00.974.116
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Remote Branch                    : NONE
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Reconstruct Branch               : NOTHING
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Build Config                     : S P 16.1.2 AArch64
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Driver Path                      : /vendor/lib64/egl/libGLESv2_adreno.so
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Driver Version                   : 0762.41.1
+11-11 13:48:19.576 I/AdrenoGLES-0( 8170): Process Name                     : com.minehost.app.debug
+11-11 13:48:19.594 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.594 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.594 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.596 I/AdrenoGLES-0( 8170): PFP: 0x01310181, ME: 0x00000000
+11-11 13:48:19.602 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.605 I/AdrenoUtils( 8170): <ReadGpuID:357>: Reading chip ID through GSL
+11-11 13:48:19.616 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.617 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.682 W/libc    ( 8170): Access denied finding property "persist.vivo.ltw.enabled"
+11-11 13:48:19.797 W/ehost.app.debug( 8170): Method boolean androidx.compose.runtime.snapshots.SnapshotStateList.conditionalUpdate(boolean, kotlin.jvm.functions.Function1) failed lock verification and will run slower.
+11-11 13:48:19.797 W/ehost.app.debug( 8170): Common causes for lock verification issues are non-optimized dex code
+11-11 13:48:19.797 W/ehost.app.debug( 8170): and incorrect proguard optimizations.
+11-11 13:48:19.797 W/ehost.app.debug( 8170): Method boolean androidx.compose.runtime.snapshots.SnapshotStateList.conditionalUpdate$default(androidx.compose.runtime.snapshots.SnapshotStateList, boolean, kotlin.jvm.functions.Function1, int, java.lang.Object) failed lock verification and will run slower.
+11-11 13:48:19.797 W/ehost.app.debug( 8170): Method java.lang.Object androidx.compose.runtime.snapshots.SnapshotStateList.mutate(kotlin.jvm.functions.Function1) failed lock verification and will run slower.
+11-11 13:48:19.798 W/ehost.app.debug( 8170): Method void androidx.compose.runtime.snapshots.SnapshotStateList.update(boolean, kotlin.jvm.functions.Function1) failed lock verification and will run slower.
+11-11 13:48:19.798 W/ehost.app.debug( 8170): Method void androidx.compose.runtime.snapshots.SnapshotStateList.update$default(androidx.compose.runtime.snapshots.SnapshotStateList, boolean, kotlin.jvm.functions.Function1, int, java.lang.Object) failed lock verification and will run slower.
+11-11 13:48:19.936 W/BLASTBufferQueue( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.936 I/BLASTBufferQueue( 8170): QoSAllocBuff Successful. Ret 0 
+11-11 13:48:19.941 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.943 W/VSPA    ( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:48:19.972 E/MEMCWrapper( 8170): MEMC_POST_PROCESSING_ENABLE_PROPERTY false.
+11-11 13:48:19.974 I/Choreographer( 8170): Skipped 30 frames!  The application may be doing too much work on its main thread.
+11-11 13:48:19.987 I/ActivityTaskManager( 3133): Displayed com.minehost.app.debug/com.minehost.app.MainActivity for user 0: +943ms
+11-11 13:48:20.073 I/ImeTracker( 8170): com.minehost.app.debug:e28804e7: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+11-11 13:48:20.104 I/GoogleInputMethodService(24382): GoogleInputMethodService.onStartInput():1552 onStartInput(EditorInfo{EditorInfo{packageName=com.minehost.app.debug, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+11-11 13:48:20.418 I/ehost.app.debug( 8170): Compiler allocated 7271KB to compile void android.view.ViewRootImpl.performTraversals()
+11-11 13:48:21.187 I/adbd    (26451): adbd service requested 'shell,v2,raw:pidof com.minehost.app.debug'
+11-11 13:48:24.998 I/artd    (23899): GetBestInfo: /data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/base.apk has no usable artifacts
+11-11 13:48:25.050 I/artd    (23899): Running dex2oat: /apex/com.android.art/bin/art_exec --drop-capabilities --set-task-profile=Dex2OatBackground --set-priority=background --keep-fds=6:7:8:9:10:11:12:13:14:15:16:17:18:19:20:21:22:23:24:25:26:27:28:29:30:31:32:33:34:35:36 -- /apex/com.android.art/bin/dex2oat64 --zip-fd=6 --zip-location=/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/base.apk --oat-fd=7 --oat-location=/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/oat/arm64/base.odex --output-vdex-fd=8 --image-format=lz4 --swap-fd=9 --class-loader-context=PCL[] --classpath-dir=/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg== --runtime-arg -Xbootclasspath:/apex/com.android.art/javalib/core-oj.jar:/apex/com.android.art/javalib/core-libart.jar:/apex/com.android.art/javalib/okhttp.jar:/apex/com.android.art/javalib/bouncycastle.jar:/apex/com.android.art/javalib/apache-xml.jar:/system/framework/framework.jar:/system/framework/framework-graphics.jar:/system/framework/framework-location.jar:/system/framework/ext.jar:/system/framework/telephony-common.jar:/system/framework/voip-common.jar:/system/framework/ims-common.jar:/system/framework/framework-ondeviceintelligence-platform.jar:/system/framework/framework-nfc.jar:/system/framework/tcmiface.jar:/system/framework/telephony-ext.jar:/system/framework/qcom.fmradio.jar:/system/framework/QPerformance.jar:/system/framework/UxPerformance.jar:/system/framework/WfdCommon.jar:/system/framework/vivo-framework.jar:/system/framework/vivo-media.jar:/system/framework/framework-adapter.jar:/system/framework/soc-framework.jar:/system/framework/vivo-vgcclient.jar:/system/framework/vivo-coworkclient.jar:/apex/com.android.i18n/javalib/core-icu4j.jar:/apex/com.android.adservices/javalib/framework-adservices.jar:/apex/com.android.adservices/javalib/framework-sdksandbox.jar:/apex/com.android.appsearch/javalib/framework-appsearch.jar:/apex/com.android.bt/javalib/framework-bluetooth.jar:/apex/com.android.configinfrastructure/javalib/framework-configinfrastructure.jar:/apex/com.android.conscrypt/javalib/conscrypt.jar:/apex/com.android.crashrecovery/javalib/framework-crashrecovery.jar:/apex/com.android.devicelock/javalib/framework-devicelock.jar:/apex/com.android.healthfitness/javalib/framework-healthfitness.jar:/apex/com.android.ipsec/javalib/android.net.ipsec.ike.jar:/apex/com.android.media/javalib/updatable-media.jar:/apex/com.android.mediaprovider/javalib/framework-mediaprovider.jar:/apex/com.android.mediaprovider/javalib/framework-pdf.jar:/apex/com.android.mediaprovider/javalib/framework-pdf-v.jar:/apex/com.android.mediaprovider/javalib/framework-photopicker.jar:/apex/com.android.ondevicepersonalization/javalib/framework-ondevicepersonalization.jar:/apex/com.android.os.statsd/javalib/framework-statsd.jar:/apex/com.android.permission/javalib/framework-permission.jar:/apex/com.android.permission/javalib/framework-permission-s.jar:/apex/com.android.profiling/javalib/framework-profiling.jar:/apex/com.android.scheduling/javalib/framework-scheduling.jar:/apex/com.android.sdkext/javalib/framework-sdkextensions.jar:/apex/com.android.tethering/javalib/framework-connectivity.jar:/apex/com.android.tethering/javalib/framework-connectivity-b.jar:/apex/com.android.tethering/javalib/framework-connectivity-t.jar:/apex/com.android.tethering/javalib/framework-tethering.jar:/apex/com.android.uwb/javalib/framework-ranging.jar:/apex/com.android.uwb/javalib/framework-uwb.jar:/apex/com.android.virt/javalib/framework-virtualization.jar:/apex/com.android.wifi/javalib/framework-wifi.jar --runtime-arg -Xbootclasspathfds:-1:-1:-1:-1:-1:10:11:12:13:14:15:16:17:18:19:20:21:22:23:24:25:26:27:28:29:30:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1:-1 --boot-image=/data/misc/apexdata/com.android.art/dalvik-cache/boot.art!/apex/com.android.art/etc/boot-image.prof!/system/etc/boot-image.prof:/data/misc/apexdata/com.android.art/dalvik-cache/boot-framework-
+11-11 13:48:25.050 I/artd    (23899): Opened FDs: 6:/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/base.apk 7:/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/oat/arm64/base.odex.R6Z0Ir.tmp 8:/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/oat/arm64/base.vdex.iCjbBu.tmp 9:/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/oat/arm64/base.odex.swap.Ll0KcB.tmp 10:/system/framework/framework.jar 11:/system/framework/framework-graphics.jar 12:/system/framework/framework-location.jar 13:/system/framework/ext.jar 14:/system/framework/telephony-common.jar 15:/system/framework/voip-common.jar 16:/system/framework/ims-common.jar 17:/system/framework/framework-ondeviceintelligence-platform.jar 18:/system/framework/framework-nfc.jar 19:/system/framework/tcmiface.jar 20:/system/framework/telephony-ext.jar 21:/system/framework/qcom.fmradio.jar 22:/system/framework/QPerformance.jar 23:/system/framework/UxPerformance.jar 24:/system/framework/WfdCommon.jar 25:/system/framework/vivo-framework.jar 26:/system/framework/vivo-media.jar 27:/system/framework/framework-adapter.jar 28:/system/framework/soc-framework.jar 29:/system/framework/vivo-vgcclient.jar 30:/system/framework/vivo-coworkclient.jar 31:/data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.art 32:/data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat 33:/data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.vdex 34:/data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot-framework-adservices.art 35:/data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot-framework-adservices.oat 36:/data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot-framework-adservices.vdex 
+11-11 13:48:25.175 I/dex2oat64( 9505): /apex/com.android.art/bin/dex2oat64 --output-vdex-fd=8 --class-loader-context=PCL[] --classpath-dir=/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg== --compiler-filter=verify --compilation-reason=start-app --max-image-block-size=524288 --resolve-startup-const-strings=true --debuggable --generate-mini-debug-info --assume-value=Landroid/os/Build$VERSION;->SDK_INT:36 --no-allow-profile-code -j4 --comments=app-name:com.minehost.app.debug,app-version-name:1.0.1,app-version-code:1000001,art-version:372042720
+11-11 13:48:33.168 I/adbd    (26451): adbd service requested 'shell,v2,raw:pm path com.minehost.app.debug'
+11-11 13:48:33.284 I/adbd    (26451): adbd service requested 'shell,v2,raw:run-as com.minehost.app.debug /data/app/~~2bK_Kc6PCtEXexcBZj8gYQ==/com.minehost.app.debug-Z_t5B4sE6b7v631X86jP0g==/lib/arm64/libphp.so -n -v'
+11-11 13:48:46.011 I/adbd    (26451): adbd service requested 'shell,v2,raw:run-as com.minehost.app.debug /data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/lib/arm64/libphp.so -n -v'
+11-11 13:48:46.175 I/adbd    (26451): adbd service requested 'shell,v2,raw:run-as com.minehost.app.debug /data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/lib/arm64/libphp.so -n cache/test_exts.php'
+11-11 13:49:19.012 W/libc    ( 8170): Access denied finding property "ro.vendor.vivo.software.ai.llm.disable"
+11-11 13:49:19.101 W/WindowOnBackDispatcher( 8170): OnBackInvokedCallback is not enabled for the application.
+11-11 13:49:19.101 W/WindowOnBackDispatcher( 8170): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+11-11 13:49:21.290 I/MineHost_WakeLockManager( 8170): Partial WakeLock acquired
+11-11 13:49:21.304 I/MineHost_WakeLockManager( 8170): High-performance WiFi lock acquired
+11-11 13:49:21.368 I/MineHost_BedrockEngine( 8170): Bedrock server configured at: /data/user/0/com.minehost.app.debug/files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71
+11-11 13:49:21.598 I/MineHost_ManagedServerProcess( 8170): Launching process in /data/user/0/com.minehost.app.debug/files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71: /data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/lib/arm64/libphp.so -n /data/user/0/com.minehost.app.debug/files/minehost/engines/bedrock/PocketMine-MP.phar --no-wizard --enable-ansi=false --data=/data/user/0/com.minehost.app.debug/files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71
+11-11 13:49:21.630 I/MineHost_ServerForegroundService( 8170): Server Foreground Service created, establishing foreground immediately
+11-11 13:49:24.155 I/MineHost_ManagedServerProcess( 8170): Server answered Bedrock (NetherNet HTTP signaling, RakNet fallback) probe on port 19132
+11-11 13:50:55.603 I/ImeTracker( 8170): com.minehost.app.debug:ba64782d: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+11-11 13:50:55.615 I/GoogleInputMethodService(24382): GoogleInputMethodService.onStartInput():1552 onStartInput(EditorInfo{EditorInfo{packageName=com.minehost.app.debug, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+11-11 13:51:59.626 I/adbd    (26451): adbd service requested 'shell,v2,raw:run-as com.minehost.app.debug ls -lt files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71/backups/'
+11-11 13:52:01.637 I/MineHost_WorldBackupManager( 8170): Creating backup to: /data/user/0/com.minehost.app.debug/files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71/backups/backup_59d2b248_20261111_135201_b5b49f50.zip
+11-11 13:52:01.711 I/MineHost_WorldBackupManager( 8170): Backup created successfully: backup_59d2b248_20261111_135201_b5b49f50
+11-11 13:53:21.239 I/adbd    (26451): adbd service requested 'shell,v2,raw:run-as com.minehost.app.debug ls -lt files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71/backups/'
+11-11 13:53:37.053 I/MineHost_ManagedServerProcess( 8170): Initiating graceful shutdown (sending stop)...
+11-11 13:53:42.488 I/MineHost_ManagedServerProcess( 8170): Process terminated with exit code 0
+11-11 13:53:42.489 I/MineHost_ServerController( 8170): Server process exited with code: 0
+11-11 13:53:42.493 I/MineHost_WakeLockManager( 8170): WakeLock released
+11-11 13:53:42.497 I/MineHost_WakeLockManager( 8170): WiFi lock released
+11-11 13:53:42.543 I/MineHost_ServerForegroundService( 8170): Server Foreground Service destroyed
+11-11 13:53:42.631 I/ehost.app.debug( 8170): Compiler allocated 7848KB to compile void com.minehost.app.features.servers.ServerDetailScreenKt$ConnectionCard$1.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int)
+11-11 13:55:41.222 D/VRI[MainActivity,type=1]( 8170): visibilityChanged oldVisibility=true newVisibility=false
+11-11 13:55:41.282 V/InputMethod(24382): unbindInput(): binding=InputBinding{android.os.BinderProxy@2336bfd / uid 10335 / pid 8170} ic=RemoteInputConnection{idHash=#d7a40f2}
+11-11 13:55:41.333 E/qdgralloc( 8170): BufferManager::ReleaseBuffer ref_count = 1
+11-11 13:55:41.334 E/qdgralloc( 8170): BufferManager::ReleaseBuffer ref_count = 1
+11-11 13:55:41.335 I/HWUI    ( 8170): [destroy] CanvasContext will be destroyed.
+11-11 13:55:41.368 D/ViewRootImpl( 8170): AppSizeAfterRelayout, size: Point(1260, 2800), rotation: ROTATION_0
+11-11 13:55:41.371 E/qdgralloc( 8170): BufferManager::ReleaseBuffer ref_count = 1
+11-11 13:55:41.371 E/qdgralloc( 8170): BufferManager::ReleaseBuffer ref_count = 1
+11-11 13:55:41.386 I/HWUI    ( 8170): [setStopped] CanvasContext will be destroyed.
+11-11 13:55:43.026 I/premium:message(18170): Using generational CollectorTypeCC GC.
+11-11 13:55:43.031 D/nativeloader(18170): Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+11-11 13:55:43.032 E/premium:message(18170): BBinder_init Processname  com.snaptube.premium:message  
+11-11 13:55:43.032 E/premium:message(18170): BBinder_init hasGetProcessName  com.snaptube.premium:message
+11-11 13:55:43.050 D/ApplicationLoaders(18170): Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+11-11 13:55:43.050 D/ApplicationLoaders(18170): Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+11-11 13:55:43.050 D/ApplicationLoaders(18170): Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+11-11 13:55:43.063 D/nativeloader(18170): Configuring clns-9 for other apk /data/app/~~4v9hXiJrvDpIpMvTwVgC-g==/com.snaptube.premium-WfnZApaugrMK0_-B6Va4XQ==/base.apk. target_sdk_version=35, uses_libraries=, library_path=/data/app/~~4v9hXiJrvDpIpMvTwVgC-g==/com.snaptube.premium-WfnZApaugrMK0_-B6Va4XQ==/lib/arm64:/data/app/~~4v9hXiJrvDpIpMvTwVgC-g==/com.snaptube.premium-WfnZApaugrMK0_-B6Va4XQ==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.snaptube.premium
+11-11 13:55:43.064 D/CompatChangeReporter(18170): Compat change id reported: 202956589; UID 10347; state: ENABLED
+11-11 13:55:43.066 I/premium:message(18170): AssetManager2(0xb400007a57a8e058) locale list changing from [] to [en-US]
+11-11 13:55:43.075 V/GraphicsEnvironment(18170): Currently set values for:
+11-11 13:55:43.075 V/GraphicsEnvironment(18170):   angle_gl_driver_selection_pkgs=[com.android.angle, com.linecorp.b612.android, com.campmobile.snow, com.google.android.apps.tachyon]
+11-11 13:55:43.075 V/GraphicsEnvironment(18170):   angle_gl_driver_selection_values=[angle, native, native, native]
+11-11 13:55:43.075 V/GraphicsEnvironment(18170): com.snaptube.premium is not listed in per-application setting
+11-11 13:55:43.075 V/GraphicsEnvironment(18170): ANGLE allowlist from config: 
+11-11 13:55:43.075 V/GraphicsEnvironment(18170): com.snaptube.premium is not listed in ANGLE allowlist or settings, returning default
+11-11 13:55:43.075 V/GraphicsEnvironment(18170): Updatable production driver is not supported on the device.
+11-11 13:55:43.079 I/MMKV    (18170): Disable checkProcessMode()
+11-11 13:55:43.081 D/nativeloader(18170): Load /data/app/~~4v9hXiJrvDpIpMvTwVgC-g==/com.snaptube.premium-WfnZApaugrMK0_-B6Va4XQ==/lib/arm64/libmmkv.so using class loader ns clns-9 (caller=/data/app/~~4v9hXiJrvDpIpMvTwVgC-g==/com.snaptube.premium-WfnZApaugrMK0_-B6Va4XQ==/base.apk!classes2.dex): ok
+11-11 13:55:43.081 I/MMKV    (18170): current API level = 36, libc++_shared=0
+11-11 13:55:43.081 I/MMKV    (18170): <MMKV.cpp:166::initialize> version v1.3.14, page size 4096, arch arm64-v8a
+11-11 13:55:43.081 I/MMKV    (18170): <MMKV.cpp:177::initialize> armv8 AES instructions is supported
+11-11 13:55:43.081 I/MMKV    (18170): <MMKV.cpp:185::initialize> armv8 CRC32 instructions is supported
+11-11 13:55:43.081 I/MMKV    (18170): <MMKV.cpp:225::initializeMMKV> root dir: /data/user/0/com.snaptube.premium/files/mmkv
+11-11 13:55:43.088 I/MMKV    (18170): <MemoryFile.cpp:98::open> open fd[0x6f], /data/user/0/com.snaptube.premium/files/mmkv/sp_fcm_push_intent_record
+11-11 13:55:43.088 I/MMKV    (18170): <MemoryFile.cpp:203::mmap> mmap to address [0x7b14a6f000], oldPtr [0x0], [/data/user/0/com.snaptube.premium/files/mmkv/sp_fcm_push_intent_record]
+11-11 13:55:43.089 I/MMKV    (18170): <MemoryFile.cpp:98::open> open fd[0x72], /data/user/0/com.snaptube.premium/files/mmkv/sp_fcm_push_intent_record.crc
+11-11 13:55:43.089 I/MMKV    (18170): <MemoryFile.cpp:203::mmap> mmap to address [0x7b1d56f000], oldPtr [0x0], [/data/user/0/com.snaptube.premium/files/mmkv/sp_fcm_push_intent_record.crc]
+11-11 13:55:43.089 I/MMKV    (18170): <MemoryFile.cpp:98::open> open fd[0x73], /data/user/0/com.snaptube.premium/files/mmkv/import_shared_preferences_record
+11-11 13:55:43.089 I/MMKV    (18170): <MemoryFile.cpp:203::mmap> mmap to address [0x7b1a575000], oldPtr [0x0], [/data/user/0/com.snaptube.premium/files/mmkv/import_shared_preferences_record]
+11-11 13:55:43.089 I/MMKV    (18170): <MemoryFile.cpp:98::open> open fd[0x74], /data/user/0/com.snaptube.premium/files/mmkv/import_shared_preferences_record.crc
+11-11 13:55:43.089 I/MMKV    (18170): <MemoryFile.cpp:203::mmap> mmap to address [0x7b1d400000], oldPtr [0x0], [/data/user/0/com.snaptube.premium/files/mmkv/import_shared_preferences_record.crc]
+11-11 13:55:43.089 I/MMKV    (18170): <MMKV_IO.cpp:214::loadMetaInfoAndCheck> meta file [import_shared_preferences_record] has flag [0]
+11-11 13:55:43.090 I/MMKV    (18170): <MMKV_IO.cpp:84::loadFromFile> loading [import_shared_preferences_record] with 8216 actual size, file size 16384, InterProcess 0, meta info version:4
+11-11 13:55:43.090 I/MMKV    (18170): <MMKV_IO.cpp:89::loadFromFile> loading [import_shared_preferences_record] with crc 2166909988 sequence 3 version 4
+11-11 13:55:43.090 I/MMKV    (18170): <MMKV_IO.cpp:133::loadFromFile> loaded [import_shared_preferences_record] with 359 key-values
+11-11 13:55:43.091 I/MMKV    (18170): <MMKV_IO.cpp:214::loadMetaInfoAndCheck> meta file [sp_fcm_push_intent_record] has flag [0]
+11-11 13:55:43.093 I/MMKV    (18170): <MMKV_IO.cpp:84::loadFromFile> loading [sp_fcm_push_intent_record] with 155324 actual size, file size 262144, InterProcess 1, meta info version:4
+11-11 13:55:43.093 I/MMKV    (18170): <MMKV_IO.cpp:89::loadFromFile> loading [sp_fcm_push_intent_record] with crc 626429613 sequence 7 version 4
+11-11 13:55:43.100 I/MMKV    (18170): <MMKV_IO.cpp:133::loadFromFile> loaded [sp_fcm_push_intent_record] with 3530 key-values
+11-11 13:55:50.856 D/ViewRootImpl( 8170): Skipping stats log for color mode
+11-11 13:55:50.858 W/WindowOnBackDispatcher( 8170): OnBackInvokedCallback is not enabled for the application.
+11-11 13:55:50.858 W/WindowOnBackDispatcher( 8170): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+11-11 13:55:50.869 D/ViewRootImpl( 8170): AppSizeAfterRelayout, size: Point(1260, 2800), rotation: ROTATION_0
+11-11 13:55:50.871 W/BLASTBufferQueue( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:55:50.871 I/BLASTBufferQueue( 8170): QoSAllocBuff Successful. Ret 0 
+11-11 13:55:50.948 V/ImeFocusController( 8170): onWindowFocus: com.android.internal.policy.DecorView{e977c0d V.E...... R....... 0,0-1260,2800 aid=0}[MainActivity] softInputMode=STATE_UNSPECIFIED|ADJUST_RESIZE|IS_FORWARD_NAVIGATION
+11-11 13:55:50.957 V/InputMethod(24382): bindInput(): binding=InputBinding{android.os.BinderProxy@65642f / uid 10335 / pid 8170} ic=RemoteInputConnection{idHash=#b0c2a3c}
+11-11 13:55:50.958 D/InlineSuggestionSessionController(24382): notifyOnStartInput: com.minehost.app.debug, 0
+11-11 13:55:50.958 I/GoogleInputMethodService(24382): GoogleInputMethodService.onStartInput():1552 onStartInput(EditorInfo{EditorInfo{packageName=com.minehost.app.debug, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+11-11 13:55:50.962 I/ImeTracker( 8170): com.minehost.app.debug:83c34620: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+11-11 13:55:51.173 D/InsetsAnimationCtrlImpl( 8170): notify control request finished for types: 1
+11-11 13:55:51.175 W/InteractionJankMonitor( 8170): Initializing without READ_DEVICE_CONFIG permission. enabled=false, interval=1, missedFrameThreshold=3, frameTimeThreshold=64, package=com.minehost.app.debug
+11-11 13:55:56.676 D/VRI[MainActivity,type=1]( 8170): visibilityChanged oldVisibility=true newVisibility=false
+11-11 13:55:56.681 E/qdgralloc( 8170): BufferManager::ReleaseBuffer ref_count = 1
+11-11 13:55:56.681 E/qdgralloc( 8170): BufferManager::ReleaseBuffer ref_count = 1
+11-11 13:55:56.681 E/qdgralloc( 8170): BufferManager::ReleaseBuffer ref_count = 1
+11-11 13:55:56.682 I/HWUI    ( 8170): [destroy] CanvasContext will be destroyed.
+11-11 13:55:56.685 D/ViewRootImpl( 8170): AppSizeAfterRelayout, size: Point(1260, 2800), rotation: ROTATION_0
+11-11 13:55:56.685 E/qdgralloc( 8170): BufferManager::ReleaseBuffer ref_count = 1
+11-11 13:55:56.687 I/HWUI    ( 8170): [setStopped] CanvasContext will be destroyed.
+11-11 13:55:56.709 V/InputMethod(24382): unbindInput(): binding=InputBinding{android.os.BinderProxy@65642f / uid 10335 / pid 8170} ic=RemoteInputConnection{idHash=#b0c2a3c}
+11-11 13:56:15.387 W/WindowOnBackDispatcher( 8170): OnBackInvokedCallback is not enabled for the application.
+11-11 13:56:15.387 W/WindowOnBackDispatcher( 8170): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+11-11 13:56:15.407 W/BLASTBufferQueue( 8170): Unable to open /proc/vivo_rsc/frame_set_priority: Permission denied
+11-11 13:56:15.407 I/BLASTBufferQueue( 8170): QoSAllocBuff Successful. Ret 0 
+11-11 13:56:15.469 I/GoogleInputMethodService(24382): GoogleInputMethodService.onStartInput():1552 onStartInput(EditorInfo{EditorInfo{packageName=com.minehost.app.debug, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+11-11 13:56:15.469 I/ImeTracker( 8170): com.minehost.app.debug:95b7480e: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+11-11 13:57:17.350 I/adbd    (26451): adbd service requested 'shell,v2,raw:dumpsys package com.minehost.app.debug | grep -E 'versionName|versionCode|codePath|resourcePath|firstInstallTime|lastUpdateTime''
+11-11 13:57:17.589 I/artd    (23899): GetBestInfo: odex next to the dex file (/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-11 13:57:17.590 I/artd    (23899): GetBestInfo: odex next to the dex file (/data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-11 13:57:30.981 I/adbd    (26451): adbd service requested 'shell,v2,raw:sha256sum /data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/base.apk'
+11-11 13:57:47.839 I/adbd    (26451): adbd service requested 'shell,v2,raw:run-as com.minehost.app.debug ls -la files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71/backups/'
+11-11 13:58:02.061 I/adbd    (26451): adbd service requested 'shell,v2,raw:am start -n com.minehost.app.debug/com.minehost.app.MainActivity'
+11-11 13:58:04.295 I/adbd    (26451): adbd service requested 'shell,v2,raw:pidof com.minehost.app.debug'
+11-11 13:58:38.720 I/MineHost_WakeLockManager( 8170): Partial WakeLock acquired
+11-11 13:58:38.749 I/MineHost_WakeLockManager( 8170): High-performance WiFi lock acquired
+11-11 13:58:38.787 I/MineHost_BedrockEngine( 8170): Bedrock server configured at: /data/user/0/com.minehost.app.debug/files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71
+11-11 13:58:39.011 I/MineHost_ManagedServerProcess( 8170): Launching process in /data/user/0/com.minehost.app.debug/files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71: /data/app/~~qwUqwrU7MM3N7NOcFNAXlQ==/com.minehost.app.debug-AoYd0GZrPn0kN4zG6AgTwg==/lib/arm64/libphp.so -n /data/user/0/com.minehost.app.debug/files/minehost/engines/bedrock/PocketMine-MP.phar --no-wizard --enable-ansi=false --data=/data/user/0/com.minehost.app.debug/files/minehost/servers/59d2b248-d8cf-4dbb-a97d-b859b4e7af71
+11-11 13:58:39.021 I/MineHost_ServerForegroundService( 8170): Server Foreground Service created, establishing foreground immediately
+11-11 13:58:41.555 I/MineHost_ManagedServerProcess( 8170): Server answered Bedrock (NetherNet HTTP signaling, RakNet fallback) probe on port 19132
+11-11 13:59:28.346 W/WindowOnBackDispatcher( 8170): OnBackInvokedCallback is not enabled for the application.
+11-11 13:59:28.346 W/WindowOnBackDispatcher( 8170): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+11-11 13:59:30.475 I/MineHost_ManagedServerProcess( 8170): Initiating graceful shutdown (sending stop)...
+11-11 13:59:35.616 I/MineHost_ManagedServerProcess( 8170): Process terminated with exit code 0
+11-11 13:59:35.616 I/MineHost_ServerController( 8170): Server process exited with code: 0
+11-11 13:59:35.619 I/MineHost_WakeLockManager( 8170): WakeLock released
+11-11 13:59:35.621 I/MineHost_WakeLockManager( 8170): WiFi lock released
+11-11 13:59:35.649 I/MineHost_ServerForegroundService( 8170): Server Foreground Service destroyed

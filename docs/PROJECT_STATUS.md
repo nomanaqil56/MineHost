@@ -1,6 +1,6 @@
 # MineHost — Complete Project Progress Report
 
-**Last updated:** 2026-11-10  
+**Last updated:** 2026-11-11  
 **Current app version:** `1.0.1` (source: root `VERSION`; Android `versionCode`: `1000001`)
 **Repository:** `nomanaqil56/MineHost`  
 **Active workstream:** Phase 1 — Bedrock local-hosting completion and acceptance  
@@ -13,11 +13,12 @@
 
 MineHost is an Android application that runs a Minecraft Bedrock-compatible server locally on an ARM64 Android device. The current implementation uses Axolotl-PM 5.51.1 and a pinned PHP 8.4.27 ZTS runtime packaged in the APK.
 
-The latest source on `main` is commit `442c68021946cce86fd072d9aa94e84488495d8c`. A fresh build and physical-device audit was performed on a physical Vivo I2221 (iQOO Z7 Pro 5G) running Android 16 / API 36 (`arm64-v8a`):
-- Clean build succeeded: 64/64 JVM unit tests passed, Android lint clean, debug APK assembled (SHA-256: `bb63e589324ff498a8b9d8364a90c64169124ff81d967ddf172235e7fe09d30f`).
+The latest source on `main` is commit `b1035d28a6b65bb631488aaa43b6db93554b02d9` (`MineHost 1.0.1: Phase 1 hardening and relay diagnostics`). A physical-device audit was performed on a physical Vivo I2221 (iQOO Z7 Pro 5G) running Android 16 / API 36 (`arm64-v8a`):
+- Clean build succeeded: 64/64 JVM unit tests passed, Android lint clean, debug APK assembled (Version: `1.0.1`, versionCode: `1000001`, SHA-256: `6951511a0c0f70c3072b35c45f852f84678a465e922d7294a760e559f9838323`).
+- Installed on physical phone non-destructively; verified package `com.minehost.app.debug` running `versionName=1.0.1`, `versionCode=1000001`.
 - PHP 8.4.27 ZTS runtime and all 17 required PocketMine extensions verified active.
-- Server startup, NetherNet port configuration (`port-range: [19132, 19132]`), and host LAN address discovery (`192.168.1.10:19132`) confirmed on physical hardware.
-- Offline backup and restore verified end-to-end on device with safety snapshot creation and clean world swap.
+- Server startup, NetherNet port configuration (`port-range: [19132, 19132]`), and host LAN address discovery (`192.168.1.10:19132`) confirmed on physical hardware; cellular IP properly excluded.
+- Collision-safe world backup verified (`backup_59d2b248_20261111_135201_b5b49f50.zip`); offline restore verified end-to-end on device with safety snapshot creation and clean world swap.
 - World persistence across restarts and background foreground-service hosting verified.
 - Real Bedrock client gameplay (Gate 7) remains BLOCKED due to a single physical device in the test station.
 
@@ -56,17 +57,17 @@ These results are historical evidence from commit `74fce0c34ebde5fd388e8fd8ecb19
 
 | Acceptance gate | Current evidence | Required to close |
 |---|---|---|
-| Latest Android CI | PASS on baseline commit `14d99ec` / PR `42819256915` | CI must pass on the final Phase 1 branch/merge commit |
-| PHP runtime and 17 modules | PASS (Tested on commit `442c680`) | Verified on physical device under `libphp.so -n` |
-| Axolotl-PM launch and readiness | PASS (Tested on commit `442c680`) | Verified on physical device, UI transitions to ONLINE |
-| Server start/stop lifecycle | PASS (Tested on commit `442c680`) | Multiple cycles executed cleanly without zombie processes |
-| Configurable NetherNet UDP port | PASS (Tested on commit `442c680`) | Verified `port-range: [19132, 19132]` generated in `pocketmine.yml` |
-| LAN address selection | PASS (Tested on commit `442c680`) | Advertises `192.168.1.10:19132` (interface `wlan0`), cellular/VPN excluded |
+| Latest Android CI | PASS on commit `b1035d2` / baseline `14d99ec` | CI must pass on the final Phase 1 branch/merge commit |
+| PHP runtime and 17 modules | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Verified on physical device under `libphp.so -n` |
+| Axolotl-PM launch and readiness | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Verified on physical device, UI transitions to ONLINE |
+| Server start/stop lifecycle | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Multiple cycles executed cleanly without zombie processes |
+| Configurable NetherNet UDP port | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Verified `port-range: [19132, 19132]` generated in `pocketmine.yml` |
+| LAN address selection | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Advertises `192.168.1.10:19132` (interface `wlan0`), cellular/VPN excluded |
 | Real Bedrock client gameplay | **BLOCKED (Single device bench)** | Second client joins, loads chunks, moves, places/breaks blocks, disconnects, and rejoins |
-| World persistence | PASS (Tested on commit `442c680`) | Verified LevelDB persistence and NBT tags across clean restarts |
-| Offline backup and restore | PASS (Tested on commit `442c680`) | Created snapshot, created safety pre-restore backup, swapped world, verified server startup |
+| World persistence | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Verified LevelDB persistence and NBT tags across clean restarts |
+| Offline backup and restore | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Verified backup creation with UUID suffix (`..._b5b49f50.zip`) and safety pre-restore rollback |
 | Online backup consistency | QUALIFIED / DOCUMENTED | Fixed-delay implementation only; no server flush acknowledgement (use safe stopped-server backup) |
-| Screen-off/background hosting | PASS (Tested on commit `442c680`) | Minimized app with persistent notification; external HTTP probe returned 200 OK |
+| Screen-off/background hosting | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Minimized app with persistent notification; external HTTP probe returned 200 OK |
 
 **Phase 1 exit criteria:** every required gate above must have current, reproducible evidence. The real-client gameplay and backup/restore tests cannot be marked PASS based on source code, synthetic tests, a port probe, or HTTP signaling alone.
 
