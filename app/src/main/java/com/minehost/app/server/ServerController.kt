@@ -178,7 +178,9 @@ class ServerController @Inject constructor(
                                 serverRepository.updatePublicEndpoint(serverId, endpoint)
                                 log(serverId, "[MineHost] Tunnel online! Public endpoint: ${endpoint.fullAddress}")
                             }.onFailure { err ->
-                                log(serverId, "[MineHost] Tunnel notice: ${err.message}. Server is running in LOCAL mode.")
+                                // Never leave a stale endpoint from a previous session visible.
+                                serverRepository.updatePublicEndpoint(serverId, null)
+                                log(serverId, "[MineHost] Relay unavailable: ${err.message}. Bedrock hosting remains available on the LAN.")
                             }
                         }
                     }

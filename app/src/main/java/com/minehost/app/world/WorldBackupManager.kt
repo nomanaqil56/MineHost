@@ -57,7 +57,7 @@ class WorldBackupManager @Inject constructor(
 
             val backupsDir = worldManager.getBackupsDirectory(serverId)
             val timestampStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val backupId = "backup_${serverId.take(8)}_$timestampStr"
+            val backupId = "backup_${serverId.take(8)}_${timestampStr}_${UUID.randomUUID().toString().take(8)}"
             val targetZip = File(backupsDir, "$backupId.zip")
 
             AppLogger.i("WorldBackupManager", "Creating backup to: ${targetZip.absolutePath}")

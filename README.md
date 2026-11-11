@@ -1,5 +1,7 @@
 # MineHost
 
+**Current version:** `1.0.1` — see [CHANGELOG.md](CHANGELOG.md).
+
 MineHost is an Android application for hosting a Minecraft Bedrock-compatible server locally on an ARM64 Android device.
 
 ## Project reports

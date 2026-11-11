@@ -1,6 +1,7 @@
 # MineHost — Complete Project Progress Report
 
 **Last updated:** 2026-11-10  
+**Current app version:** `1.0.1` (source: root `VERSION`; Android `versionCode`: `1000001`)
 **Repository:** `nomanaqil56/MineHost`  
 **Active workstream:** Phase 1 — Bedrock local-hosting completion and acceptance  
 **Authoritative device record:** [DEVICE_TEST_RESULTS.md](../device-evidence/DEVICE_TEST_RESULTS.md)  
@@ -81,6 +82,10 @@ These results are historical evidence from commit `74fce0c34ebde5fd388e8fd8ecb19
 ## 3. Phase 2 — Public connectivity (not started)
 
 The application has a tunnel-provider abstraction, legacy Playit adapter code, and endpoint-monitoring foundations. The final MineHost-owned public networking system is not implemented.
+
+The legacy Playit adapter is not currently accepted as production-ready. Its installer downloads an executable into app-private writable `filesDir` and then attempts `ProcessBuilder` execution; Android 10+ execution policy may reject this path. The adapter also depends on parsing agent console output that has not yet been captured and verified on the target phone. Startup timeout now transitions to `RELAY ERROR` with a useful diagnostic, and a failed tunnel clears stale public endpoint data rather than displaying an old address. These are reliability/diagnostic improvements, not proof that public relay works.
+
+Playit's current Bedrock guidance describes a dedicated Bedrock (NetherNet) tunnel and NXS signaling configuration for Geyser/WaterdogPE. That setup must not be assumed compatible with Axolotl-PM without an end-to-end protocol test. Keep the adapter marked experimental until its exact agent version, tunnel type, local forwarding port, signaling mode, and a real remote Bedrock client are verified.
 
 Required future work includes:
 - MineHost control plane and authenticated host agent.

@@ -15,12 +15,18 @@ android {
     namespace = "com.minehost.app"
     compileSdk = 34
 
+    val mineHostVersion = rootProject.file("VERSION").readText().trim()
+    val versionMatch = Regex("^(\\d+)\\.(\\d+)\\.(\\d+)$").matchEntire(mineHostVersion)
+        ?: throw GradleException("VERSION must use stable MAJOR.MINOR.PATCH SemVer, got: $mineHostVersion")
+    val versionCodeValue = versionMatch.groupValues[1].toInt() * 1_000_000 +
+        versionMatch.groupValues[2].toInt() * 1_000 + versionMatch.groupValues[3].toInt()
+
     defaultConfig {
         applicationId = "com.minehost.app"
         minSdk = 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = versionCodeValue
+        versionName = mineHostVersion
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
