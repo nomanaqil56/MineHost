@@ -1,6 +1,6 @@
 # MineHost — Physical Device Test Results
 
-**Report updated:** 2026-11-10  
+**Report updated:** 2026-11-11  
 **Device recorded in retained evidence:** Vivo I2221 / iQOO Z7 Pro 5G  
 **Android:** 16 · API 36 · ARM64  
 **Package in captured evidence:** `com.minehost.app.debug`  

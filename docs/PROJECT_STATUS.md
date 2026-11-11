@@ -13,7 +13,7 @@
 
 MineHost is an Android application that runs a Minecraft Bedrock-compatible server locally on an ARM64 Android device. The current implementation uses Axolotl-PM 5.51.1 and a pinned PHP 8.4.27 ZTS runtime packaged in the APK.
 
-The latest source on `main` is commit `b1035d28a6b65bb631488aaa43b6db93554b02d9` (`MineHost 1.0.1: Phase 1 hardening and relay diagnostics`). A physical-device audit was performed on a physical Vivo I2221 (iQOO Z7 Pro 5G) running Android 16 / API 36 (`arm64-v8a`):
+The latest source on `main` is commit `6b1497edcb0caaf581aa991c0e3a6cf8dc55dbe8` (`docs(evidence): document MineHost 1.0.1 physical device retest and resolve version discrepancy`). A physical-device audit was performed on a physical Vivo I2221 (iQOO Z7 Pro 5G) running Android 16 / API 36 (`arm64-v8a`):
 - Clean build succeeded: 64/64 JVM unit tests passed, Android lint clean, debug APK assembled (Version: `1.0.1`, versionCode: `1000001`, SHA-256: `6951511a0c0f70c3072b35c45f852f84678a465e922d7294a760e559f9838323`).
 - Installed on physical phone non-destructively; verified package `com.minehost.app.debug` running `versionName=1.0.1`, `versionCode=1000001`.
 - PHP 8.4.27 ZTS runtime and all 17 required PocketMine extensions verified active.
@@ -57,7 +57,7 @@ These results are historical evidence from commit `74fce0c34ebde5fd388e8fd8ecb19
 
 | Acceptance gate | Current evidence | Required to close |
 |---|---|---|
-| Latest Android CI | PASS on commit `b1035d2` / baseline `14d99ec` | CI must pass on the final Phase 1 branch/merge commit |
+| Latest Android CI | PASS on commit `6b1497e` (Run `42988044162`) | CI must pass on the final Phase 1 branch/merge commit |
 | PHP runtime and 17 modules | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Verified on physical device under `libphp.so -n` |
 | Axolotl-PM launch and readiness | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Verified on physical device, UI transitions to ONLINE |
 | Server start/stop lifecycle | PASS (Tested on MineHost 1.0.1, commit `b1035d2`) | Multiple cycles executed cleanly without zombie processes |
